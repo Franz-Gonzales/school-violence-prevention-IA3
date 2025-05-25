@@ -38,10 +38,14 @@ def descargar_archivo(url: str, destino: Path, descripcion: str = "Descargando")
 
 def configurar_modelos():
     """Configura los modelos necesarios"""
+    logger.info("Iniciando configuración de modelos", emoji="🚀")
+    
     modelos_dir = configuracion.MODELOS_PATH
     modelos_dir.mkdir(parents=True, exist_ok=True)
     
-    logger.info(f"Directorio de modelos: {modelos_dir}")
+    logger.info("Verificando directorio de modelos", 
+                directorio=str(modelos_dir),
+                emoji="📁")
     
     # Verificar modelos existentes
     yolo_path = modelos_dir / configuracion.YOLO_MODEL
@@ -51,13 +55,22 @@ def configurar_modelos():
     
     if not yolo_path.exists():
         modelos_faltantes.append(("YOLO", yolo_path))
-        logger.warning(f"Modelo YOLO no encontrado: {yolo_path}")
+        logger.warning("Modelo YOLO no encontrado", 
+                      ruta=str(yolo_path),
+                      emoji="⚠️")
     
     if not timesformer_path.exists():
         modelos_faltantes.append(("TimesFormer", timesformer_path))
-        logger.warning(f"Modelo TimesFormer no encontrado: {timesformer_path}")
+        logger.warning("Modelo TimesFormer no encontrado",
+                      ruta=str(timesformer_path),
+                      emoji="⚠️")
     
     if modelos_faltantes:
+        logger.warning("Se detectaron modelos faltantes",
+                      cantidad=len(modelos_faltantes),
+                      modelos=[m[0] for m in modelos_faltantes],
+                      emoji="⚠️")
+        
         print("\n MODELOS FALTANTES DETECTADOS")
         print("Los siguientes modelos no se encontraron:")
         for nombre, ruta in modelos_faltantes:
@@ -73,14 +86,19 @@ def configurar_modelos():
         if respuesta.lower() != 's':
             sys.exit(1)
     else:
-        logger.info("Todos los modelos encontrados correctamente")
+        logger.info("Todos los modelos verificados correctamente",
+                   emoji="✅")
     
-    # Crear estructura de directorios adicionales
-    subdirs = ['processor', 'checkpoints', 'exports']
-    for subdir in subdirs:
-        (modelos_dir / subdir).mkdir(exist_ok=True)
+    # Crear estructura de directorios
+    for subdir in ['processor', 'checkpoints', 'exports']:
+        dir_path = modelos_dir / subdir
+        dir_path.mkdir(exist_ok=True)
+        logger.debug(f"Directorio creado: {subdir}",
+                    ruta=str(dir_path),
+                    emoji="📁")
     
-    logger.info("Configuración de modelos completada")
+    logger.info("Configuración de modelos completada exitosamente",
+                emoji="✅")
 
 
 def crear_archivo_ejemplo():

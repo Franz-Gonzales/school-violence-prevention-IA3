@@ -34,6 +34,15 @@ class Configuracion(BaseSettings):
     BUFFER_FRAMES: int = 8
     CLIP_DURATION_SECONDS: int = 5
     
+
+    # Base de datos
+    DATABASE_URL: str
+    DB_ECHO: bool = False
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 1800
+    
     # WebRTC
     STUN_SERVER: str = "stun:stun.l.google.com:19302"
     TURN_SERVER: Optional[str] = None
