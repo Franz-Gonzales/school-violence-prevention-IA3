@@ -1,0 +1,47 @@
+# Core
+fastapi
+uvicorn[standard]
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+python-dotenv
+
+# Database
+sqlalchemy
+asyncpg
+alembic
+psycopg2-binary
+
+# WebRTC y Video
+aiortc
+opencv-python
+opencv-python-headless
+opencv-contrib-python
+av
+
+# AI Models
+torch
+torchvision
+ultralytics
+transformers
+deep-sort-realtime
+onnxruntime-gpu
+onnxruntime
+# Websockets
+websockets
+
+# Utilities
+numpy
+pillow
+aiofiles
+structlog
+tinytuya
+celery
+pydantic-settings
+
+# Notifications
+pywebpush
+aiosmtplib
+
+# Monitoring
+prometheus-client

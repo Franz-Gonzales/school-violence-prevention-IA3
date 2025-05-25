@@ -1,0 +1,140 @@
+"""
+Aplicación principal FastAPI
+"""
+import asyncio
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from app.api.v1 import api_router
+from app.api.websocket.notifications_ws import websocket_notificaciones
+from app.api.websocket.rtc_signaling import websocket_endpoint
+from app.core.database import inicializar_db, cerrar_db
+from app.core.exceptions import ErrorSistemaBase
+from app.ai.model_loader import cargador_modelos
+from app.config import configuracion
+from app.utils.logger import obtener_logger
+from datetime import datetime
+
+logger = obtener_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Maneja el ciclo de vida de la aplicación"""
+    # Startup
+    logger.info("Iniciando Software de Detección de Violencia Escolar")
+    
+    # Inicializar base de datos
+    await inicializar_db()
+    logger.info("Base de datos inicializada")
+    
+    # Cargar modelos de IA
+    try:
+        cargador_modelos.cargar_todos_los_modelos()
+        logger.info("Modelos de IA cargados exitosamente")
+    except Exception as e:
+        logger.error(f"Error al cargar modelos: {e}")
+        # Continuar sin modelos en desarrollo
+    
+    # Iniciar tareas en background
+    # asyncio.create_task(procesar_notificaciones())
+    
+    yield
+    
+    # Shutdown
+    logger.info("Cerrando aplicación")
+    
+    # Liberar recursos
+    cargador_modelos.liberar_memoria()
+    await cerrar_db()
+    
+    logger.info("Aplicación cerrada correctamente")
+
+
+# Crear aplicación FastAPI
+app = FastAPI(
+    title=configuracion.NOMBRE_PROYECTO,
+    description=configuracion.DESCRIPCION,
+    version=configuracion.VERSION,
+    lifespan=lifespan
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Frontend URLs
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Montar archivos estáticos
+app.mount("/uploads", StaticFiles(directory=str(configuracion.UPLOAD_PATH)), name="uploads")
+app.mount("/evidencias", StaticFiles(directory=str(configuracion.VIDEO_EVIDENCE_PATH)), name="evidencias")
+
+# Incluir routers
+app.include_router(api_router)
+
+# WebSocket endpoints
+app.websocket("/ws/notifications/{usuario_id}")(websocket_notificaciones)
+app.websocket("/ws/rtc/{cliente_id}/{camara_id}")(websocket_endpoint)
+
+# Manejador de excepciones personalizado
+@app.exception_handler(ErrorSistemaBase)
+async def manejador_error_sistema(request: Request, exc: ErrorSistemaBase):
+    """Maneja las excepciones personalizadas del software"""
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": exc.codigo,
+            "mensaje": exc.mensaje,
+            "detalles": exc.detalles
+        }
+    )
+
+# Endpoint de salud
+@app.get("/health")
+async def verificar_salud():
+    """Verifica el estado del software"""
+    return {
+        "estado": "saludable",
+        "timestamp": datetime.now().isoformat(),
+        "version": configuracion.VERSION,
+        "gpu_disponible": configuracion.obtener_configuracion_gpu()["gpu_disponible"]
+    }
+
+# Endpoint raíz
+@app.get("/")
+async def raiz():
+    """Endpoint raíz con información del software"""
+    return {
+        "nombre": configuracion.NOMBRE_PROYECTO,
+        "version": configuracion.VERSION,
+        "descripcion": configuracion.DESCRIPCION,
+        "documentacion": "/docs",
+        "estado": "activo"
+    }
+
+# Función para procesar notificaciones en background
+async def procesar_notificaciones():
+    """Tarea en background para procesar notificaciones"""
+    from app.api.websocket.notifications_ws import manejador_notificaciones_ws
+    try:
+        await manejador_notificaciones_ws.procesar_cola()
+    except Exception as e:
+        logger.error(f"Error en procesamiento de notificaciones: {e}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Configuración para desarrollo
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level=configuracion.LOG_LEVEL.lower()
+    )
