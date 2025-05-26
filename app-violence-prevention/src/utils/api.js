@@ -20,6 +20,45 @@ export const login = async (formData) => {
     }
 };
 
+
+export const getIncidents = async (params = {}) => {
+    try {
+        const response = await api.get('/api/v1/incidents', { params });
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener incidentes';
+        throw new Error(message);
+    }
+};
+
+
+export const getIncidentStats = async (fechaInicio, fechaFin) => {
+    try {
+        const response = await api.get('/api/v1/incidents/estadisticas', {
+            params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin }
+        });
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener estadísticas de incidentes';
+        throw new Error(message);
+    }
+};
+
+
+
+export const getCameras = async (activasSolo = false) => {
+    try {
+        const response = await api.get('/api/v1/cameras', {
+            params: { activas_solo: activasSolo }
+        });
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener cámaras';
+        throw new Error(message);
+    }
+};
+
+
 export const api = axios.create({
     baseURL: API_URL,
     headers: {

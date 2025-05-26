@@ -1,7 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
 body {
     font-family: "Inter", sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Estilos personalizados para componentes */
+.card {
+    @apply bg-white rounded-lg shadow-md p-6;
+}
+
+.stat-card {
+    @apply bg-white rounded-lg shadow-md p-4 flex items-center justify-between;
+}
+
+.sidebar {
+    @apply bg-white w-64 h-screen fixed top-0 left-0 shadow-lg;
+}
+
+.sidebar-item {
+    @apply flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors;
+}
+
+.sidebar-item.active {
+    @apply bg-gray-100 text-primary font-semibold;
+}
+
+.main-content {
+    @apply ml-64 p-6;
 }
