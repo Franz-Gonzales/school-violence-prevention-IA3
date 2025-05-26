@@ -26,10 +26,12 @@ class ServicioCamaras:
             await self.db.refresh(camara)
             
             logger.info(f"Cámara creada: {camara.nombre}")
+            print(f"Cámara creada: {camara.nombre}")
             return camara
             
         except Exception as e:
             logger.error(f"Error al crear cámara: {e}")
+            print(f"Error al crear cámara: {e}")
             await self.db.rollback()
             raise
     
@@ -42,6 +44,7 @@ class ServicioCamaras:
             return resultado.scalars().first()
         except Exception as e:
             logger.error(f"Error al obtener cámara: {e}")
+            print(f"Error al obtener cámara: {e}")
             return None
     
     async def listar_camaras(
@@ -64,6 +67,7 @@ class ServicioCamaras:
             
         except Exception as e:
             logger.error(f"Error al listar cámaras: {e}")
+            print(f"Error al listar cámaras: {e}")
             return []
     
     async def actualizar_estado_camara(
@@ -85,10 +89,12 @@ class ServicioCamaras:
             await self.db.refresh(camara)
             
             logger.info(f"Estado de cámara {camara_id} actualizado a: {estado.value}")
+            print(f"Estado de cámara {camara_id} actualizado a: {estado.value}")
             return camara
             
         except Exception as e:
             logger.error(f"Error al actualizar estado de cámara: {e}")
+            print(f"Error al actualizar estado de cámara: {e}")
             await self.db.rollback()
             return None
     
@@ -118,9 +124,11 @@ class ServicioCamaras:
             await self.db.refresh(camara)
             
             logger.info(f"Configuración de cámara {camara_id} actualizada")
+            print(f"Configuración de cámara {camara_id} actualizada")
             return camara
             
         except Exception as e:
             logger.error(f"Error al actualizar configuración de cámara: {e}")
+            print(f"Error al actualizar configuración de cámara: {e}")
             await self.db.rollback()
             return None

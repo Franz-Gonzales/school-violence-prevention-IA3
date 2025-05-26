@@ -190,10 +190,12 @@ async def eliminar_camara(
         await deps.db.commit()
         
         logger.info(f"Cámara {camara_id} eliminada")
+        print(f"Cámara {camara_id} eliminada")
         return {"mensaje": "Cámara eliminada exitosamente"}
         
     except Exception as e:
         logger.error(f"Error al eliminar cámara: {e}")
+        print(f"Error al eliminar cámara: {e}")
         await deps.db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -47,3 +47,8 @@ aiosmtplib
 
 # Monitoring
 prometheus-client
+
+onnxruntime-gpu
+onnxruntime
+opencv-python
+numpy

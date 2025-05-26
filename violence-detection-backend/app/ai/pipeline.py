@@ -63,26 +63,21 @@ class PipelineDeteccion:
         camara_id: int,
         ubicacion: str
     ) -> Dict[str, Any]:
-        """
-        Procesa un frame a través del pipeline completo
-        
-        Returns:
-            Diccionario con resultados del procesamiento
-        """
-        self.camara_id = camara_id
-        self.ubicacion = ubicacion
-        self.frames_procesados += 1
-        
-        resultado = {
-            'frame_procesado': None,
-            'personas_detectadas': [],
-            'violencia_detectada': False,
-            'probabilidad_violencia': 0.0,
-            'incidente_creado': False,
-            'alarma_activada': False
-        }
-        
+        """Procesa un frame a través del pipeline completo"""
         try:
+            self.camara_id = camara_id
+            self.ubicacion = ubicacion
+            self.frames_procesados += 1
+            
+            resultado = {
+                'frame_procesado': None,
+                'personas_detectadas': [],
+                'violencia_detectada': False,
+                'probabilidad_violencia': 0.0,
+                'incidente_creado': False,
+                'alarma_activada': False
+            }
+            
             # 1. Detección de personas con YOLO
             detecciones, frame_procesado = self.detector_personas.detectar_con_procesamiento(frame)
             
@@ -100,13 +95,10 @@ class PipelineDeteccion:
                 )
             
             # 4. Agregar frame al detector de violencia
-            self.detector_violencia.agregar_frame(frame)
+            self.detector_violencia.agregar_frame(frame.copy())
             
-            # 5. Agregar frame al buffer de evidencia
-            self.buffer_evidencia.append(frame_procesado.copy())
-            
-            # 6. Detectar violencia cada N frames
-            if self.frames_procesados % 8 == 0:  # Cada 8 frames
+            # Detectar violencia cada N frames
+            if self.frames_procesados % configuracion.TIMESFORMER_CONFIG["num_frames"] == 0:
                 deteccion_violencia = self.detector_violencia.detectar()
                 resultado['violencia_detectada'] = deteccion_violencia['violencia_detectada']
                 resultado['probabilidad_violencia'] = deteccion_violencia['probabilidad']
@@ -153,6 +145,7 @@ class PipelineDeteccion:
             
         except Exception as e:
             logger.error(f"Error en pipeline de procesamiento: {e}")
+            print(f"Error en pipeline de procesamiento: {e}")
         
         return resultado
     
@@ -162,6 +155,7 @@ class PipelineDeteccion:
             await self.servicio_alarma.activar_alarma(duracion=10)
         except Exception as e:
             logger.error(f"Error al activar alarma: {e}")
+            print(f"Error al activar alarma: {e}")
     
     async def _enviar_notificaciones(self, personas_involucradas: List[Dict[str, Any]]):
         """Envía notificaciones del incidente"""
@@ -174,6 +168,7 @@ class PipelineDeteccion:
             )
         except Exception as e:
             logger.error(f"Error al enviar notificaciones: {e}")
+            print(f"Error al enviar notificaciones: {e}")
     
     async def _crear_incidente(
         self,
@@ -200,6 +195,7 @@ class PipelineDeteccion:
             
         except Exception as e:
             logger.error(f"Error al crear incidente: {e}")
+            print(f"Error al crear incidente: {e}")
     
     async def _guardar_evidencia(self):
         """Guarda el clip de video de evidencia"""
@@ -220,9 +216,11 @@ class PipelineDeteccion:
             )
             
             logger.info(f"Evidencia guardada: {ruta_evidencia}")
+            print(f"Evidencia guardada: {ruta_evidencia}")
             
         except Exception as e:
             logger.error(f"Error al guardar evidencia: {e}")
+            print(f"Error al guardar evidencia: {e}")
     
     def _calcular_severidad(self, probabilidad: float) -> SeveridadIncidente:
         """Calcula la severidad del incidente basada en la probabilidad"""
@@ -254,3 +252,4 @@ class PipelineDeteccion:
         self.grabando_evidencia = False
         self.frames_procesados = 0
         logger.info("Pipeline reiniciado")
+        print("Pipeline reiniciado")

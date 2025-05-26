@@ -25,6 +25,7 @@ async def limpiar_archivos_temporales():
             dias=1  # Archivos temporales de más de 1 día
         )
         logger.info(f"Archivos temporales eliminados: {archivos_eliminados}")
+        print(f"Archivos temporales eliminados: {archivos_eliminados}")
         
         # Limpiar archivos en /tmp
         tmp_path = Path("/tmp")
@@ -39,9 +40,11 @@ async def limpiar_archivos_temporales():
                         logger.debug(f"Archivo temporal eliminado: {archivo}")
             except Exception as e:
                 logger.error(f"Error al eliminar {archivo}: {e}")
+                print(f"Error al eliminar {archivo}: {e}")
                 
     except Exception as e:
         logger.error(f"Error en limpieza de archivos temporales: {e}")
+        print(f"Error en limpieza de archivos temporales: {e}")
 
 
 async def limpiar_videos_antiguos(dias_retencion: int = 30):
@@ -89,9 +92,11 @@ async def limpiar_videos_antiguos(dias_retencion: int = 30):
                             incidente.thumbnail_url = None
                             
                             logger.info(f"Video eliminado para incidente {incidente.id}")
+                            print(f"Video eliminado para incidente {incidente.id}")
                             
                         except Exception as e:
                             logger.error(f"Error al eliminar video {video_path}: {e}")
+                            print(f"Error al eliminar video {video_path}: {e}")
             
             await db.commit()
             
@@ -101,9 +106,14 @@ async def limpiar_videos_antiguos(dias_retencion: int = 30):
                 f"Limpieza completada: {videos_eliminados} videos eliminados, "
                 f"{espacio_mb:.2f} MB liberados"
             )
+            print(
+                f"Limpieza completada: {videos_eliminados} videos eliminados, "
+                f"{espacio_mb:.2f} MB liberados"
+            )
             
     except Exception as e:
         logger.error(f"Error en limpieza de videos antiguos: {e}")
+        print(f"Error en limpieza de videos antiguos: {e}")
 
 
 async def optimizar_almacenamiento():
@@ -122,6 +132,7 @@ async def optimizar_almacenamiento():
                     videos_sin_comprimir.append(video)
         
         logger.info(f"Videos para comprimir: {len(videos_sin_comprimir)}")
+        print(f"Videos para comprimir: {len(videos_sin_comprimir)}")
         
         # Comprimir videos
         for video in videos_sin_comprimir:
@@ -132,12 +143,14 @@ async def optimizar_almacenamiento():
                 video.unlink()
                 video_comprimido.rename(video)
                 logger.info(f"Video optimizado: {video}")
+                print(f"Video optimizado: {video}")
             
             # Dar tiempo entre compresiones
             await asyncio.sleep(1)
             
     except Exception as e:
         logger.error(f"Error en optimización de almacenamiento: {e}")
+        print(f"Error en optimización de almacenamiento: {e}")
 
 
 async def verificar_integridad_sistema():
@@ -184,17 +197,20 @@ async def verificar_integridad_sistema():
                 logger.warning(f"- {problema}")
         else:
             logger.info("Verificación de integridad completada sin problemas")
+            print("Verificación de integridad completada sin problemas")
         
         return {"estado": "ok" if not problemas else "warning", "problemas": problemas}
         
     except Exception as e:
         logger.error(f"Error en verificación de integridad: {e}")
+        print(f"Error en verificación de integridad: {e}")
         return {"estado": "error", "problemas": [str(e)]}
 
 
 async def ejecutar_mantenimiento_diario():
     """Ejecuta todas las tareas de mantenimiento diario"""
     logger.info("Iniciando mantenimiento diario del sistema")
+    print("Iniciando mantenimiento diario del sistema")
     
     tareas = [
         ("Limpieza de archivos temporales", limpiar_archivos_temporales()),
@@ -206,12 +222,16 @@ async def ejecutar_mantenimiento_diario():
     for nombre, tarea in tareas:
         try:
             logger.info(f"Ejecutando: {nombre}")
+            print(f"Ejecutando: {nombre}")
             await tarea
             logger.info(f"Completado: {nombre}")
+            print(f"Completado: {nombre}")
         except Exception as e:
             logger.error(f"Error en {nombre}: {e}")
+            print(f"Error en {nombre}: {e}")
     
     logger.info("Mantenimiento diario completado")
+    print("Mantenimiento diario completado")
 
 
 # Función para programar tareas periódicas
@@ -228,6 +248,7 @@ async def programar_tareas_periodicas():
         tiempo_espera = (proxima_ejecucion - ahora).total_seconds()
         
         logger.info(f"Próximo mantenimiento en {tiempo_espera/3600:.2f} horas")
+        print(f"Próximo mantenimiento en {tiempo_espera/3600:.2f} horas")
         
         # Esperar hasta la próxima ejecución
         await asyncio.sleep(tiempo_espera)

@@ -36,6 +36,7 @@ class ManejadorNotificacionesWS:
         self.conexiones_usuario[usuario_id].add(websocket)
         
         logger.info(f"Usuario {usuario_id} conectado a notificaciones")
+        print(f"Usuario {usuario_id} conectado a notificaciones")
         
         # Enviar mensaje de bienvenida
         await self.enviar_a_usuario(
@@ -60,6 +61,7 @@ class ManejadorNotificacionesWS:
                 del self.conexiones_usuario[usuario_id]
         
         logger.info(f"Usuario {usuario_id} desconectado de notificaciones")
+        print(f"Usuario {usuario_id} desconectado de notificaciones")
     
     async def enviar_a_usuario(
         self,
@@ -76,6 +78,7 @@ class ManejadorNotificacionesWS:
                     await websocket.send_json(mensaje)
                 except Exception as e:
                     logger.error(f"Error enviando a usuario {usuario_id}: {e}")
+                    print(f"Error enviando a usuario {usuario_id}: {e}")
                     # Remover conexión problemática
                     await self.desconectar_usuario(websocket, usuario_id)
     
@@ -145,6 +148,7 @@ class ManejadorNotificacionesWS:
                 
             except Exception as e:
                 logger.error(f"Error procesando notificación: {e}")
+                print(f"Error procesando notificación: {e}")
             
             await asyncio.sleep(0.1)
 
@@ -175,4 +179,5 @@ async def websocket_notificaciones(
         await manejador_notificaciones_ws.desconectar_usuario(websocket, usuario_id)
     except Exception as e:
         logger.error(f"Error en WebSocket de notificaciones: {e}")
+        print(f"Error en WebSocket de notificaciones: {e}")
         await manejador_notificaciones_ws.desconectar_usuario(websocket, usuario_id)

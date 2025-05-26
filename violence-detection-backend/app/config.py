@@ -53,10 +53,23 @@ class Configuracion(BaseSettings):
     UPLOAD_PATH: Path = BASE_DIR / "uploads"
     VIDEO_EVIDENCE_PATH: Path = BASE_DIR / "evidencias"
     
+    
     # Modelos IA
     YOLO_MODEL: str = "yolo/exported_v3/best.pt"
-    TIMESFORMER_MODEL: str = "timesformer/exported_models2/timesformer_violence_detector_fp16.pt"
-    PROCESSOR_PATH: str = "./models_weights/timesformer/exported_models2/processor"
+    TIMESFORMER_MODEL: str = "timesformer/exported_models2/timesformer_violence_detector_half.onnx"
+    
+    # Configuración TimesFormer
+    TIMESFORMER_CONFIG: Dict[str, Any] = {
+        "input_size": 224,  # Tamaño del patch_embeddings
+        "num_frames": 8,
+        "patch_size": 16,   # kernel_size del patch_embeddings
+        "num_channels": 3,
+        "hidden_size": 768, # Dimensión del embedding
+        "mean": [0.45, 0.45, 0.45],
+        "std": [0.225, 0.225, 0.225],
+        "labels": ["no_violencia", "violencia"]
+    }
+    
     
     # Configuración de video
     DEFAULT_RESOLUTION: tuple = (1280, 720)
@@ -92,6 +105,7 @@ class Configuracion(BaseSettings):
         env_file = ".env"
         case_sensitive = True
         env_file_encoding = "utf-8"
+        extra = "ignore"  # Ignorar campos no definidos en el modelo
     
     def obtener_ruta_modelo(self, nombre_modelo: str) -> Path:
         """Obtiene la ruta completa de un modelo"""

@@ -43,10 +43,12 @@ class ManejadorArchivos:
             
             shutil.move(str(origen), str(destino))
             logger.info(f"Archivo movido de {origen} a {destino}")
+            print(f"Archivo movido de {origen} a {destino}")
             return True
             
         except Exception as e:
             logger.error(f"Error al mover archivo: {e}")
+            print(f"Error al mover archivo: {e}")
             return False
     
     @staticmethod
@@ -70,11 +72,13 @@ class ManejadorArchivos:
                         archivo.unlink()
                         archivos_eliminados += 1
                         logger.info(f"Archivo eliminado: {archivo}")
+                        print(f"Archivo eliminado: {archivo}")
             
             return archivos_eliminados
             
         except Exception as e:
             logger.error(f"Error al limpiar archivos: {e}")
+            print(f"Error al limpiar archivos: {e}")
             return 0
     
     @staticmethod

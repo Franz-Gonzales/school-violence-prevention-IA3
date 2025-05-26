@@ -36,16 +36,26 @@ def descargar_archivo(url: str, destino: Path, descripcion: str = "Descargando")
                 pbar.update(size)
 
 
+def verificar_dependencias():
+    """Verifica las dependencias necesarias"""
+    try:
+        import onnxruntime
+        logger.info("✅ ONNX Runtime instalado correctamente")
+    except ImportError:
+        logger.error("❌ ONNX Runtime no encontrado. Instalando...")
+        os.system("pip install onnxruntime-gpu" if configuracion.USE_GPU else "pip install onnxruntime")
+
 def configurar_modelos():
     """Configura los modelos necesarios"""
+    verificar_dependencias()
     logger.info("Iniciando configuración de modelos", emoji="🚀")
+    print("🚀 Iniciando configuración de modelos")
     
     modelos_dir = configuracion.MODELOS_PATH
     modelos_dir.mkdir(parents=True, exist_ok=True)
     
-    logger.info("Verificando directorio de modelos", 
-                directorio=str(modelos_dir),
-                emoji="📁")
+    logger.info("Verificando directorio de modelos", directorio=str(modelos_dir), emoji="📁")
+    print(f"📁 Verificando directorio de modelos: {modelos_dir}")
     
     # Verificar modelos existentes
     yolo_path = modelos_dir / configuracion.YOLO_MODEL
@@ -55,50 +65,42 @@ def configurar_modelos():
     
     if not yolo_path.exists():
         modelos_faltantes.append(("YOLO", yolo_path))
-        logger.warning("Modelo YOLO no encontrado", 
-                      ruta=str(yolo_path),
-                      emoji="⚠️")
+        logger.warning("Modelo YOLO no encontrado", ruta=str(yolo_path), emoji="⚠️")
+        print(f"⚠️ Modelo YOLO no encontrado: {yolo_path}")
     
     if not timesformer_path.exists():
         modelos_faltantes.append(("TimesFormer", timesformer_path))
-        logger.warning("Modelo TimesFormer no encontrado",
-                      ruta=str(timesformer_path),
-                      emoji="⚠️")
+        logger.warning("Modelo TimesFormer no encontrado", ruta=str(timesformer_path), emoji="⚠️")
+        print(f"⚠️ Modelo TimesFormer no encontrado: {timesformer_path}")
     
     if modelos_faltantes:
-        logger.warning("Se detectaron modelos faltantes",
-                      cantidad=len(modelos_faltantes),
-                      modelos=[m[0] for m in modelos_faltantes],
-                      emoji="⚠️")
+        logger.warning("Se detectaron modelos faltantes", cantidad=len(modelos_faltantes), modelos=[m[0] for m in modelos_faltantes], emoji="⚠️")
+        print(f"\n⚠️ Se detectaron {len(modelos_faltantes)} modelos faltantes:")
         
-        print("\n MODELOS FALTANTES DETECTADOS")
-        print("Los siguientes modelos no se encontraron:")
         for nombre, ruta in modelos_faltantes:
             print(f"  - {nombre}: {ruta}")
         
-        print("\nPor favor, coloca los modelos entrenados en las rutas indicadas.")
-        print("\nAlternativamente, puedes:")
-        print("1. Descargar modelos pre-entrenados de Hugging Face")
-        print("2. Entrenar tus propios modelos")
-        print("3. Usar los modelos de ejemplo (menor precisión)")
+        print("\nPor favor:")
+        print("1. Coloca los modelos entrenados en las rutas indicadas")
+        print("2. O descarga modelos pre-entrenados de Hugging Face")
+        print("3. O usa los modelos de ejemplo (menor precisión)")
         
         respuesta = input("\n¿Desea continuar sin los modelos? (s/n): ")
         if respuesta.lower() != 's':
             sys.exit(1)
     else:
-        logger.info("Todos los modelos verificados correctamente",
-                   emoji="✅")
+        logger.info("Todos los modelos verificados correctamente", emoji="✅")
+        print("✅ Todos los modelos verificados correctamente")
     
     # Crear estructura de directorios
-    for subdir in ['processor', 'checkpoints', 'exports']:
+    for subdir in ['checkpoints', 'exports']:
         dir_path = modelos_dir / subdir
         dir_path.mkdir(exist_ok=True)
-        logger.debug(f"Directorio creado: {subdir}",
-                    ruta=str(dir_path),
-                    emoji="📁")
+        logger.debug(f"Directorio creado: {subdir}", ruta=str(dir_path), emoji="📁")
+        print(f"📁 Directorio creado: {dir_path}")
     
-    logger.info("Configuración de modelos completada exitosamente",
-                emoji="✅")
+    logger.info("Configuración de modelos completada exitosamente", emoji="✅")
+    print("✅ Configuración de modelos completada exitosamente")
 
 
 def crear_archivo_ejemplo():
@@ -113,15 +115,18 @@ def crear_archivo_ejemplo():
    - Entrenado para detectar solo clase 'persona'
    
 2. **TimesFormer para detección de violencia**
-   - Archivo: timesformer_violence_detector_best_ft.pt
-   - Modelo fine-tuned para clasificación binaria (violencia/no violencia)
-   
-3. **Procesador TimesFormer**
-   - Directorio: processor/
-   - Contiene archivos de configuración del procesador
+   - Archivo: timesformer_violence_detector_half.onnx
+   - Modelo optimizado para clasificación binaria (violencia/no violencia)
+   - Formato: ONNX para mejor rendimiento y compatibilidad
 
 ## Ubicación:
 Todos los modelos deben estar en: {ruta_modelos}
+
+## Formato de Entrada (TimesFormer ONNX):
+- Tamaño de entrada: 224x224
+- Número de frames: 8
+- Formato: [batch_size, channels, num_frames, height, width]
+- Normalización: mean=[0.45, 0.45, 0.45], std=[0.225, 0.225, 0.225]
 
 ## Entrenamiento:
 Si necesitas entrenar tus propios modelos, consulta la documentación en:
@@ -133,11 +138,13 @@ https://github.com/tu-repo/docs/training.md
         f.write(ejemplo_config.format(ruta_modelos=configuracion.MODELOS_PATH))
     
     logger.info(f"Archivo de información creado: {readme_path}")
+    print(f"Archivo de información creado: {readme_path}")
 
 
 def main():
     """Función principal"""
     logger.info("Iniciando configuración de modelos")
+    print("Iniciando configuración de modelos")
     
     # Configurar modelos
     configurar_modelos()
@@ -146,6 +153,7 @@ def main():
     crear_archivo_ejemplo()
     
     logger.info("Configuración completada")
+    print("Configuración completada")
     
     print("\n✅ Configuración de modelos completada")
     print(f"📁 Los modelos deben estar en: {configuracion.MODELOS_PATH}")

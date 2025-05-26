@@ -10,6 +10,7 @@ from app.models.user import RolUser  # Importar el Enum RolUser
 class UsuarioBase(BaseModel):
     """Schema base de usuario"""
     nombre_completo: str
+    user_name: str
     email: EmailStr
     rol: RolUser = RolUser.OPERADOR  # Usar el Enum RolUser
     telefono: Optional[str] = None

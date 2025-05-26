@@ -129,6 +129,7 @@ async def actualizar_configuracion(
     await deps.db.refresh(config)
     
     logger.info(f"Configuración {clave} actualizada por usuario {deps.usuario_actual['id']}")
+    print(f"Configuración {clave} actualizada por usuario {deps.usuario_actual['id']}")
     
     return {
         "mensaje": "Configuración actualizada",

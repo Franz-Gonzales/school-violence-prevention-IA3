@@ -92,6 +92,7 @@ class TrackerPersonas:
             
         except Exception as e:
             logger.error(f"Error en actualización de tracker: {e}")
+            print(f"Error en actualización de tracker: {e}")
             return []
     
     def reiniciar(self):
@@ -99,3 +100,4 @@ class TrackerPersonas:
         self.tracker.tracker.tracks = []
         self.tracker.tracker._next_id = 1
         logger.info("Tracker reiniciado")
+        print("Tracker reiniciado")

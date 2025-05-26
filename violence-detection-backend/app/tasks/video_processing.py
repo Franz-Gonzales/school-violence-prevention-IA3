@@ -74,10 +74,12 @@ async def procesar_video_diferido(
         out.release()
         
         logger.info(f"Video procesado: {output_path}")
+        print(f"Video procesado: {output_path}")
         return True
         
     except Exception as e:
         logger.error(f"Error procesando video: {e}")
+        print(f"Error procesando video: {e}")
         return False
 
 
@@ -112,12 +114,14 @@ async def generar_thumbnail_video(
             thumbnail = cv2.resize(frame, (320, 180))
             cv2.imwrite(str(output_path), thumbnail)
             logger.info(f"Thumbnail generado: {output_path}")
+            print(f"Thumbnail generado: {output_path}")
             
         cap.release()
         return ret
         
     except Exception as e:
         logger.error(f"Error generando thumbnail: {e}")
+        print(f"Error generando thumbnail: {e}")
         return False
 
 
@@ -170,13 +174,16 @@ async def comprimir_video_evidencia(
         
         if process.returncode == 0:
             logger.info(f"Video comprimido: {output_path}")
+            print(f"Video comprimido: {output_path}")
             return output_path
         else:
             logger.error("Error en compresión de video")
+            print("Error en compresión de video")
             return None
             
     except Exception as e:
         logger.error(f"Error comprimiendo video: {e}")
+        print(f"Error comprimiendo video: {e}")
         return None
 
 
@@ -223,8 +230,10 @@ async def extraer_clips_por_tiempo(
             if process.returncode == 0:
                 clips_generados.append(output_path)
                 logger.info(f"Clip extraído: {output_path}")
+                print(f"Clip extraído: {output_path}")
             
     except Exception as e:
         logger.error(f"Error extrayendo clips: {e}")
+        print(f"Error extrayendo clips: {e}")
     
     return clips_generados

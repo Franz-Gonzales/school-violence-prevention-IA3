@@ -27,8 +27,10 @@ class ServicioAlarma:
                 version=configuracion.TUYA_DEVICE_VERSION
             )
             logger.info("Dispositivo Tuya configurado correctamente")
+            print("Dispositivo Tuya configurado correctamente")
         except Exception as e:
             logger.error(f"Error al configurar dispositivo Tuya: {e}")
+            print(f"Error al configurar dispositivo Tuya: {e}")
     
     async def activar_alarma(self, duracion: int = 10) -> bool:
         """
@@ -42,11 +44,13 @@ class ServicioAlarma:
         """
         if not self.device:
             logger.error("Dispositivo Tuya no configurado")
+            print("Dispositivo Tuya no configurado")
             return False
         
         try:
             # Activar alarma (DPS 104 puede variar según el modelo)
             logger.info(f"Activando alarma por {duracion} segundos")
+            print(f"Activando alarma por {duracion} segundos")
             self.device.set_value(104, True)
             
             # Esperar duración especificada
@@ -55,11 +59,13 @@ class ServicioAlarma:
             # Desactivar alarma
             self.device.set_value(104, False)
             logger.info("Alarma desactivada")
+            print("Alarma desactivada")
             
             return True
             
         except Exception as e:
             logger.error(f"Error al activar alarma: {e}")
+            print(f"Error al activar alarma: {e}")
             return False
     
     async def probar_conexion(self) -> bool:
@@ -70,9 +76,11 @@ class ServicioAlarma:
         try:
             status = self.device.status()
             logger.info(f"Estado del dispositivo: {status}")
+            print(f"Estado del dispositivo: {status}")
             return True
         except Exception as e:
             logger.error(f"Error al conectar con dispositivo: {e}")
+            print(f"Error al conectar con dispositivo: {e}")
             return False
     
     def obtener_estado(self) -> Optional[dict]:
@@ -84,4 +92,5 @@ class ServicioAlarma:
             return self.device.status()
         except Exception as e:
             logger.error(f"Error al obtener estado: {e}")
+            print(f"Error al obtener estado: {e}")
             return None

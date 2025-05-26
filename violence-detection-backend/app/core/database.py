@@ -50,10 +50,12 @@ async def obtener_db() -> AsyncGenerator[AsyncSession, None]:
         except SQLAlchemyError as e:
             await sesion.rollback()
             logger.error(f"Error en la sesión de base de datos: {str(e)}")
+            print(f"Error en la sesión de base de datos: {str(e)}")
             raise
         except Exception as e:
             await sesion.rollback()
             logger.error(f"Error inesperado: {str(e)}")
+            print(f"Error inesperado: {str(e)}")
             raise
         finally:
             await sesion.close()
@@ -70,8 +72,10 @@ async def inicializar_db():
         async with motor.begin() as conexion:
             await conexion.run_sync(Base.metadata.create_all)
             logger.info("Base de datos inicializada exitosamente")
+            print("Base de datos inicializada exitosamente")
     except SQLAlchemyError as e:
         logger.error(f"Error al inicializar la base de datos: {str(e)}")
+        print(f"Error al inicializar la base de datos: {str(e)}")
         raise
 
 
@@ -82,6 +86,8 @@ async def cerrar_db():
     try:
         await motor.dispose()
         logger.info("Conexiones de base de datos cerradas")
+        print("Conexiones de base de datos cerradas")
     except Exception as e:
         logger.error(f"Error al cerrar conexiones de base de datos: {str(e)}")
+        print(f"Error al cerrar conexiones de base de datos: {str(e)}")
         raise

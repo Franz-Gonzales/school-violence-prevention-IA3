@@ -25,17 +25,21 @@ async def lifespan(app: FastAPI):
     """Maneja el ciclo de vida de la aplicación"""
     # Startup
     logger.info("Iniciando Software de Detección de Violencia Escolar")
+    print("Iniciando Software de Detección de Violencia Escolar")
     
     # Inicializar base de datos
     await inicializar_db()
     logger.info("Base de datos inicializada")
+    print("Base de datos inicializada")
     
     # Cargar modelos de IA
     try:
         cargador_modelos.cargar_todos_los_modelos()
         logger.info("Modelos de IA cargados exitosamente")
+        print("Modelos de IA cargados exitosamente")
     except Exception as e:
         logger.error(f"Error al cargar modelos: {e}")
+        print(f"Error al cargar modelos: {e}")
         # Continuar sin modelos en desarrollo
     
     # Iniciar tareas en background
@@ -45,19 +49,21 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Cerrando aplicación")
+    print("Cerrando aplicación")
     
     # Liberar recursos
     cargador_modelos.liberar_memoria()
     await cerrar_db()
     
     logger.info("Aplicación cerrada correctamente")
+    print("Aplicación cerrada correctamente")
 
 
 # Crear aplicación FastAPI
 app = FastAPI(
-    title=configuracion.NOMBRE_PROYECTO,
-    description=configuracion.DESCRIPCION,
-    version=configuracion.VERSION,
+    title=configuracion.APP_NAME,
+    description=configuracion.APP_DESCRIPTION,
+    version=configuracion.APP_VERSION,
     lifespan=lifespan
 )
 
@@ -125,6 +131,7 @@ async def procesar_notificaciones():
         await manejador_notificaciones_ws.procesar_cola()
     except Exception as e:
         logger.error(f"Error en procesamiento de notificaciones: {e}")
+        print(f"Error en procesamiento de notificaciones: {e}")
 
 
 if __name__ == "__main__":

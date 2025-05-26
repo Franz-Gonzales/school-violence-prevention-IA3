@@ -97,6 +97,7 @@ class ServicioInformes:
             
         except Exception as e:
             logger.error(f"Error al generar informe diario: {e}")
+            print(f"Error al generar informe diario: {e}")
             return {}
     
     async def generar_informe_semanal(
@@ -159,6 +160,7 @@ class ServicioInformes:
             
         except Exception as e:
             logger.error(f"Error al generar informe semanal: {e}")
+            print(f"Error al generar informe semanal: {e}")
             return {}
     
     async def generar_informe_mensual(
@@ -254,6 +256,7 @@ class ServicioInformes:
             
         except Exception as e:
             logger.error(f"Error al generar informe mensual: {e}")
+            print(f"Error al generar informe mensual: {e}")
             return {}
     
     def _generar_recomendaciones(self, analisis: Dict[str, Any]) -> List[str]:

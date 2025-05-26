@@ -26,10 +26,12 @@ class ServicioIncidentes:
             await self.db.refresh(incidente)
             
             logger.info(f"Incidente creado: ID {incidente.id}")
+            print(f"Incidente creado: ID {incidente.id}")
             return incidente
             
         except Exception as e:
             logger.error(f"Error al crear incidente: {e}")
+            print(f"Error al crear incidente: {e}")
             await self.db.rollback()
             raise
     
@@ -42,6 +44,7 @@ class ServicioIncidentes:
             return resultado.scalars().first()
         except Exception as e:
             logger.error(f"Error al obtener incidente: {e}")
+            print(f"Error al obtener incidente: {e}")
             return None
     
     async def listar_incidentes(
@@ -80,6 +83,7 @@ class ServicioIncidentes:
             
         except Exception as e:
             logger.error(f"Error al listar incidentes: {e}")
+            print(f"Error al listar incidentes: {e}")
             return []
     
     async def actualizar_incidente(
@@ -111,10 +115,12 @@ class ServicioIncidentes:
             await self.db.refresh(incidente)
             
             logger.info(f"Incidente {incidente_id} actualizado")
+            print(f"Incidente {incidente_id} actualizado")
             return incidente
             
         except Exception as e:
             logger.error(f"Error al actualizar incidente: {e}")
+            print(f"Error al actualizar incidente: {e}")
             await self.db.rollback()
             return None
     
@@ -176,4 +182,5 @@ class ServicioIncidentes:
             
         except Exception as e:
             logger.error(f"Error al obtener estadísticas: {e}")
+            print(f"Error al obtener estadísticas: {e}")
             return {}

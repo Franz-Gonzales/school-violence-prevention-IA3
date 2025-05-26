@@ -49,9 +49,11 @@ class ServicioNotificaciones:
             await self.cola_notificaciones.put(notificacion)
             
             logger.info(f"Notificación de violencia creada para cámara {camara_id}")
+            print(f"Notificación de violencia creada para cámara {camara_id}")
             
         except Exception as e:
             logger.error(f"Error al enviar notificación: {e}")
+            print(f"Error al enviar notificación: {e}")
             await self.db.rollback()
     
     async def procesar_cola_notificaciones(self):
@@ -62,6 +64,7 @@ class ServicioNotificaciones:
                 await self._enviar_notificacion(notificacion)
             except Exception as e:
                 logger.error(f"Error procesando cola de notificaciones: {e}")
+                print(f"Error procesando cola de notificaciones: {e}")
             
             await asyncio.sleep(0.1)
     
@@ -83,6 +86,7 @@ class ServicioNotificaciones:
             
         except Exception as e:
             logger.error(f"Error al enviar notificación {notificacion.id}: {e}")
+            print(f"Error al enviar notificación {notificacion.id}: {e}")
             notificacion.intentos_envio += 1
             await self.db.commit()
     
@@ -90,16 +94,19 @@ class ServicioNotificaciones:
         """Envía notificación web push"""
         # Implementar lógica de web push
         logger.info(f"Web push enviado: {notificacion.titulo}")
+        print(f"Web push enviado: {notificacion.titulo}")
     
     async def _enviar_email(self, notificacion: Notificacion):
         """Envía notificación por email"""
         # Implementar lógica de email
         logger.info(f"Email enviado: {notificacion.titulo}")
+        print(f"Email enviado: {notificacion.titulo}")
     
     async def _enviar_sms(self, notificacion: Notificacion):
         """Envía notificación por SMS"""
         # Implementar lógica de SMS con Twilio
         logger.info(f"SMS enviado: {notificacion.titulo}")
+        print(f"SMS enviado: {notificacion.titulo}")
     
     async def marcar_como_leida(self, notificacion_id: int):
         """Marca una notificación como leída"""
@@ -110,3 +117,4 @@ class ServicioNotificaciones:
                 await self.db.commit()
         except Exception as e:
             logger.error(f"Error al marcar notificación como leída: {e}")
+            print(f"Error al marcar notificación como leída: {e}")

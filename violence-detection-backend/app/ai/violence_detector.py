@@ -1,155 +1,86 @@
-"""
-Detector de violencia usando TimesFormer
-"""
-import cv2
-import torch
+import onnxruntime as ort
 import numpy as np
-from collections import deque
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, Any
 from app.config import configuracion
+from app.ai.timesformer_processor import TimesFormerProcessor
 from app.utils.logger import obtener_logger
 
 logger = obtener_logger(__name__)
 
-
 class DetectorViolencia:
-    """Detector de violencia basado en TimesFormer"""
+    def __init__(self):
+        self.processor = TimesFormerProcessor()
+        self.config = configuracion.TIMESFORMER_CONFIG
+        self.threshold = configuracion.VIOLENCE_THRESHOLD
+        self.buffer_frames = []
+        self.setup_model()
     
-    def __init__(self, modelo_info: Dict[str, Any]):
-        self.modelo = modelo_info['modelo']
-        self.tipo_modelo = modelo_info['tipo']
-        self.procesador = modelo_info.get('procesador')
-        self.config = modelo_info['config']
-        
-        # Configuración
-        self.num_frames = self.config['num_frames']
-        self.image_size = self.config['image_size']
-        self.threshold = self.config['threshold']
-        
-        # Buffer de frames
-        self.buffer_frames = deque(maxlen=self.num_frames)
-        
-        # Estado
-        self.violencia_detectada = False
-        self.probabilidad_violencia = 0.0
-        self.frames_con_violencia = 0
-        self.inicio_violencia = None
-        
-    def agregar_frame(self, frame: np.ndarray):
-        """Agrega un frame al buffer"""
-        # Redimensionar frame
-        frame_redimensionado = cv2.resize(
-            frame,
-            (self.image_size, self.image_size),
-            interpolation=cv2.INTER_LINEAR
-        )
-        
-        # Convertir a RGB si es necesario
-        if len(frame_redimensionado.shape) == 2:
-            frame_redimensionado = cv2.cvtColor(frame_redimensionado, cv2.COLOR_GRAY2RGB)
-        elif frame_redimensionado.shape[2] == 4:
-            frame_redimensionado = cv2.cvtColor(frame_redimensionado, cv2.COLOR_BGRA2RGB)
-        else:
-            frame_redimensionado = cv2.cvtColor(frame_redimensionado, cv2.COLOR_BGR2RGB)
-        
-        self.buffer_frames.append(frame_redimensionado)
-    
-    def _preprocesar_frames(self) -> torch.Tensor:
-        """Preprocesa los frames del buffer para el modelo"""
-        frames = list(self.buffer_frames)
-        
-        if self.procesador:
-            # Usar procesador de Hugging Face
-            inputs = self.procesador(
-                frames,
-                return_tensors="pt"
+    def setup_model(self):
+        try:
+            # Configurar ONNX Runtime
+            options = ort.SessionOptions()
+            options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+            options.intra_op_num_threads = 4
+            
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] \
+                if configuracion.USE_GPU else ['CPUExecutionProvider']
+            
+            model_path = configuracion.obtener_ruta_modelo(configuracion.TIMESFORMER_MODEL)
+            self.model = ort.InferenceSession(
+                str(model_path), 
+                providers=providers,
+                sess_options=options
             )
-            return inputs['pixel_values'].to(configuracion.obtener_configuracion_gpu()['device'])
-        else:
-            # Preprocesamiento manual
-            frames_array = np.array(frames)  # [T, H, W, C]
             
-            # Normalizar
-            frames_array = frames_array.astype(np.float32) / 255.0
+            logger.info("✅ Modelo TimesFormer ONNX cargado exitosamente")
             
-            # Reorganizar dimensiones según el tipo de modelo
-            if self.tipo_modelo == 'torchscript':
-                # [B, C, T, H, W]
-                frames_array = np.transpose(frames_array, (3, 0, 1, 2))
-                frames_array = np.expand_dims(frames_array, 0)
-            else:
-                # [B, T, C, H, W] 
-                frames_array = np.transpose(frames_array, (0, 3, 1, 2))
-                frames_array = np.expand_dims(frames_array, 0)
-            
-            tensor = torch.from_numpy(frames_array).float()
-            return tensor.to(configuracion.obtener_configuracion_gpu()['device'])
+        except Exception as e:
+            logger.error(f"❌ Error cargando modelo ONNX: {str(e)}")
+            raise
+    
+    def agregar_frame(self, frame: np.ndarray):
+        self.buffer_frames.append(frame.copy())
+        if len(self.buffer_frames) > self.config["num_frames"]:
+            self.buffer_frames.pop(0)
     
     def detectar(self) -> Dict[str, Any]:
-        """Detecta violencia en los frames del buffer"""
-        if len(self.buffer_frames) < self.num_frames:
+        if len(self.buffer_frames) < self.config["num_frames"]:
             return {
                 'violencia_detectada': False,
                 'probabilidad': 0.0,
-                'mensaje': 'Buffer incompleto'
+                'mensaje': f'Buffer incompleto ({len(self.buffer_frames)}/{self.config["num_frames"]} frames)'
             }
         
         try:
             # Preprocesar frames
-            input_tensor = self._preprocesar_frames()
+            input_tensor = self.processor.preprocess_frames(self.buffer_frames)
             
-            # Inferencia
-            with torch.no_grad():
-                if self.tipo_modelo == 'pytorch':
-                    outputs = self.modelo(pixel_values=input_tensor)
-                    logits = outputs.logits
-                    probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-                elif self.tipo_modelo == 'torchscript':
-                    outputs = self.modelo(input_tensor)
-                    probs = outputs.cpu().numpy()[0]
-                else:
-                    raise ValueError(f"Tipo de modelo no soportado: {self.tipo_modelo}")
+            # Realizar inferencia
+            outputs = self.model.run(
+                None, 
+                {self.model.get_inputs()[0].name: input_tensor}
+            )
             
-            # Obtener probabilidad de violencia
+            # Aplicar softmax
+            logits = outputs[0][0]
+            exp_logits = np.exp(logits - np.max(logits))
+            probs = exp_logits / exp_logits.sum()
+            
+            # Obtener predicción
             prob_violencia = float(probs[1])
             es_violencia = prob_violencia >= self.threshold
-            
-            # Actualizar estado
-            self.probabilidad_violencia = prob_violencia
-            
-            if es_violencia:
-                self.frames_con_violencia += 1
-                if not self.violencia_detectada:
-                    self.violencia_detectada = True
-                    self.inicio_violencia = len(self.buffer_frames)
-                    logger.warning(f"Violencia detectada! Probabilidad: {prob_violencia:.2f}")
-            else:
-                # Si no hay violencia por varios frames, resetear
-                if self.violencia_detectada and self.frames_con_violencia > 0:
-                    self.frames_con_violencia -= 1
-                    if self.frames_con_violencia == 0:
-                        self.violencia_detectada = False
-                        self.inicio_violencia = None
             
             return {
                 'violencia_detectada': es_violencia,
                 'probabilidad': prob_violencia,
-                'frames_consecutivos': self.frames_con_violencia,
-                'mensaje': 'Detección completada'
+                'clase': self.config["labels"][1] if es_violencia else self.config["labels"][0],
+                'mensaje': 'Violencia detectada' if es_violencia else 'No se detectó violencia'
             }
             
         except Exception as e:
-            logger.error(f"Error en detección de violencia: {e}")
+            logger.error(f"Error en detección: {str(e)}")
             return {
                 'violencia_detectada': False,
                 'probabilidad': 0.0,
                 'mensaje': f'Error: {str(e)}'
             }
-    
-    def reiniciar(self):
-        """Reinicia el detector"""
-        self.buffer_frames.clear()
-        self.violencia_detectada = False
-        self.probabilidad_violencia = 0.0
-        self.frames_con_violencia = 0
-        self.inicio_violencia = None

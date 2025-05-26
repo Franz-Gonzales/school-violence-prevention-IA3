@@ -59,8 +59,6 @@ def test_postgres_connection():
             print("\nConexión cerrada.")
 
 if __name__ == "__main__":
-    success = test_postgres_connection()
-    
-    if success:
+    if (success := test_postgres_connection()):
         print("\n📝 Usa esta configuración en tu archivo .env:")
         print("DATABASE_URL=postgresql+asyncpg://postgres:gonzales@localhost:5432/violence_detection_db")

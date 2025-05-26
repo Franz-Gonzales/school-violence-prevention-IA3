@@ -66,6 +66,7 @@ class DetectorPersonas:
             
         except Exception as e:
             logger.error(f"Error en detección YOLO: {e}")
+            print(f"Error en detección YOLO: {e}")
             return []
     
     def detectar_con_procesamiento(

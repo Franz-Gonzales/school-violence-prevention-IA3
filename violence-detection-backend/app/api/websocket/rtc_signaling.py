@@ -37,6 +37,7 @@ class ManejadorWebRTC:
         self.salas[camara_id].add(cliente_id)
         
         logger.info(f"Cliente {cliente_id} conectado a cámara {camara_id}")
+        print(f"Cliente {cliente_id} conectado a cámara {camara_id}")
         
         # Notificar a otros clientes en la sala
         await self.broadcast_a_sala(
@@ -68,6 +69,7 @@ class ManejadorWebRTC:
                 )
         
         logger.info(f"Cliente {cliente_id} desconectado")
+        print(f"Cliente {cliente_id} desconectado")
     
     async def manejar_mensaje(
         self,
@@ -169,6 +171,7 @@ class ManejadorWebRTC:
                 await websocket.send_json(mensaje)
             except Exception as e:
                 logger.error(f"Error al enviar mensaje a {cliente_id}: {e}")
+                print(f"Error al enviar mensaje a {cliente_id}: {e}")
                 await self.desconectar(cliente_id)
     
     async def broadcast_a_sala(
@@ -209,4 +212,5 @@ async def websocket_endpoint(
         await manejador_webrtc.desconectar(cliente_id)
     except Exception as e:
         logger.error(f"Error en WebSocket: {e}")
+        print(f"Error en WebSocket: {e}")
         await manejador_webrtc.desconectar(cliente_id)

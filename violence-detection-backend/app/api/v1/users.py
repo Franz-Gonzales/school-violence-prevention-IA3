@@ -113,6 +113,8 @@ async def crear_usuario(
     await deps.db.refresh(usuario)
     
     logger.info(f"Usuario {usuario.email} creado por admin {deps.usuario_actual['id']}")
+    print(f"Usuario {usuario.email} creado por admin {deps.usuario_actual['id']}")
+    print(f"Usuario {usuario.user_name} creado por admin {deps.usuario_actual['id']}")
     
     return usuario
 
@@ -247,5 +249,6 @@ async def eliminar_usuario(
     await deps.db.commit()
     
     logger.info(f"Usuario {usuario_id} eliminado por admin {deps.usuario_actual['id']}")
+    print(f"Usuario {usuario_id} eliminado por admin {deps.usuario_actual['id']}")
     
     return {"mensaje": "Usuario eliminado"}

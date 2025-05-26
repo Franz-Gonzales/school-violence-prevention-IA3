@@ -123,6 +123,7 @@ class ManejadorStreaming:
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
             logger.info(f"Estado de conexión {cliente_id}: {pc.connectionState}")
+            print(f"Estado de conexión {cliente_id}: {pc.connectionState}")
             if pc.connectionState == "failed":
                 await self.cerrar_conexion(cliente_id)
         
@@ -190,6 +191,7 @@ class ManejadorStreaming:
             del self.pipelines[cliente_id]
         
         logger.info(f"Conexión cerrada para cliente {cliente_id}")
+        print(f"Conexión cerrada para cliente {cliente_id}")
     
     def obtener_estadisticas_stream(self, cliente_id: str) -> Optional[Dict[str, Any]]:
         """Obtiene estadísticas del stream"""

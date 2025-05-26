@@ -43,6 +43,7 @@ async def registrar_usuario(
         # Crear nuevo usuario
         usuario = Usuario(
             nombre_completo=usuario_data.nombre_completo,
+            user_name=usuario_data.user_name,
             email=usuario_data.email,
             password_hash=obtener_hash_password(usuario_data.password),
             rol=usuario_data.rol,  # Usar Enum RolUser
@@ -56,12 +57,14 @@ async def registrar_usuario(
         await db.refresh(usuario)
         
         logger.info(f"Usuario registrado: {usuario.email}")
+        print(f"Usuario registrado: {usuario.email}")
         return usuario
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error al registrar usuario: {e}")
+        print(f"Error al registrar usuario: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -78,7 +81,7 @@ async def login(
     try:
         # Buscar usuario
         resultado = await db.execute(
-            select(Usuario).where(Usuario.email == form_data.username)
+            select(Usuario).where(Usuario.user_name == form_data.username)
         )
         usuario = resultado.scalars().first()
         
@@ -113,6 +116,7 @@ async def login(
         )
         
         logger.info(f"Usuario {usuario.email} inició sesión")
+        print(f"Usuario {usuario.email} inició sesión")
         
         return {
             "access_token": access_token,
@@ -121,6 +125,7 @@ async def login(
                 "id": usuario.id,
                 "email": usuario.email,
                 "nombre": usuario.nombre_completo,
+                "user_name": usuario.user_name,
                 "rol": usuario.rol.value  # Convertir Enum a cadena
             }
         }
@@ -129,6 +134,7 @@ async def login(
         raise
     except Exception as e:
         logger.error(f"Error en login: {e}")
+        print(f"Error en login: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al iniciar sesión"
@@ -159,6 +165,7 @@ async def obtener_perfil(
         raise
     except Exception as e:
         logger.error(f"Error al obtener perfil: {e}")
+        print(f"Error al obtener perfil: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener perfil"
@@ -171,6 +178,7 @@ async def logout(
 ):
     """Cierra sesión del usuario"""
     logger.info(f"Usuario {usuario_actual['email']} cerró sesión")
+    print(f"Usuario {usuario_actual['email']} cerró sesión")
     return {"mensaje": "Sesión cerrada exitosamente"}
 
 
@@ -207,12 +215,15 @@ async def cambiar_password(
         await db.commit()
         
         logger.info(f"Usuario {usuario.email} cambió su contraseña")
+        print(f"Usuario {usuario.email} cambió su contraseña")
+        print(f"Usuario {usuario.user_name} cambió su contraseña")
         return {"mensaje": "Contraseña actualizada exitosamente"}
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error al cambiar contraseña: {e}")
+        print(f"Error al cambiar contraseña: {e}")
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

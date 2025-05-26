@@ -32,6 +32,7 @@ class ServicioIA:
             # Cargar modelos si no están cargados
             if not cargador_modelos.modelos:
                 logger.info("Cargando modelos de IA...")
+                print("Cargando modelos de IA...")
                 cargador_modelos.cargar_todos_los_modelos()
             
             # Crear servicios necesarios
@@ -41,9 +42,11 @@ class ServicioIA:
             
             self.activo = True
             logger.info("Servicio de IA inicializado correctamente")
+            print("Servicio de IA inicializado correctamente")
             
         except Exception as e:
             logger.error(f"Error al inicializar servicio IA: {e}")
+            print(f"Error al inicializar servicio IA: {e}")
             self.activo = False
             raise
     
@@ -57,9 +60,8 @@ class ServicioIA:
             cargador_modelos.obtener_modelo('yolo')
         )
         tracker_personas = TrackerPersonas()
-        detector_violencia = DetectorViolencia(
-            cargador_modelos.obtener_modelo('timesformer')
-        )
+        detector_violencia = DetectorViolencia()  # Ya no necesita modelo como parámetro
+        
         
         # Crear pipeline
         pipeline = PipelineDeteccion(
@@ -73,6 +75,7 @@ class ServicioIA:
         
         self.pipelines[camara_id] = pipeline
         logger.info(f"Pipeline creado para cámara {camara_id}")
+        print(f"Pipeline creado para cámara {camara_id}")
         
         return pipeline
     
@@ -120,6 +123,7 @@ class ServicioIA:
             self.pipelines[camara_id].reiniciar()
             del self.pipelines[camara_id]
             logger.info(f"Pipeline detenido para cámara {camara_id}")
+            print(f"Pipeline detenido para cámara {camara_id}")
     
     def detener_todos(self):
         """Detiene todos los pipelines"""
@@ -128,6 +132,7 @@ class ServicioIA:
         
         self.activo = False
         logger.info("Todos los pipelines detenidos")
+        print("Todos los pipelines detenidos")
 
 
 # Instancia global del servicio

@@ -28,9 +28,11 @@ async def verificar_conexion(engine: AsyncEngine) -> bool:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
             logger.info("Conexión a la base de datos verificada")
+            print("Conexión a la base de datos verificada")
             return True
     except Exception as e:
         logger.error(f"Error al conectar a la base de datos: {e}")
+        print(f"Error al conectar a la base de datos: {e}")
         return False
 
 
@@ -54,10 +56,12 @@ async def crear_tablas() -> bool:
         
         await engine.dispose()
         logger.info("Tablas creadas exitosamente")
+        print("Tablas creadas exitosamente")
         return True
         
     except Exception as e:
         logger.error(f"Error al crear tablas: {e}")
+        print(f"Error al crear tablas: {e}")
         return False
 
 
@@ -73,13 +77,15 @@ async def crear_usuario_admin() -> Optional[Usuario]:
             admin = resultado.scalars().first()
             if admin:
                 logger.info("Usuario admin ya existe")
+                print("Usuario admin ya existe")
                 return admin
             
             # Crear usuario admin
             admin = Usuario(
-                nombre_completo="Administrador Sistema",
+                nombre_completo="Carlos Gonzales",
+                user_name="carlitos",
                 email="admin@usfx.com",
-                password_hash=obtener_hash_password("gonzales123"),
+                password_hash=obtener_hash_password("carlitos123"),
                 rol=RolUser.ADMIN,
                 activo=True,
                 cargo="Administrador del Sistema"
@@ -90,13 +96,17 @@ async def crear_usuario_admin() -> Optional[Usuario]:
             await db.refresh(admin)
             
             logger.info("✅ Usuario administrador creado exitosamente")
+            print("✅ Usuario administrador creado exitosamente")
             logger.info("📧 Email: admin@usfx.com")
+            print("📧 Email: admin@usfx.com")
             logger.info("🔑 Contraseña: gonzales123 (¡CAMBIAR EN PRODUCCIÓN!)")
+            print("🔑 Contraseña: gonzales123 (¡CAMBIAR EN PRODUCCIÓN!)")
             
             return admin
             
         except Exception as e:
             logger.error(f"❌ Error al crear usuario admin: {e}")
+            print(f"❌ Error al crear usuario admin: {e}")
             await db.rollback()
             return None
         finally:
@@ -136,10 +146,12 @@ async def insertar_datos_prueba() -> bool:
             await db.commit()
             
             logger.info(f"✅ {len(camaras)} cámaras de prueba insertadas")
+            print(f"✅ {len(camaras)} cámaras de prueba insertadas")
             return True
             
         except Exception as e:
             logger.error(f"❌ Error al insertar datos de prueba: {e}")
+            print(f"❌ Error al insertar datos de prueba: {e}")
             await db.rollback()
             return False
         finally:
@@ -149,16 +161,19 @@ async def insertar_datos_prueba() -> bool:
 async def main():
     """Función principal del script"""
     logger.info("🚀 Iniciando configuración de base de datos")
+    print("🚀 Iniciando configuración de base de datos")
     
     # Crear tablas
     if not await crear_tablas():
         logger.error("❌ Error al crear tablas. Abortando...")
+        print("❌ Error al crear tablas. Abortando...")
         return
     
     # Crear usuario administrador
     admin = await crear_usuario_admin()
     if not admin:
         logger.error("❌ Error al crear usuario admin. Abortando...")
+        print("❌ Error al crear usuario admin. Abortando...")
         return
     
     # Insertar datos de prueba
@@ -166,10 +181,13 @@ async def main():
     if respuesta == 's':
         if await insertar_datos_prueba():
             logger.info("✅ Datos de prueba insertados correctamente")
+            print("✅ Datos de prueba insertados correctamente")
         else:
             logger.error("❌ Error al insertar datos de prueba")
+            print("❌ Error al insertar datos de prueba")
     
     logger.info("✅ Configuración completada exitosamente")
+    print("✅ Configuración completada exitosamente")
 
 
 if __name__ == "__main__":
@@ -177,5 +195,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("\n⚠️ Proceso interrumpido por el usuario")
+        print("\n⚠️ Proceso interrumpido por el usuario")
     except Exception as e:
         logger.error(f"❌ Error inesperado: {e}")
+        print(f"❌ Error inesperado: {e}")

@@ -159,3 +159,15 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 SECRET_KEY=6f0e3d5b9a4c7e2f1d8c9b7a5e3f2d1c9b8a7e6f5d4c3b2a1
 
 ## DATABASE_URL
+
+cd violence-detection-backend
+source venv/Scripts/activate  # Windows
+uvicorn main:app --host 0.0.0.0 --port 8000
+
+# 5. Ejecutar el Servidor
+# Desarrollo
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Producción
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4

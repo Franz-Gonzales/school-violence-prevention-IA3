@@ -95,6 +95,7 @@ async def crear_incidente(
         
     except Exception as e:
         logger.error(f"Error al crear incidente: {e}")
+        print(f"Error al crear incidente: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al crear incidente"
@@ -208,10 +209,12 @@ async def eliminar_incidente(
         await deps.db.commit()
         
         logger.info(f"Incidente {incidente_id} eliminado por usuario {deps.usuario_actual['id']}")
+        print(f"Incidente {incidente_id} eliminado por usuario {deps.usuario_actual['id']}")
         return {"mensaje": "Incidente eliminado exitosamente"}
         
     except Exception as e:
         logger.error(f"Error al eliminar incidente: {e}")
+        print(f"Error al eliminar incidente: {e}")
         await deps.db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

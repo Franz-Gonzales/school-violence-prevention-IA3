@@ -89,6 +89,7 @@ class ProcesadorVideo:
         try:
             if not frames:
                 logger.error("No hay frames para guardar")
+                print("No hay frames para guardar")
                 return False
             
             # Obtener dimensiones del primer frame
@@ -109,10 +110,12 @@ class ProcesadorVideo:
             
             out.release()
             logger.info(f"Clip guardado en: {ruta_salida}")
+            print(f"Clip guardado en: {ruta_salida}")
             return True
             
         except Exception as e:
             logger.error(f"Error al guardar clip: {e}")
+            print(f"Error al guardar clip: {e}")
             return False
     
     @staticmethod
