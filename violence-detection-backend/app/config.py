@@ -32,7 +32,7 @@ class Configuracion(BaseSettings):
     CAMERA_HEIGHT: int = 720
     CAMERA_FPS: int = 15
     BUFFER_FRAMES: int = 8
-    CLIP_DURATION_SECONDS: int = 5
+    CLIP_DURATION: int = 5
     
 
     # Base de datos

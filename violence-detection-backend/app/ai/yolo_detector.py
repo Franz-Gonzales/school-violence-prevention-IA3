@@ -16,7 +16,7 @@ class DetectorPersonas:
     
     def __init__(self, modelo: YOLO):
         self.modelo = modelo
-        self.confianza_minima = configuracion.YOLO_CONFIDENCE
+        self.confianza_minima = configuracion.YOLO_CONF_THRESHOLD
         
     def detectar(self, frame: np.ndarray) -> List[Dict[str, Any]]:
         """

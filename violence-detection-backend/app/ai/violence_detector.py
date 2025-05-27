@@ -13,6 +13,8 @@ class DetectorViolencia:
         self.config = configuracion.TIMESFORMER_CONFIG
         self.threshold = configuracion.VIOLENCE_THRESHOLD
         self.buffer_frames = []
+        self.violencia_detectada = False
+        self.probabilidad_violencia = 0.0
         self.setup_model()
     
     def setup_model(self):
@@ -33,9 +35,11 @@ class DetectorViolencia:
             )
             
             logger.info("✅ Modelo TimesFormer ONNX cargado exitosamente")
+            print("✅ Modelo TimesFormer ONNX cargado exitosamente")
             
         except Exception as e:
             logger.error(f"❌ Error cargando modelo ONNX: {str(e)}")
+            print(f"❌ Error cargando modelo ONNX: {str(e)}")
             raise
     
     def agregar_frame(self, frame: np.ndarray):
@@ -84,3 +88,11 @@ class DetectorViolencia:
                 'probabilidad': 0.0,
                 'mensaje': f'Error: {str(e)}'
             }
+            
+    def reiniciar(self):
+        """Reinicia el estado del detector"""
+        self.buffer_frames.clear()
+        self.violencia_detectada = False
+        self.probabilidad_violencia = 0.0
+        logger.info("Detector de violencia reiniciado")
+        print("Detector de violencia reiniciado")

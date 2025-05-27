@@ -1,163 +1,259 @@
-"""
-Manejador de streaming de video
-"""
+# app/api/websocket/stream_handler.py
 import cv2
-import asyncio
-import numpy as np
 from typing import Optional, Dict, Any
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
-from aiortc.contrib.media import MediaPlayer
 from app.ai.model_loader import cargador_modelos
 from app.ai.pipeline import PipelineDeteccion
 from app.config import configuracion
 from app.utils.logger import obtener_logger
+from app.api.websocket.common import ManejadorWebRTC, manejador_webrtc
+
+from app.ai.yolo_detector import DetectorPersonas
+from app.ai.deep_sort_tracker import TrackerPersonas
+from app.ai.violence_detector import DetectorViolencia
+from app.services.alarm_service import ServicioAlarma
+from app.services.notification_service import ServicioNotificaciones
+from app.services.incident_service import ServicioIncidentes
+
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration, RTCIceServer
+
+
 
 logger = obtener_logger(__name__)
 
-
 class VideoTrackProcesado(VideoStreamTrack):
-    """Track de video procesado con IA"""
-    
-    def __init__(self, source: str, pipeline: PipelineDeteccion):
+    def __init__(self, source: int, pipeline: PipelineDeteccion, manejador_webrtc: ManejadorWebRTC, cliente_id: str, camara_id: int, deteccion_activada: bool = False):
         super().__init__()
         self.source = source
         self.pipeline = pipeline
+        self.manejador_webrtc = manejador_webrtc
+        self.cliente_id = cliente_id
+        self.camara_id = camara_id
+        self.deteccion_activada = deteccion_activada
         self.cap = None
+        self._start()
         
+    def _start(self):
+        """Inicializa la captura de video"""
+        print(f"Iniciando cámara {self.source}...")
+        self.cap = cv2.VideoCapture(self.source)
+        if not self.cap.isOpened():
+            raise RuntimeError(f"No se pudo abrir la cámara {self.source}")
+        
+        # Configurar resolución y FPS
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, configuracion.DEFAULT_RESOLUTION[0])
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, configuracion.DEFAULT_RESOLUTION[1])
+        self.cap.set(cv2.CAP_PROP_FPS, configuracion.DEFAULT_FPS)
+        logger.info(f"Cámara {self.source} iniciada exitosamente")
+        print(f"Cámara {self.source} iniciada exitosamente")
+
     async def recv(self):
-        """Recibe y procesa el siguiente frame"""
-        pts, time_base = await self.next_timestamp()
-        
-        # Abrir cámara si no está abierta
-        if self.cap is None:
-            self.cap = cv2.VideoCapture(self.source)
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, configuracion.DEFAULT_RESOLUTION[0])
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, configuracion.DEFAULT_RESOLUTION[1])
-            self.cap.set(cv2.CAP_PROP_FPS, configuracion.DEFAULT_FPS)
-        
-        # Leer frame
-        ret, frame = self.cap.read()
-        if not ret:
+        try:
+            pts, time_base = await self.next_timestamp()
+
+            if self.cap is None or not self.cap.isOpened():
+                self._start()
+
+            ret, frame = self.cap.read()
+            if not ret:
+                logger.error("Error al leer frame de la cámara")
+                return None
+
+            # Procesar frame si la detección está activada
+            if self.deteccion_activada:
+                resultado = await self.pipeline.procesar_frame(
+                    frame,
+                    camara_id=self.camara_id,
+                    ubicacion="Principal"
+                )
+                if resultado.get('violencia_detectada'):
+                    await self.manejador_webrtc.enviar_a_cliente(
+                        self.cliente_id,
+                        {
+                            "tipo": "deteccion_violencia",
+                            "violencia_detectada": resultado['violencia_detectada'],
+                            "probabilidad": resultado['probabilidad_violencia'],
+                            "personas_involucradas": len(resultado['personas_detectadas'])
+                        }
+                    )
+                frame = resultado.get('frame_procesado', frame)
+
+            # Convertir BGR a RGB para WebRTC
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Crear VideoFrame
+            from av import VideoFrame
+            video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
+            video_frame.pts = pts
+            video_frame.time_base = time_base
+
+            return video_frame
+
+        except Exception as e:
+            logger.error(f"Error en recv: {str(e)}")
+            print(f"Error en recv: {str(e)}")
             return None
         
-        # Procesar frame con pipeline de IA
-        resultado = await self.pipeline.procesar_frame(
-            frame,
-            camara_id=1,  # TODO: Obtener ID real
-            ubicacion="Principal"  # TODO: Obtener ubicación real
-        )
-        
-        # Obtener frame procesado
-        frame_procesado = resultado.get('frame_procesado', frame)
-        
-        # Convertir a formato compatible con WebRTC
-        from av import VideoFrame
-        video_frame = VideoFrame.from_ndarray(frame_procesado, format="bgr24")
-        video_frame.pts = pts
-        video_frame.time_base = time_base
-        
-        return video_frame
+    def stop(self):
+        """Libera recursos"""
+        if self.cap:
+            self.cap.release()
+            self.cap = None
 
 
 class ManejadorStreaming:
-    """Maneja el streaming de video con procesamiento IA"""
-    
     def __init__(self):
         self.conexiones_peer: Dict[str, RTCPeerConnection] = {}
         self.pipelines: Dict[str, PipelineDeteccion] = {}
+        self.deteccion_activada: Dict[str, bool] = {}
+        self.servicio_alarma = ServicioAlarma()
         
+
     async def crear_conexion_peer(
         self,
         cliente_id: str,
-        camara_id: int
+        camara_id: int,
+        manejador_webrtc: ManejadorWebRTC,
+        deteccion_activada: bool = False
     ) -> RTCPeerConnection:
-        """Crea una nueva conexión peer"""
-        pc = RTCPeerConnection()
-        self.conexiones_peer[cliente_id] = pc
-        
-        # Crear pipeline de detección si no existe
-        if cliente_id not in self.pipelines:
-            # Cargar modelos necesarios
-            from app.ai.yolo_detector import DetectorPersonas
-            from app.ai.deep_sort_tracker import TrackerPersonas
-            from app.ai.violence_detector import DetectorViolencia
-            from app.services.alarm_service import ServicioAlarma
-            from app.services.notification_service import ServicioNotificaciones
-            from app.services.incident_service import ServicioIncidentes
-            
-            # Inicializar componentes
-            detector_personas = DetectorPersonas(
-                cargador_modelos.obtener_modelo('yolo')
+        try:
+            if cliente_id in self.conexiones_peer:
+                await self.cerrar_conexion(cliente_id)
+
+            # Configuración simplificada de RTCPeerConnection
+            config = RTCConfiguration(
+                iceServers=[
+                    RTCIceServer(
+                        urls=["stun:stun.l.google.com:19302"]
+                    )
+                ]
             )
-            tracker_personas = TrackerPersonas()
-            detector_violencia = DetectorViolencia(
-                cargador_modelos.obtener_modelo('timesformer')
-            )
+
+            pc = RTCPeerConnection(configuration=config)
             
-            # TODO: Inyectar servicios reales
-            servicio_alarma = ServicioAlarma()
-            servicio_notificaciones = None  # Necesita DB
-            servicio_incidentes = None  # Necesita DB
-            
-            # Crear pipeline
-            pipeline = PipelineDeteccion(
-                detector_personas,
-                tracker_personas,
-                detector_violencia,
-                servicio_alarma,
-                servicio_notificaciones,
-                servicio_incidentes
-            )
-            
-            self.pipelines[cliente_id] = pipeline
-        
-        # Agregar track de video
-        if camara_id == 0:  # Cámara USB local
+            self.conexiones_peer[cliente_id] = pc
+            self.deteccion_activada[cliente_id] = deteccion_activada
+
+            # Crear pipeline si no existe
+            if cliente_id not in self.pipelines:
+                pipeline = self.crear_pipeline(cliente_id)
+                self.pipelines[cliente_id] = pipeline
+
+            # Crear y agregar video track
             video_track = VideoTrackProcesado(
-                source=0,  # Índice de cámara USB
-                pipeline=self.pipelines[cliente_id]
+                source=1,
+                pipeline=self.pipelines[cliente_id],
+                manejador_webrtc=manejador_webrtc,
+                cliente_id=cliente_id,
+                camara_id=camara_id,
+                deteccion_activada=deteccion_activada
             )
             pc.addTrack(video_track)
-        
-        # Configurar eventos
-        @pc.on("connectionstatechange")
-        async def on_connectionstatechange():
-            logger.info(f"Estado de conexión {cliente_id}: {pc.connectionState}")
-            print(f"Estado de conexión {cliente_id}: {pc.connectionState}")
-            if pc.connectionState == "failed":
-                await self.cerrar_conexion(cliente_id)
-        
-        return pc
-    
+
+            # Manejar eventos de conexión
+            @pc.on("connectionstatechange")
+            async def on_connectionstatechange():
+                logger.info(f"Estado de conexión {cliente_id}: {pc.connectionState}")
+                print(f"Estado de conexión {cliente_id}: {pc.connectionState}")
+                if pc.connectionState == "failed":
+                    await self.cerrar_conexion(cliente_id)
+
+            # Manejar negociación
+            @pc.on("negotiationneeded")
+            async def on_negotiationneeded():
+                logger.info(f"Negociación necesaria para cliente {cliente_id}")
+                print(f"Negociación necesaria para cliente {cliente_id}")
+
+            return pc
+
+        except Exception as e:
+            logger.error(f"Error al crear conexión peer: {e}")
+            print(f"Error al crear conexión peer: {e}")
+            await self.cerrar_conexion(cliente_id)
+            raise
+
     async def manejar_offer(
         self,
         cliente_id: str,
-        sdp: str,
-        camara_id: int
+        sdp: str, 
+        camara_id: int,
+        manejador_webrtc: ManejadorWebRTC,
+        deteccion_activada: bool = False
     ) -> str:
-        """Maneja una oferta SDP y retorna respuesta"""
-        # Crear conexión peer si no existe
-        if cliente_id not in self.conexiones_peer:
-            pc = await self.crear_conexion_peer(cliente_id, camara_id)
-        else:
-            pc = self.conexiones_peer[cliente_id]
-        
-        # Establecer descripción remota
-        offer = RTCSessionDescription(sdp=sdp, type="offer")
-        await pc.setRemoteDescription(offer)
-        
-        # Crear respuesta
-        answer = await pc.createAnswer()
-        await pc.setLocalDescription(answer)
-        
-        return pc.localDescription.sdp
+        try:
+            if not sdp:
+                raise ValueError("SDP no puede estar vacío")
+
+            pc = await self.crear_conexion_peer(
+                cliente_id, 
+                camara_id, 
+                manejador_webrtc, 
+                deteccion_activada
+            )
+
+            # Crear y establecer oferta remota
+            offer = RTCSessionDescription(sdp=sdp, type="offer")
+            await pc.setRemoteDescription(offer)
+
+            # Crear respuesta
+            answer = await pc.createAnswer()
+            if not answer:
+                raise ValueError("No se pudo crear respuesta")
+
+            # Establecer descripción local
+            await pc.setLocalDescription(answer)
+
+            if not pc.localDescription or not pc.localDescription.sdp:
+                raise ValueError("SDP de respuesta vacío")
+
+            logger.info(f"Respuesta SDP creada para cliente {cliente_id}")
+            print(f"Respuesta SDP creada para cliente {cliente_id}")
+            return pc.localDescription.sdp
+
+        except Exception as e:
+            logger.error(f"Error en manejar_offer: {str(e)}")
+            print(f"Error en manejar_offer: {str(e)}")
+            await self.cerrar_conexion(cliente_id)
+            raise
+    
+    async def manejar_comando(self, cliente_id: str, mensaje: dict):
+        if mensaje.get("tipo") == "iniciar_deteccion":
+            self.deteccion_activada[cliente_id] = True
+        elif mensaje.get("tipo") == "detener_deteccion":
+            self.deteccion_activada[cliente_id] = False
+    
+    async def cerrar_conexion(self, cliente_id: str):
+        """Cierra y limpia recursos de una conexión"""
+        try:
+            if cliente_id in self.conexiones_peer:
+                pc = self.conexiones_peer[cliente_id]
+                await pc.close()
+                del self.conexiones_peer[cliente_id]
+            
+            if cliente_id in self.pipelines:
+                try:
+                    self.pipelines[cliente_id].reiniciar()
+                except Exception as e:
+                    logger.error(f"Error al reiniciar pipeline: {e}")
+                    print(f"Error al reiniciar pipeline: {e}")
+                finally:
+                    del self.pipelines[cliente_id]
+            
+            if cliente_id in self.deteccion_activada:
+                del self.deteccion_activada[cliente_id]
+            
+            logger.info(f"Conexión cerrada para cliente {cliente_id}")
+            print(f"Conexión cerrada para cliente {cliente_id}")
+            
+        except Exception as e:
+            logger.error(f"Error al cerrar conexión: {e}")
+            print(f"Error al cerrar conexión: {e}")
     
     async def manejar_ice_candidate(
         self,
         cliente_id: str,
         candidate: Dict[str, Any]
     ):
-        """Maneja un candidato ICE"""
         if cliente_id in self.conexiones_peer:
             pc = self.conexiones_peer[cliente_id]
             from aiortc import RTCIceCandidate
@@ -179,26 +275,38 @@ class ManejadorStreaming:
             
             await pc.addIceCandidate(ice_candidate)
     
-    async def cerrar_conexion(self, cliente_id: str):
-        """Cierra una conexión peer"""
-        if cliente_id in self.conexiones_peer:
-            pc = self.conexiones_peer[cliente_id]
-            await pc.close()
-            del self.conexiones_peer[cliente_id]
-        
-        if cliente_id in self.pipelines:
-            self.pipelines[cliente_id].reiniciar()
-            del self.pipelines[cliente_id]
-        
-        logger.info(f"Conexión cerrada para cliente {cliente_id}")
-        print(f"Conexión cerrada para cliente {cliente_id}")
-    
     def obtener_estadisticas_stream(self, cliente_id: str) -> Optional[Dict[str, Any]]:
-        """Obtiene estadísticas del stream"""
         if cliente_id in self.pipelines:
             return self.pipelines[cliente_id].obtener_estadisticas()
         return None
+    
+    def crear_pipeline(self, cliente_id: str) -> PipelineDeteccion:
+        """Crea un nuevo pipeline de procesamiento"""
+        try:
+            # Crear detectores
+            detector_personas = DetectorPersonas(
+                cargador_modelos.obtener_modelo('yolo')
+            )
+            tracker_personas = TrackerPersonas()
+            detector_violencia = DetectorViolencia()
 
+            # Crear pipeline
+            pipeline = PipelineDeteccion(
+                detector_personas=detector_personas,
+                tracker_personas=tracker_personas,
+                detector_violencia=detector_violencia,
+                servicio_alarma=self.servicio_alarma,
+                servicio_notificaciones=None,  # Por ahora None
+                servicio_incidentes=None       # Por ahora None
+            )
 
-# Instancia global del manejador
+            logger.info(f"Pipeline creado para cliente {cliente_id}")
+            print(f"Pipeline creado para cliente {cliente_id}")
+            return pipeline
+
+        except Exception as e:
+            logger.error(f"Error creando pipeline: {e}")
+            print(f"Error creando pipeline: {e}")
+            raise
+
 manejador_streaming = ManejadorStreaming()

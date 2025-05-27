@@ -18,7 +18,6 @@ class ServicioIncidentes:
         self.db = db
         
     async def crear_incidente(self, datos_incidente: Dict[str, Any]) -> Incidente:
-        """Crea un nuevo incidente"""
         try:
             incidente = Incidente(**datos_incidente)
             self.db.add(incidente)
@@ -28,7 +27,6 @@ class ServicioIncidentes:
             logger.info(f"Incidente creado: ID {incidente.id}")
             print(f"Incidente creado: ID {incidente.id}")
             return incidente
-            
         except Exception as e:
             logger.error(f"Error al crear incidente: {e}")
             print(f"Error al crear incidente: {e}")
@@ -36,7 +34,6 @@ class ServicioIncidentes:
             raise
     
     async def obtener_incidente(self, incidente_id: int) -> Optional[Incidente]:
-        """Obtiene un incidente por ID"""
         try:
             resultado = await self.db.execute(
                 select(Incidente).where(Incidente.id == incidente_id)
@@ -51,19 +48,17 @@ class ServicioIncidentes:
         self,
         limite: int = 100,
         offset: int = 0,
-        estado: Optional[EstadoIncidente] = None,  # Usar el Enum EstadoIncidente
+        estado: Optional[EstadoIncidente] = None,
         camara_id: Optional[int] = None,
         fecha_inicio: Optional[datetime] = None,
         fecha_fin: Optional[datetime] = None
     ) -> List[Incidente]:
-        """Lista incidentes con filtros opcionales"""
         try:
             query = select(Incidente)
             
-            # Aplicar filtros
             condiciones = []
             if estado:
-                condiciones.append(Incidente.estado == estado)  # Comparar con el Enum
+                condiciones.append(Incidente.estado == estado)
             if camara_id:
                 condiciones.append(Incidente.camara_id == camara_id)
             if fecha_inicio:
@@ -74,13 +69,11 @@ class ServicioIncidentes:
             if condiciones:
                 query = query.where(and_(*condiciones))
             
-            # Ordenar por fecha descendente
             query = query.order_by(Incidente.fecha_hora_inicio.desc())
             query = query.limit(limite).offset(offset)
             
             resultado = await self.db.execute(query)
             return resultado.scalars().all()
-            
         except Exception as e:
             logger.error(f"Error al listar incidentes: {e}")
             print(f"Error al listar incidentes: {e}")
@@ -91,22 +84,17 @@ class ServicioIncidentes:
         incidente_id: int,
         datos_actualizacion: Dict[str, Any]
     ) -> Optional[Incidente]:
-        """Actualiza un incidente existente"""
         try:
             incidente = await self.obtener_incidente(incidente_id)
             if not incidente:
                 return None
             
-            # Actualizar campos
             for campo, valor in datos_actualizacion.items():
                 if hasattr(incidente, campo):
                     setattr(incidente, campo, valor)
             
-            # Si se está resolviendo, agregar fecha de resolución
-            if datos_actualizacion.get('estado') == EstadoIncidente.RESUELTO:  # Usar el Enum
+            if datos_actualizacion.get('estado') == EstadoIncidente.RESUELTO:
                 incidente.fecha_resolucion = datetime.now()
-                
-                # Calcular duración si no se ha calculado
                 if incidente.fecha_hora_fin and not incidente.duracion_segundos:
                     duracion = incidente.fecha_hora_fin - incidente.fecha_hora_inicio
                     incidente.duracion_segundos = int(duracion.total_seconds())
@@ -117,7 +105,6 @@ class ServicioIncidentes:
             logger.info(f"Incidente {incidente_id} actualizado")
             print(f"Incidente {incidente_id} actualizado")
             return incidente
-            
         except Exception as e:
             logger.error(f"Error al actualizar incidente: {e}")
             print(f"Error al actualizar incidente: {e}")
@@ -129,15 +116,12 @@ class ServicioIncidentes:
         fecha_inicio: Optional[datetime] = None,
         fecha_fin: Optional[datetime] = None
     ) -> Dict[str, Any]:
-        """Obtiene estadísticas de incidentes"""
         try:
-            # Si no se especifican fechas, usar últimos 30 días
             if not fecha_fin:
                 fecha_fin = datetime.now()
             if not fecha_inicio:
                 fecha_inicio = fecha_fin - timedelta(days=30)
             
-            # Query base con filtro de fechas
             query_base = select(Incidente).where(
                 and_(
                     Incidente.fecha_hora_inicio >= fecha_inicio,
@@ -151,23 +135,24 @@ class ServicioIncidentes:
             
             # Incidentes por estado
             resultado_estados = await self.db.execute(
-                query_base.with_only_columns([Incidente.estado, func.count(Incidente.estado)])
+                query_base.with_only_columns(Incidente.estado, func.count(Incidente.estado))  # Desempaquetar argumentos
                 .group_by(Incidente.estado)
             )
-            estados_count = {estado.value: 0 for estado in EstadoIncidente}  # Inicializar con valores del Enum
+            estados_count = {estado.value: 0 for estado in EstadoIncidente}
             for estado, count in resultado_estados:
-                estados_count[estado.value] = count
+                if estado is not None:  # Asegurar que estado no sea None
+                    estados_count[estado.value] = count
             
             # Calcular tiempo promedio de respuesta
             tiempos_respuesta = []
-            for incidente in await self.db.execute(query_base):
+            resultado_incidentes = await self.db.execute(query_base)
+            for incidente in resultado_incidentes.scalars().all():
                 if incidente.fecha_resolucion:
                     tiempo = (incidente.fecha_resolucion - incidente.fecha_hora_inicio).total_seconds()
                     tiempos_respuesta.append(tiempo)
             
             tiempo_respuesta_promedio = (
-                sum(tiempos_respuesta) / len(tiempos_respuesta)
-                if tiempos_respuesta else 0
+                sum(tiempos_respuesta) / len(tiempos_respuesta) if tiempos_respuesta else 0
             )
             
             return {
@@ -179,7 +164,6 @@ class ServicioIncidentes:
                     'fin': fecha_fin.isoformat()
                 }
             }
-            
         except Exception as e:
             logger.error(f"Error al obtener estadísticas: {e}")
             print(f"Error al obtener estadísticas: {e}")

@@ -57,19 +57,27 @@ class ServicioCamaras:
         try:
             query = select(Camara)
             
+            # Solo aplicar filtro si se solicita específicamente
             if activas_solo:
-                query = query.where(Camara.estado == EstadoCamara.ACTIVA)  # Usar Enum
+                query = query.where(Camara.estado == EstadoCamara.ACTIVA)
             
+            # Ordenar por ID o nombre
+            query = query.order_by(Camara.id)
             query = query.limit(limite).offset(offset)
             
             resultado = await self.db.execute(query)
-            return resultado.scalars().all()
+            camaras = resultado.scalars().all()
+            
+            logger.info(f"Listando {len(camaras)} cámaras (activas_solo={activas_solo})")
+            print(f"Listando {len(camaras)} cámaras (activas_solo={activas_solo})")
+            
+            return camaras
             
         except Exception as e:
             logger.error(f"Error al listar cámaras: {e}")
             print(f"Error al listar cámaras: {e}")
             return []
-    
+        
     async def actualizar_estado_camara(
         self,
         camara_id: int,
