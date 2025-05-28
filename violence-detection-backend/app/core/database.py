@@ -7,6 +7,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.exc import SQLAlchemyError
 from app.config import configuracion
 from app.utils.logger import obtener_logger
+import asyncio
 
 logger = obtener_logger(__name__)
 
@@ -81,13 +82,21 @@ async def inicializar_db():
 
 async def cerrar_db():
     """
-    Cierra todas las conexiones del pool de la base de datos.
+    Cierra todas las conexiones del pool de la base de datos de forma segura.
     """
     try:
-        await motor.dispose()
-        logger.info("Conexiones de base de datos cerradas")
-        print("Conexiones de base de datos cerradas")
+        # 1. Esperar a que las conexiones activas terminen
+        await motor.dispose(close=True)
+        
+        # 2. Cerrar el pool explícitamente
+        if hasattr(motor, '_async_pool'):
+            pool = motor._async_pool
+            if pool is not None:
+                await asyncio.shield(pool.close())
+        
+        logger.info("✅ Conexiones de base de datos cerradas correctamente")
+        print("✅ Conexiones de base de datos cerradas correctamente")
+        
     except Exception as e:
-        logger.error(f"Error al cerrar conexiones de base de datos: {str(e)}")
-        print(f"Error al cerrar conexiones de base de datos: {str(e)}")
-        raise
+        logger.error(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")
+        print(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")

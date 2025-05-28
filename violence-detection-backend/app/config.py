@@ -51,7 +51,9 @@ class Configuracion(BaseSettings):
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     MODELOS_PATH: Path = BASE_DIR / "models_weights"
     UPLOAD_PATH: Path = BASE_DIR / "uploads"
-    VIDEO_EVIDENCE_PATH: Path = BASE_DIR / "evidencias"
+    # VIDEO_EVIDENCE_PATH: Path = BASE_DIR / "evidencias"
+    # En la clase Configuracion:
+    VIDEO_EVIDENCE_PATH: Path = Path(__file__).resolve().parent.parent / "evidencias"
     
     
     # Modelos IA

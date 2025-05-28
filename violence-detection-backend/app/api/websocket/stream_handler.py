@@ -145,9 +145,9 @@ class ManejadorStreaming:
             self.deteccion_activada[cliente_id] = deteccion_activada
 
             # Crear pipeline si no existe
+            # Crear pipeline si no existe - Agregar await aquí
             if cliente_id not in self.pipelines:
-                pipeline = self.crear_pipeline(cliente_id)
-                self.pipelines[cliente_id] = pipeline
+                self.pipelines[cliente_id] = await self.crear_pipeline(cliente_id)
 
             # Crear y agregar video track
             video_track = VideoTrackProcesado(
@@ -290,9 +290,15 @@ class ManejadorStreaming:
             return self.pipelines[cliente_id].obtener_estadisticas()
         return None
     
-    def crear_pipeline(self, cliente_id: str) -> PipelineDeteccion:
+    async def crear_pipeline(self, cliente_id: str) -> PipelineDeteccion:
         """Crea un nuevo pipeline de procesamiento"""
         try:
+            # Importar SesionAsincrona en lugar de SessionLocal
+            from app.core.database import SesionAsincrona
+            
+            # Crear sesión asíncrona
+            db = SesionAsincrona()
+            
             # Crear detectores
             detector_personas = DetectorPersonas(
                 cargador_modelos.obtener_modelo('yolo')
@@ -300,23 +306,30 @@ class ManejadorStreaming:
             tracker_personas = TrackerPersonas()
             detector_violencia = DetectorViolencia()
 
+            # Crear servicios con la sesión de DB
+            servicio_incidentes = ServicioIncidentes(db)
+            servicio_notificaciones = ServicioNotificaciones(db)
+
             # Crear pipeline
             pipeline = PipelineDeteccion(
                 detector_personas=detector_personas,
                 tracker_personas=tracker_personas,
                 detector_violencia=detector_violencia,
                 servicio_alarma=self.servicio_alarma,
-                servicio_notificaciones=None,  # Por ahora None
-                servicio_incidentes=None       # Por ahora None
+                servicio_notificaciones=servicio_notificaciones,
+                servicio_incidentes=servicio_incidentes,
+                session=db  # Pasar la sesión asíncrona
             )
 
-            logger.info(f"Pipeline creado para cliente {cliente_id}")
-            print(f"Pipeline creado para cliente {cliente_id}")
+            logger.info(f"✅ Pipeline creado para cliente {cliente_id}")
+            print(f"✅ Pipeline creado para cliente {cliente_id}")
             return pipeline
 
         except Exception as e:
-            logger.error(f"Error creando pipeline: {e}")
-            print(f"Error creando pipeline: {e}")
+            logger.error(f"❌ Error creando pipeline: {e}")
+            print(f"❌ Error creando pipeline: {e}")
+            import traceback
+            print(traceback.format_exc())
             raise
     
     
@@ -352,12 +365,41 @@ class ManejadorStreaming:
                 
                 # Reiniciar pipeline
                 if cliente_id in self.pipelines:
-                    self.pipelines[cliente_id].reiniciar()
-                
+                    pipeline = self.pipelines[cliente_id]
+                    pipeline.reiniciar()  # Este método no es async, así que no necesita await
+                    
         except Exception as e:
             logger.error(f"Error al desactivar detección: {e}")
             print(f"Error al desactivar detección: {e}")
 
+    async def cerrar_conexion(self, cliente_id: str):
+        """Cierra y limpia recursos de una conexión"""
+        try:
+            if cliente_id in self.conexiones_peer:
+                pc = self.conexiones_peer[cliente_id]
+                await pc.close()
+                del self.conexiones_peer[cliente_id]
+            
+            if cliente_id in self.pipelines:
+                try:
+                    pipeline = self.pipelines[cliente_id]
+                    pipeline.reiniciar()  # Este método no es async
+                    del self.pipelines[cliente_id]
+                except Exception as e:
+                    logger.error(f"Error al reiniciar pipeline: {e}")
+                    print(f"Error al reiniciar pipeline: {e}")
+            
+            if cliente_id in self.deteccion_activada:
+                del self.deteccion_activada[cliente_id]
+            
+            logger.info(f"Conexión cerrada para cliente {cliente_id}")
+            print(f"Conexión cerrada para cliente {cliente_id}")
+            
+        except Exception as e:
+            logger.error(f"Error al cerrar conexión: {e}")
+            print(f"Error al cerrar conexión: {e}")
+            
+            
     async def procesar_frame(self, frame: np.ndarray, cliente_id: str, camara_id: int) -> Dict[str, Any]:
         """Procesa un frame con detección si está activada"""
         try:

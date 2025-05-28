@@ -23,40 +23,82 @@ logger = obtener_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Maneja el ciclo de vida de la aplicación"""
-    # Startup
-    logger.info("Iniciando Software de Detección de Violencia Escolar")
-    print("Iniciando Software de Detección de Violencia Escolar")
-    
-    # Inicializar base de datos
-    await inicializar_db()
-    logger.info("Base de datos inicializada")
-    print("Base de datos inicializada")
-    
-    # Cargar modelos de IA
     try:
-        cargador_modelos.cargar_todos_los_modelos()
-        logger.info("Modelos de IA cargados exitosamente")
-        print("Modelos de IA cargados exitosamente")
+        # Startup
+        logger.info("Iniciando Software de Detección de Violencia Escolar")
+        print("Iniciando Software de Detección de Violencia Escolar")
+        
+        # Inicializar base de datos
+        await inicializar_db()
+        logger.info("Base de datos inicializada")
+        print("Base de datos inicializada")
+        
+        # Crear directorios necesarios
+        try:
+            configuracion.VIDEO_EVIDENCE_PATH.mkdir(parents=True, exist_ok=True)
+            (configuracion.VIDEO_EVIDENCE_PATH / "clips").mkdir(parents=True, exist_ok=True)
+            logger.info(f"✅ Directorios de evidencias creados en: {configuracion.VIDEO_EVIDENCE_PATH}")
+            print(f"✅ Directorios de evidencias creados en: {configuracion.VIDEO_EVIDENCE_PATH}")
+        except Exception as e:
+            logger.error(f"❌ Error al crear directorios de evidencias: {e}")
+            print(f"❌ Error al crear directorios de evidencias: {e}")
+        
+        # Cargar modelos de IA
+        try:
+            cargador_modelos.cargar_todos_los_modelos()
+            logger.info("Modelos de IA cargados exitosamente")
+            print("Modelos de IA cargados exitosamente")
+        except Exception as e:
+            logger.error(f"Error al cargar modelos: {e}")
+            print(f"Error al cargar modelos: {e}")
+            # Continuar sin modelos en desarrollo
+        
+            # Continuar sin modelos en desarrollo
+    
+        # Iniciar tareas en background
+        # asyncio.create_task(procesar_notificaciones())
+        
+        yield
+        
+        # Shutdown
+        print("Iniciando cierre ordenado de la aplicación...")
+        
+        # 1. Cerrar conexiones WebSocket primero
+        from app.api.websocket.stream_handler import manejador_streaming
+        for cliente_id in list(manejador_streaming.conexiones_peer.keys()):
+            await manejador_streaming.cerrar_conexion(cliente_id)
+        
+        # 2. Cancelar tareas pendientes
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        if tasks:
+            print(f"Cerrando {len(tasks)} tareas pendientes...")
+            for task in tasks:
+                task.cancel()
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Timeout esperando que las tareas terminen")
+        
+        # 3. Liberar recursos en orden
+        cargador_modelos.liberar_memoria()
+        
+        # 4. Cerrar base de datos explícitamente
+        try:
+            await cerrar_db()
+            await asyncio.sleep(1)  # Dar tiempo para que se cierren las conexiones
+        except Exception as e:
+            print(f"Error cerrando DB: {e}")
+        
+        print("✅ Aplicación cerrada correctamente")
+        
+    except asyncio.CancelledError:
+        print("Cierre de aplicación cancelado")
     except Exception as e:
-        logger.error(f"Error al cargar modelos: {e}")
-        print(f"Error al cargar modelos: {e}")
-        # Continuar sin modelos en desarrollo
-    
-    # Iniciar tareas en background
-    # asyncio.create_task(procesar_notificaciones())
-    
-    yield
-    
-    # Shutdown
-    logger.info("Cerrando aplicación")
-    print("Cerrando aplicación")
-    
-    # Liberar recursos
-    cargador_modelos.liberar_memoria()
-    await cerrar_db()
-    
-    logger.info("Aplicación cerrada correctamente")
-    print("Aplicación cerrada correctamente")
+        print(f"❌ Error durante el cierre: {e}")
+        raise
 
 
 # Crear aplicación FastAPI

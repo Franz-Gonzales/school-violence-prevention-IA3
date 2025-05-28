@@ -19,20 +19,28 @@ class ServicioIncidentes:
         
     async def crear_incidente(self, datos_incidente: Dict[str, Any]) -> Incidente:
         try:
+            # Debug
+            print("⏳ Creando incidente con datos:", datos_incidente)
+            
             incidente = Incidente(**datos_incidente)
             self.db.add(incidente)
+            
+            # Debug
+            print("⏳ Ejecutando commit...")
             await self.db.commit()
             await self.db.refresh(incidente)
             
-            logger.info(f"Incidente creado: ID {incidente.id}")
-            print(f"Incidente creado: ID {incidente.id}")
+            logger.info(f"✅ Incidente creado exitosamente: ID {incidente.id}")
+            print(f"✅ Incidente creado exitosamente: ID {incidente.id}")
             return incidente
         except Exception as e:
-            logger.error(f"Error al crear incidente: {e}")
-            print(f"Error al crear incidente: {e}")
+            logger.error(f"❌ Error en ServicioIncidentes.crear_incidente: {str(e)}")
+            print(f"❌ Error en ServicioIncidentes.crear_incidente: {str(e)}")
             await self.db.rollback()
+            import traceback
+            print(traceback.format_exc())
             raise
-    
+        
     async def obtener_incidente(self, incidente_id: int) -> Optional[Incidente]:
         try:
             resultado = await self.db.execute(
