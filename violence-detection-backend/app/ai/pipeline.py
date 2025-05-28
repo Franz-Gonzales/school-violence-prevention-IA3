@@ -69,90 +69,77 @@ class PipelineDeteccion:
             self.ubicacion = ubicacion
             self.frames_procesados += 1
             
-            resultado = {
-                'frame_procesado': None,
-                'personas_detectadas': [],
-                'violencia_detectada': False,
-                'probabilidad_violencia': 0.0,
-                'incidente_creado': False,
-                'alarma_activada': False
-            }
-            
             # 1. Detección de personas con YOLO
             detecciones, frame_procesado = self.detector_personas.detectar_con_procesamiento(frame)
             
             # 2. Tracking con DeepSORT
             personas_rastreadas = self.tracker_personas.actualizar(frame, detecciones)
-            resultado['personas_detectadas'] = personas_rastreadas
             
-            # 3. Dibujar bounding boxes con IDs
+            # 3. Dibujar bounding boxes
             for persona in personas_rastreadas:
                 frame_procesado = self.procesador_video.dibujar_bounding_box(
                     frame_procesado,
                     persona['bbox'],
-                    persona['id'],
-                    color=(0, 255, 0)
+                    persona['id']
                 )
+
+            # 4. Buffer circular para detección de violencia
+            self.detector_violencia.agregar_frame(frame_procesado.copy())
             
-            # 4. Agregar frame al detector de violencia
-            self.detector_violencia.agregar_frame(frame.copy())
-            
+            resultado = {
+                'frame_procesado': frame_procesado,
+                'personas_detectadas': personas_rastreadas,
+                'violencia_detectada': False,
+                'probabilidad_violencia': 0.0
+            }
+
             # Detectar violencia cada N frames
             if self.frames_procesados % configuracion.TIMESFORMER_CONFIG["num_frames"] == 0:
-                deteccion_violencia = self.detector_violencia.detectar()
-                resultado['violencia_detectada'] = deteccion_violencia['violencia_detectada']
-                resultado['probabilidad_violencia'] = deteccion_violencia['probabilidad']
-                
-                # Si se detecta violencia
-                if deteccion_violencia['violencia_detectada']:
-                    logger.warning(f"Violencia detectada en cámara {camara_id}")
-                    
-                    # Agregar alerta visual al frame
+                deteccion = self.detector_violencia.detectar()
+                resultado.update(deteccion)
+
+                if deteccion['violencia_detectada']:
+                    # Agregar alerta visual
                     frame_procesado = self.procesador_video.agregar_texto_alerta(
                         frame_procesado,
-                        f"ALERTA: VIOLENCIA DETECTADA ({deteccion_violencia['probabilidad']:.2%})",
-                        posicion=(50, 50),
+                        f"¡ALERTA! Violencia detectada ({deteccion['probabilidad']:.1%})",
                         color=(0, 0, 255),
                         tamano=1.2
+                    )
+                    
+                    # Actualizar resultado
+                    resultado['frame_procesado'] = frame_procesado
+                    
+                    # Activar alarma y crear incidente
+                    await asyncio.gather(
+                        self._activar_alarma(),
+                        self._enviar_notificaciones(personas_rastreadas),
+                        self._crear_incidente(personas_rastreadas, deteccion['probabilidad'])
                     )
                     
                     # Iniciar grabación de evidencia si no está activa
                     if not self.grabando_evidencia:
                         self.grabando_evidencia = True
                         self.frames_evidencia = list(self.buffer_evidencia)
-                        
-                        # Ejecutar acciones en paralelo
-                        await asyncio.gather(
-                            self._activar_alarma(),
-                            self._enviar_notificaciones(personas_rastreadas),
-                            self._crear_incidente(personas_rastreadas, deteccion_violencia['probabilidad'])
-                        )
-                        
-                        resultado['incidente_creado'] = True
-                        resultado['alarma_activada'] = True
-                
-                # Si estamos grabando evidencia
-                elif self.grabando_evidencia:
-                    self.frames_evidencia.append(frame_procesado.copy())
-                    
-                    # Si han pasado suficientes frames sin violencia, detener grabación
-                    if len(self.frames_evidencia) >= configuracion.DEFAULT_FPS * configuracion.CLIP_DURATION:
-                        await self._guardar_evidencia()
-                        self.grabando_evidencia = False
-                        self.frames_evidencia = []
+
+            # Agregar frame al buffer de evidencia
+            self.buffer_evidencia.append(frame_procesado.copy())
             
-            resultado['frame_procesado'] = frame_procesado
-            
+            return resultado
+
         except Exception as e:
-            logger.error(f"Error en pipeline de procesamiento: {e}")
-            print(f"Error en pipeline de procesamiento: {e}")
-        
-        return resultado
+            logger.error(f"Error en pipeline: {e}")
+            return {
+                'frame_procesado': frame,
+                'personas_detectadas': [],
+                'violencia_detectada': False,
+                'probabilidad_violencia': 0.0
+            }
     
     async def _activar_alarma(self):
         """Activa la alarma Tuya"""
         try:
-            await self.servicio_alarma.activar_alarma(duracion=10)
+            await self.servicio_alarma.activar_alarma(duracion=5)
         except Exception as e:
             logger.error(f"Error al activar alarma: {e}")
             print(f"Error al activar alarma: {e}")

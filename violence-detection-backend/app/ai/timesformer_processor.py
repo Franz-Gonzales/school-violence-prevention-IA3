@@ -61,10 +61,11 @@ class TimesFormerProcessor:
             
             processed_frames.append(frame)
         
+        
         # Apilar frames y reorganizar para ONNX
-        # [batch_size=1, channels=3, num_frames=8, height=224, width=224]
         batch = np.stack(processed_frames, axis=0)  # [T, H, W, C]
         batch = batch.transpose(3, 0, 1, 2)  # [C, T, H, W]
         batch = np.expand_dims(batch, axis=0)  # [B, C, T, H, W]
         
-        return batch.astype(np.float32)
+        # Convertir a float16 antes de retornar
+        return batch.astype(np.float16)  # Cambiar a float16

@@ -85,7 +85,7 @@ class Configuracion(BaseSettings):
     TUYA_LOCAL_KEY: Optional[str] = None
     TUYA_IP_ADDRESS: Optional[str] = None
     TUYA_DEVICE_VERSION: str = "3.5"
-    ALARMA_DURACION: int = 10
+    ALARMA_DURACION: int = 5
     
     # Notificaciones
     VAPID_PUBLIC_KEY: Optional[str] = None

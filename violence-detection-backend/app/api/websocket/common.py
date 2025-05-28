@@ -50,22 +50,52 @@ class ManejadorWebRTC:
         print(f"Cliente {cliente_id} desconectado")
     
     async def manejar_mensaje(self, cliente_id: str, mensaje: Dict):
+        """Maneja mensajes WebSocket"""
         tipo_mensaje = mensaje.get("tipo")
         logger.info(f"Manejando mensaje de tipo {tipo_mensaje} para cliente {cliente_id}")
         print(f"Manejando mensaje de tipo {tipo_mensaje} para cliente {cliente_id}")
+
         if tipo_mensaje == "offer":
             await self._manejar_offer(cliente_id, mensaje)
         elif tipo_mensaje == "answer":
             await self._manejar_answer(cliente_id, mensaje)
         elif tipo_mensaje == "ice_candidate":
             await self._manejar_ice_candidate(cliente_id, mensaje)
-        elif tipo_mensaje == "iniciar_stream":
-            await self._manejar_iniciar_stream(cliente_id, mensaje)
-        elif tipo_mensaje == "detener_stream":
-            await self._manejar_detener_stream(cliente_id, mensaje)
+        elif tipo_mensaje == "iniciar_deteccion":
+            await self._manejar_iniciar_deteccion(cliente_id, mensaje)
+        elif tipo_mensaje == "detener_deteccion":
+            await self._manejar_detener_deteccion(cliente_id, mensaje)
         else:
             logger.warning(f"Tipo de mensaje desconocido: {tipo_mensaje}")
             print(f"Tipo de mensaje desconocido: {tipo_mensaje}")
+
+    async def _manejar_iniciar_deteccion(self, cliente_id: str, mensaje: Dict):
+        """Maneja el inicio de detección"""
+        try:
+            from app.api.websocket.stream_handler import manejador_streaming
+            camara_id = int(mensaje.get("camara_id"))
+            await manejador_streaming.activar_deteccion(cliente_id, camara_id)
+            
+            # Enviar confirmación al cliente
+            await self.enviar_a_cliente(
+                cliente_id,
+                {
+                    "tipo": "deteccion_estado",
+                    "estado": "activa",
+                    "mensaje": "Detección de violencia activada"
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error al activar detección: {e}")
+            print(f"Error al activar detección: {e}")
+
+    async def _manejar_detener_deteccion(self, cliente_id: str, mensaje: Dict):
+        """Maneja la detención de detección"""
+        from app.api.websocket.stream_handler import manejador_streaming
+        camara_id = int(mensaje.get("camara_id"))
+        await manejador_streaming.desactivar_deteccion(cliente_id, camara_id)
+    
+    
     
     async def _manejar_offer(self, cliente_id: str, mensaje: Dict):
         destino_id = mensaje.get("destino_id")

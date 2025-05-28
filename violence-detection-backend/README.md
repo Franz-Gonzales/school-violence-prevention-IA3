@@ -173,3 +173,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Producción
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# para detectar el dispositivo de alarma
+- pip install tinytuya
+- python -m tinytuya scan
+- python -m tinytuya wizard

@@ -1,5 +1,5 @@
 {
-    "timestamp": 1748353782.1233382,
+    "timestamp": 1748408613.3099394,
     "devices": [
         {
             "id": "eb799c3ee9c924555eareu",
@@ -11,7 +11,7 @@
             "token": true,
             "wf_cfg": true,
             "sl": 0,
-            "clientLink": 3,
+            "clientLink": 2,
             "name": "",
             "key": "",
             "mac": "",

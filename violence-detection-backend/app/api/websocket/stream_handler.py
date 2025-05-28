@@ -1,28 +1,33 @@
 # app/api/websocket/stream_handler.py
 import cv2
 from typing import Optional, Dict, Any
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+import av
 from app.ai.model_loader import cargador_modelos
 from app.ai.pipeline import PipelineDeteccion
 from app.config import configuracion
 from app.utils.logger import obtener_logger
 from app.api.websocket.common import ManejadorWebRTC, manejador_webrtc
-
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration, RTCIceServer
+from aiortc import VideoStreamTrack, RTCPeerConnection, RTCConfiguration, RTCIceServer
 from app.ai.yolo_detector import DetectorPersonas
 from app.ai.deep_sort_tracker import TrackerPersonas
 from app.ai.violence_detector import DetectorViolencia
 from app.services.alarm_service import ServicioAlarma
 from app.services.notification_service import ServicioNotificaciones
 from app.services.incident_service import ServicioIncidentes
+from app.utils.logger import obtener_logger
+from typing import Dict
+import numpy as np
+from app.ai.pipeline import PipelineDeteccion
 
-from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration, RTCIceServer
 
 
 
 logger = obtener_logger(__name__)
 
 class VideoTrackProcesado(VideoStreamTrack):
-    def __init__(self, source: int, pipeline: PipelineDeteccion, manejador_webrtc: ManejadorWebRTC, cliente_id: str, camara_id: int, deteccion_activada: bool = False):
+    def __init__(self, source: int, pipeline: PipelineDeteccion, manejador_webrtc: ManejadorWebRTC, 
+                cliente_id: str, camara_id: int, deteccion_activada: bool = False):
         super().__init__()
         self.source = source
         self.pipeline = pipeline
@@ -47,6 +52,7 @@ class VideoTrackProcesado(VideoStreamTrack):
         logger.info(f"Cámara {self.source} iniciada exitosamente")
         print(f"Cámara {self.source} iniciada exitosamente")
 
+
     async def recv(self):
         try:
             pts, time_base = await self.next_timestamp()
@@ -56,8 +62,9 @@ class VideoTrackProcesado(VideoStreamTrack):
 
             ret, frame = self.cap.read()
             if not ret:
-                logger.error("Error al leer frame de la cámara")
                 return None
+
+            frame_procesado = frame.copy()
 
             # Procesar frame si la detección está activada
             if self.deteccion_activada:
@@ -66,34 +73,37 @@ class VideoTrackProcesado(VideoStreamTrack):
                     camara_id=self.camara_id,
                     ubicacion="Principal"
                 )
-                if resultado.get('violencia_detectada'):
-                    await self.manejador_webrtc.enviar_a_cliente(
-                        self.cliente_id,
-                        {
-                            "tipo": "deteccion_violencia",
-                            "violencia_detectada": resultado['violencia_detectada'],
-                            "probabilidad": resultado['probabilidad_violencia'],
-                            "personas_involucradas": len(resultado['personas_detectadas'])
-                        }
-                    )
-                frame = resultado.get('frame_procesado', frame)
+                
+                if resultado:
+                    # Obtener frame procesado con detecciones
+                    frame_procesado = resultado.get("frame_procesado", frame_procesado)
+                    
+                    # Si hay detección de violencia, enviar al cliente
+                    if resultado.get("violencia_detectada"):
+                        await self.manejador_webrtc.enviar_a_cliente(
+                            self.cliente_id,
+                            {
+                                "tipo": "deteccion_violencia",
+                                "probabilidad": resultado["probabilidad_violencia"],
+                                "mensaje": resultado.get("mensaje", "¡ALERTA! Violencia detectada"),
+                                "personas_detectadas": len(resultado.get("personas_detectadas", []))
+                            }
+                        )
 
             # Convertir BGR a RGB para WebRTC
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_procesado = cv2.cvtColor(frame_procesado, cv2.COLOR_BGR2RGB)
             
             # Crear VideoFrame
-            from av import VideoFrame
-            video_frame = VideoFrame.from_ndarray(frame, format="rgb24")
+            video_frame = av.VideoFrame.from_ndarray(frame_procesado, format="rgb24")
             video_frame.pts = pts
             video_frame.time_base = time_base
 
             return video_frame
 
         except Exception as e:
-            logger.error(f"Error en recv: {str(e)}")
             print(f"Error en recv: {str(e)}")
             return None
-        
+
     def stop(self):
         """Libera recursos"""
         if self.cap:
@@ -141,7 +151,7 @@ class ManejadorStreaming:
 
             # Crear y agregar video track
             video_track = VideoTrackProcesado(
-                source=1,
+                source=1, # ID de la cámara, puede ser dinámico
                 pipeline=self.pipelines[cliente_id],
                 manejador_webrtc=manejador_webrtc,
                 cliente_id=cliente_id,
@@ -308,5 +318,70 @@ class ManejadorStreaming:
             logger.error(f"Error creando pipeline: {e}")
             print(f"Error creando pipeline: {e}")
             raise
+    
+    
+    async def activar_deteccion(self, cliente_id: str, camara_id: int):
+        """Activa la detección de violencia"""
+        try:
+            if cliente_id in self.deteccion_activada:
+                self.deteccion_activada[cliente_id] = True
+                print(f"Detección activada para cliente {cliente_id}")
 
+                # Reiniciar pipeline si existe
+                if cliente_id in self.pipelines:
+                    self.pipelines[cliente_id].reiniciar()
+                    print(f"Pipeline reiniciado para cliente {cliente_id}")
+                
+                # Actualizar VideoTrack
+                if cliente_id in self.conexiones_peer:
+                    for sender in self.conexiones_peer[cliente_id].getSenders():
+                        if isinstance(sender.track, VideoTrackProcesado):
+                            sender.track.deteccion_activada = True
+                            print(f"Track de video actualizado para cliente {cliente_id}")
+                    
+        except Exception as e:
+            print(f"Error al activar detección: {e}")
+
+    async def desactivar_deteccion(self, cliente_id: str, camara_id: int):
+        """Desactiva la detección de violencia"""
+        try:
+            if cliente_id in self.deteccion_activada:
+                self.deteccion_activada[cliente_id] = False
+                logger.info(f"Detección desactivada para cliente {cliente_id}")
+                print(f"Detección desactivada para cliente {cliente_id}")
+                
+                # Reiniciar pipeline
+                if cliente_id in self.pipelines:
+                    self.pipelines[cliente_id].reiniciar()
+                
+        except Exception as e:
+            logger.error(f"Error al desactivar detección: {e}")
+            print(f"Error al desactivar detección: {e}")
+
+    async def procesar_frame(self, frame: np.ndarray, cliente_id: str, camara_id: int) -> Dict[str, Any]:
+        """Procesa un frame con detección si está activada"""
+        try:
+            if self.deteccion_activada.get(cliente_id, False):
+                # pipeline = self.pipelines.get(cliente_id)
+                if pipeline := self.pipelines.get(cliente_id):
+                    resultado = await pipeline.procesar_frame(
+                        frame,
+                        camara_id=camara_id,
+                        ubicacion="Principal"
+                    )
+                    print(f"Frame procesado para cliente {cliente_id}")
+                    return resultado
+                        
+            return {
+                "frame_procesado": frame,
+                "personas_detectadas": [],
+                "violencia_detectada": False,
+                "probabilidad_violencia": 0.0
+            }
+
+        except Exception as e:
+            print(f"Error procesando frame: {e}")
+            return None
+        
+        
 manejador_streaming = ManejadorStreaming()
