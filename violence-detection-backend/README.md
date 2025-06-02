@@ -178,3 +178,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 - pip install tinytuya
 - python -m tinytuya scan
 - python -m tinytuya wizard
+
+# Para generar las librerias en python
+- pip freeze > requirements.txt
+Mejor estructudado
+- pip list --format=freeze > requirements.txt
+
+- pip install -r requirements.txt
