@@ -16,6 +16,8 @@ from app.services.incident_service import ServicioIncidentes
 import numpy as np
 import socket
 from asyncio import Queue
+import time
+import threading
 
 logger = obtener_logger(__name__)
 
@@ -29,10 +31,25 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.camara_id = camara_id
         self.deteccion_activada = deteccion_activada
         self.frame_count = 0
-        self.frame_queue = asyncio.Queue(maxsize=10)
-        self.latest_frame = None
-        self.processing_task = None
+        
+        # Colas separadas para streaming y procesamiento
+        self.stream_queue = asyncio.Queue(maxsize=5)  # Cola para streaming (más pequeña)
+        self.processing_queue = asyncio.Queue(maxsize=30)  # Cola para procesamiento
+        
+        # Control de tiempo
+        self.last_frame_time = time.time()
+        self.target_fps = configuracion.CAMERA_FPS
+        self.frame_interval = 1.0 / self.target_fps
+        
+        # Dimensiones fijas para consistencia
+        self.stream_width = configuracion.DISPLAY_WIDTH
+        self.stream_height = configuracion.DISPLAY_HEIGHT
+        
         self.cap = None
+        self.capture_thread = None
+        self.processing_task = None
+        self.running = True
+        
         self._start()
         
         # Iniciar procesamiento si está activado
@@ -46,48 +63,116 @@ class VideoTrackProcesado(VideoStreamTrack):
         if not self.cap.isOpened():
             raise RuntimeError(f"No se pudo abrir la cámara {self.source} con DirectShow")
         
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, configuracion.DISPLAY_WIDTH)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, configuracion.DISPLAY_HEIGHT)
-        self.cap.set(cv2.CAP_PROP_FPS, configuracion.CAMERA_FPS)
+        # Configurar cámara con resolución fija
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.stream_width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.stream_height)
+        self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-        print(f"Cámara {self.source} iniciada: {configuracion.DISPLAY_WIDTH}x{configuracion.DISPLAY_HEIGHT}@{configuracion.CAMERA_FPS}FPS")
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimizar buffer
+        
+        print(f"Cámara {self.source} configurada: {self.stream_width}x{self.stream_height}@{self.target_fps}FPS")
+        
+        # Iniciar hilo de captura
+        self.capture_thread = threading.Thread(target=self._capture_frames, daemon=True)
+        self.capture_thread.start()
 
+    def _capture_frames(self):
+        """Hilo dedicado para captura de frames"""
+        last_capture_time = time.time()
+        
+        while self.running and self.cap and self.cap.isOpened():
+            current_time = time.time()
+            
+            # Control de FPS en captura
+            if current_time - last_capture_time < self.frame_interval:
+                time.sleep(0.001)  # Pequeña pausa
+                continue
+                
+            ret, frame = self.cap.read()
+            if not ret:
+                time.sleep(0.01)
+                continue
+            
+            # Asegurar dimensiones consistentes
+            if frame.shape[:2] != (self.stream_height, self.stream_width):
+                frame = cv2.resize(frame, (self.stream_width, self.stream_height))
+            
+            frame_data = {
+                'frame': frame.copy(),
+                'timestamp': current_time,
+                'frame_id': self.frame_count
+            }
+            
+            # Agregar a cola de streaming (prioridad)
+            try:
+                self.stream_queue.put_nowait(frame_data)
+            except asyncio.QueueFull:
+                try:
+                    self.stream_queue.get_nowait()  # Remover frame viejo
+                    self.stream_queue.put_nowait(frame_data)
+                except:
+                    pass
+            
+            # Agregar a cola de procesamiento si está activo
+            if self.deteccion_activada:
+                try:
+                    self.processing_queue.put_nowait(frame_data)
+                except asyncio.QueueFull:
+                    try:
+                        self.processing_queue.get_nowait()  # Remover frame viejo
+                        self.processing_queue.put_nowait(frame_data)
+                    except:
+                        pass
+            
+            self.frame_count += 1
+            last_capture_time = current_time
 
     async def process_frames(self):
-        """Procesa frames en segundo plano"""
+        """Procesa frames en segundo plano de forma asíncrona"""
         try:
             print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
-            while self.deteccion_activada and self.cap and self.cap.isOpened():
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("No se pudo leer el frame")
-                    await asyncio.sleep(0.1)
-                    continue
-
-                self.frame_count += 1
-                
-                # Procesar cada N frames según configuración
-                if self.frame_count % configuracion.PROCESS_EVERY_N_FRAMES == 0:
-                    try:
-                        # Redimensionar para procesamiento
-                        frame_proc = cv2.resize(frame.copy(), 
-                            (configuracion.YOLO_RESOLUTION_WIDTH, configuracion.YOLO_RESOLUTION_HEIGHT))
+            frame_buffer = []
+            last_process_time = time.time()
+            
+            while self.deteccion_activada and self.running:
+                try:
+                    # Obtener frame de la cola de procesamiento
+                    frame_data = await asyncio.wait_for(
+                        self.processing_queue.get(), 
+                        timeout=0.1
+                    )
+                    
+                    frame = frame_data['frame']
+                    frame_id = frame_data['frame_id']
+                    
+                    # Procesar cada N frames según configuración
+                    if frame_id % configuracion.PROCESS_EVERY_N_FRAMES == 0:
+                        current_time = time.time()
                         
-                        print(f"Procesando frame {self.frame_count} para cliente {self.cliente_id}")
+                        # Evitar procesar demasiado rápido
+                        if current_time - last_process_time < 0.1:  # Máximo 10 FPS de procesamiento
+                            continue
                         
-                        # Procesar frame
-                        resultado = await self.pipeline.procesar_frame(
-                            frame_proc,
-                            camara_id=self.camara_id,
-                            ubicacion="Principal"
-                        )
-                        
-                        if resultado:
-                            frame_procesado = resultado.get("frame_procesado", frame.copy())
-                            self.latest_frame = frame_procesado
+                        try:
+                            # Redimensionar para procesamiento (en hilo separado)
+                            frame_proc = await asyncio.get_event_loop().run_in_executor(
+                                None, 
+                                lambda: cv2.resize(
+                                    frame.copy(), 
+                                    (configuracion.YOLO_RESOLUTION_WIDTH, configuracion.YOLO_RESOLUTION_HEIGHT)
+                                )
+                            )
                             
-                            # Notificar detección
-                            if resultado.get("violencia_detectada"):
+                            print(f"Procesando frame {frame_id} para cliente {self.cliente_id}")
+                            
+                            # Procesar frame de forma asíncrona
+                            resultado = await self.pipeline.procesar_frame(
+                                frame_proc,
+                                camara_id=self.camara_id,
+                                ubicacion="Principal"
+                            )
+                            
+                            if resultado and resultado.get("violencia_detectada"):
                                 print(f"Violencia detectada para cliente {self.cliente_id}")
                                 await self.manejador_webrtc.enviar_a_cliente(
                                     self.cliente_id,
@@ -99,17 +184,20 @@ class VideoTrackProcesado(VideoStreamTrack):
                                     }
                                 )
                             
-                            # Agregar frame a la cola
-                            try:
-                                await self.frame_queue.put(frame_procesado)
-                            except asyncio.QueueFull:
-                                _ = await self.frame_queue.get()
-                                await self.frame_queue.put(frame_procesado)
-                        
-                    except Exception as e:
-                        print(f"Error procesando frame {self.frame_count}: {e}")
+                            last_process_time = current_time
+                            
+                        except Exception as e:
+                            print(f"Error procesando frame {frame_id}: {e}")
                     
-                await asyncio.sleep(1/configuracion.CAMERA_FPS)
+                    # Pequeña pausa para no sobrecargar
+                    await asyncio.sleep(0.001)
+                    
+                except asyncio.TimeoutError:
+                    # No hay frames, continuar
+                    continue
+                except Exception as e:
+                    print(f"Error en process_frames: {e}")
+                    break
                     
         except Exception as e:
             print(f"Error en process_frames: {e}")
@@ -133,38 +221,45 @@ class VideoTrackProcesado(VideoStreamTrack):
         print("Tarea de procesamiento detenida")
     
     async def recv(self):
+        """Recibe frames para streaming WebRTC"""
         try:
             pts, time_base = await self.next_timestamp()
 
-            if self.cap is None or not self.cap.isOpened():
-                self._start()
+            if not self.running or not self.cap or not self.cap.isOpened():
+                return None
 
-            frame_procesado = None
+            # Control de timing para FPS consistente
+            current_time = time.time()
+            time_since_last = current_time - self.last_frame_time
             
-            # Intentar obtener frame procesado de la cola
-            if self.deteccion_activada:
-                try:
-                    frame_procesado = await asyncio.wait_for(
-                        self.frame_queue.get(), 
-                        timeout=1/configuracion.CAMERA_FPS
-                    )
-                except (asyncio.TimeoutError, asyncio.QueueEmpty):
-                    pass
+            if time_since_last < self.frame_interval:
+                await asyncio.sleep(self.frame_interval - time_since_last)
 
-            # Si no hay frame procesado, usar frame directo
-            if frame_procesado is None:
-                ret, frame = self.cap.read()
-                if not ret:
-                    print("No se pudo leer el frame")
-                    return None
-                frame_procesado = frame
+            # Obtener frame de la cola de streaming
+            try:
+                frame_data = await asyncio.wait_for(
+                    self.stream_queue.get(), 
+                    timeout=self.frame_interval * 2
+                )
+                frame = frame_data['frame']
+            except asyncio.TimeoutError:
+                # Si no hay frame, usar el último disponible o frame negro
+                print("Timeout obteniendo frame para streaming")
+                frame = np.zeros((self.stream_height, self.stream_width, 3), dtype=np.uint8)
 
-            # Convertir y retornar frame
-            frame_rgb = cv2.cvtColor(frame_procesado, cv2.COLOR_BGR2RGB)
+            # Asegurar dimensiones consistentes
+            if frame.shape[:2] != (self.stream_height, self.stream_width):
+                frame = cv2.resize(frame, (self.stream_width, self.stream_height))
+
+            # Convertir a RGB para WebRTC
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Crear video frame con timestamps consistentes
             video_frame = av.VideoFrame.from_ndarray(frame_rgb, format="rgb24")
             video_frame.pts = pts
             video_frame.time_base = time_base
 
+            self.last_frame_time = time.time()
             return video_frame
 
         except Exception as e:
@@ -172,16 +267,19 @@ class VideoTrackProcesado(VideoStreamTrack):
             return None
 
     def stop(self):
+        """Detiene todos los procesos"""
+        self.running = False
         self.stop_processing()
+        
+        # Esperar a que termine el hilo de captura
+        if self.capture_thread and self.capture_thread.is_alive():
+            self.capture_thread.join(timeout=2)
+        
         if self.cap:
             self.cap.release()
             self.cap = None
-            print("Recursos de captura liberados")
-
-
-
-
-
+            
+        print("Recursos de captura liberados")
 
 
 class ManejadorStreaming:
@@ -239,10 +337,6 @@ class ManejadorStreaming:
                 if pc.connectionState == "failed":
                     await self.cerrar_conexion(cliente_id)
 
-            @pc.on("negotiationneeded")
-            async def on_negotiationneeded():
-                print(f"Negociación necesaria para cliente {cliente_id}")
-
             return pc
 
         except Exception as e:
@@ -293,6 +387,12 @@ class ManejadorStreaming:
         try:
             if cliente_id in self.conexiones_peer:
                 pc = self.conexiones_peer[cliente_id]
+                
+                # Detener tracks antes de cerrar
+                for sender in pc.getSenders():
+                    if sender.track and hasattr(sender.track, 'stop'):
+                        sender.track.stop()
+                
                 await pc.close()
                 del self.conexiones_peer[cliente_id]
             
