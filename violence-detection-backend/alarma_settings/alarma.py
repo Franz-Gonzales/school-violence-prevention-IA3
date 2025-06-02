@@ -2,10 +2,10 @@ import tinytuya
 import time
 
 # Configura las credenciales del dispositivo
-DEVICE_ID = "eb799c3ee9c924555eareu"  # Device ID de la sirena
-IP_ADDRESS = "192.168.84.231"           # IP de la sirena
-LOCAL_KEY = "jy$w'jTLv4;7gGJ9"       # Local Key de la sirena
-DEVICE_VERSION = "3.5"               # Versión del protocolo
+DEVICE_ID = "eba3f1c2eaca6f424bujr8"  # Device ID de la sirena
+IP_ADDRESS = "192.168.1.12"           # IP de la sirena
+LOCAL_KEY = "Lc.eV;q?b[4'_?5'"       # Local Key de la sirena
+DEVICE_VERSION = "3.5"   
 
 # Conectar al dispositivo
 device = tinytuya.Device(DEVICE_ID, IP_ADDRESS, LOCAL_KEY, version=DEVICE_VERSION)

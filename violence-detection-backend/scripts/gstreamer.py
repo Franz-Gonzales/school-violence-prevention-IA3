@@ -44,7 +44,7 @@ def open_camera_gstreamer(camera_id=0, width=640, height=480, fps=30):
     print("✓ Cámara abierta exitosamente con GStreamer")
     return cap
 
-def open_camera_directshow(camera_id=0, width=640, height=480, fps=30):
+def open_camera_directshow(camera_id=1, width=1280, height=720, fps=30):
     """
     Alternativa usando DirectShow (fallback)
     """
@@ -66,10 +66,10 @@ def main():
         print("Advertencia: Continuando sin verificar GStreamer...")
     
     # Configuración de la cámara
-    CAMERA_ID = 0
-    WIDTH = 640
-    HEIGHT = 480
-    FPS = 30
+    CAMERA_ID = 1
+    WIDTH = 1280
+    HEIGHT = 720
+    FPS = 15
     
     # Intentar abrir cámara con GStreamer
     cap = open_camera_gstreamer(CAMERA_ID, WIDTH, HEIGHT, FPS)

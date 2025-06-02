@@ -56,17 +56,24 @@ class DetectorViolencia:
     
     def detectar(self) -> Dict[str, Any]:
         """Realiza la detección de violencia en los frames del buffer"""
-        if len(self.buffer_frames) < self.config["num_frames"]:
-            return {
-                'violencia_detectada': False,
-                'probabilidad': 0.0,
-                'mensaje': f'Buffer incompleto ({len(self.buffer_frames)}/{self.config["num_frames"]} frames)'
-            }
-        
         try:
+            if len(self.buffer_frames) < self.config["num_frames"]:
+                print(f"Buffer incompleto: {len(self.buffer_frames)}/{self.config['num_frames']} frames")
+                return {
+                    'violencia_detectada': False,
+                    'probabilidad': 0.0,
+                    'mensaje': f'Buffer incompleto ({len(self.buffer_frames)}/{self.config["num_frames"]} frames)'
+                }
+            
+            print(f"Procesando {len(self.buffer_frames)} frames para detección")
+            
             # Preprocesar frames en FP16
             input_tensor = self.processor.preprocess_frames(self.buffer_frames)
-            input_tensor = input_tensor.astype(np.float16)
+            if input_tensor is None:
+                print("Error: input_tensor es None")
+                return {'violencia_detectada': False, 'probabilidad': 0.0}
+            
+            print(f"Shape del tensor de entrada: {input_tensor.shape}")
             
             # Realizar inferencia
             outputs = self.model.run(
@@ -76,11 +83,15 @@ class DetectorViolencia:
             
             # Calcular probabilidades
             logits = outputs[0][0].astype(np.float32)
-            probs = self._softmax(logits)  # Usando el método _softmax definido
+            probs = self._softmax(logits)
             
             # Obtener predicción
             prob_violencia = float(probs[1])
             es_violencia = prob_violencia >= self.threshold
+            
+            print(f"Probabilidad de violencia: {prob_violencia:.3f}")
+            if es_violencia:
+                print("¡ALERTA! Violencia detectada")
             
             self.violencia_detectada = es_violencia
             self.probabilidad_violencia = prob_violencia
@@ -89,12 +100,13 @@ class DetectorViolencia:
                 'violencia_detectada': es_violencia,
                 'probabilidad': prob_violencia,
                 'clase': self.config["labels"][1] if es_violencia else self.config["labels"][0],
-                'mensaje': 'ALERTA: Violencia detectada' if es_violencia else 'No se detectó violencia',
-                'personas_involucradas': 0  # Se actualizará desde el pipeline con el conteo real
+                'mensaje': 'ALERTA: Violencia detectada' if es_violencia else 'No se detectó violencia'
             }
-            
+                
         except Exception as e:
-            print(f"Error en detección: {str(e)}")
+            print(f"Error en detección de violencia: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             return {
                 'violencia_detectada': False,
                 'probabilidad': 0.0,

@@ -110,14 +110,25 @@ class CargadorModelos:
         logger.info("Cargando todos los modelos...")
         print("Cargando todos los modelos...")
         
-        # Cargar YOLO
-        self.cargar_yolo()
-        
-        # Cargar TimesFormer
-        self.cargar_timesformer()
-        
-        logger.info("Todos los modelos cargados exitosamente")
-        print("Todos los modelos cargados exitosamente")
+        try:
+            # Cargar YOLO
+            yolo = self.cargar_yolo()
+            print("✅ Modelo YOLO cargado")
+            
+            # Cargar TimesFormer
+            timesformer = self.cargar_timesformer()
+            print("✅ Modelo TimesFormer cargado")
+            
+            if not yolo or not timesformer:
+                raise RuntimeError("Error cargando modelos")
+                
+            logger.info("✅ Todos los modelos cargados exitosamente")
+            print("✅ Todos los modelos cargados exitosamente")
+            
+        except Exception as e:
+            logger.error(f"❌ Error cargando modelos: {e}")
+            print(f"❌ Error cargando modelos: {e}")
+            raise
     
     def obtener_modelo(self, nombre: str) -> Any:
         """Obtiene un modelo cargado"""

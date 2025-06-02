@@ -1,5 +1,5 @@
-# app/api/websocket/stream_handler.py
 import cv2
+import asyncio
 from typing import Optional, Dict, Any
 import av
 from app.ai.model_loader import cargador_modelos
@@ -8,26 +8,19 @@ from app.config import configuracion
 from app.utils.logger import obtener_logger
 from app.api.websocket.common import ManejadorWebRTC, manejador_webrtc
 from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack, RTCConfiguration, RTCIceServer
-from aiortc import VideoStreamTrack, RTCPeerConnection, RTCConfiguration, RTCIceServer
 from app.ai.yolo_detector import DetectorPersonas
-from app.ai.deep_sort_tracker import TrackerPersonas
 from app.ai.violence_detector import DetectorViolencia
 from app.services.alarm_service import ServicioAlarma
 from app.services.notification_service import ServicioNotificaciones
 from app.services.incident_service import ServicioIncidentes
-from app.utils.logger import obtener_logger
-from typing import Dict
 import numpy as np
-from app.ai.pipeline import PipelineDeteccion
-
-
-
+import socket
+from asyncio import Queue
 
 logger = obtener_logger(__name__)
 
 class VideoTrackProcesado(VideoStreamTrack):
-    def __init__(self, source: int, pipeline: PipelineDeteccion, manejador_webrtc: ManejadorWebRTC, 
-                cliente_id: str, camara_id: int, deteccion_activada: bool = False):
+    def __init__(self, source, pipeline, manejador_webrtc, cliente_id, camara_id, deteccion_activada=False):
         super().__init__()
         self.source = source
         self.pipeline = pipeline
@@ -35,24 +28,110 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.cliente_id = cliente_id
         self.camara_id = camara_id
         self.deteccion_activada = deteccion_activada
+        self.frame_count = 0
+        self.frame_queue = asyncio.Queue(maxsize=10)
+        self.latest_frame = None
+        self.processing_task = None
         self.cap = None
         self._start()
         
-    def _start(self):
-        """Inicializa la captura de video"""
-        print(f"Iniciando cámara {self.source}...")
-        self.cap = cv2.VideoCapture(self.source)
-        if not self.cap.isOpened():
-            raise RuntimeError(f"No se pudo abrir la cámara {self.source}")
+        # Iniciar procesamiento si está activado
+        if deteccion_activada:
+            self.start_processing()
         
-        # Configurar resolución y FPS
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, configuracion.DEFAULT_RESOLUTION[0])
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, configuracion.DEFAULT_RESOLUTION[1])
-        self.cap.set(cv2.CAP_PROP_FPS, configuracion.DEFAULT_FPS)
-        logger.info(f"Cámara {self.source} iniciada exitosamente")
-        print(f"Cámara {self.source} iniciada exitosamente")
+    def _start(self):
+        """Inicializa la captura de video con DirectShow"""
+        print(f"Iniciando cámara {self.source} con DirectShow...")
+        self.cap = cv2.VideoCapture(self.source, cv2.CAP_DSHOW)
+        if not self.cap.isOpened():
+            raise RuntimeError(f"No se pudo abrir la cámara {self.source} con DirectShow")
+        
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, configuracion.DISPLAY_WIDTH)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, configuracion.DISPLAY_HEIGHT)
+        self.cap.set(cv2.CAP_PROP_FPS, configuracion.CAMERA_FPS)
+        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        print(f"Cámara {self.source} iniciada: {configuracion.DISPLAY_WIDTH}x{configuracion.DISPLAY_HEIGHT}@{configuracion.CAMERA_FPS}FPS")
 
 
+    async def process_frames(self):
+        """Procesa frames en segundo plano"""
+        try:
+            print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
+            while self.deteccion_activada and self.cap and self.cap.isOpened():
+                ret, frame = self.cap.read()
+                if not ret:
+                    print("No se pudo leer el frame")
+                    await asyncio.sleep(0.1)
+                    continue
+
+                self.frame_count += 1
+                
+                # Procesar cada N frames según configuración
+                if self.frame_count % configuracion.PROCESS_EVERY_N_FRAMES == 0:
+                    try:
+                        # Redimensionar para procesamiento
+                        frame_proc = cv2.resize(frame.copy(), 
+                            (configuracion.YOLO_RESOLUTION_WIDTH, configuracion.YOLO_RESOLUTION_HEIGHT))
+                        
+                        print(f"Procesando frame {self.frame_count} para cliente {self.cliente_id}")
+                        
+                        # Procesar frame
+                        resultado = await self.pipeline.procesar_frame(
+                            frame_proc,
+                            camara_id=self.camara_id,
+                            ubicacion="Principal"
+                        )
+                        
+                        if resultado:
+                            frame_procesado = resultado.get("frame_procesado", frame.copy())
+                            self.latest_frame = frame_procesado
+                            
+                            # Notificar detección
+                            if resultado.get("violencia_detectada"):
+                                print(f"Violencia detectada para cliente {self.cliente_id}")
+                                await self.manejador_webrtc.enviar_a_cliente(
+                                    self.cliente_id,
+                                    {
+                                        "tipo": "deteccion_violencia",
+                                        "probabilidad": resultado.get("probabilidad_violencia", 0.0),
+                                        "mensaje": "¡ALERTA! Violencia detectada",
+                                        "personas_detectadas": len(resultado.get("personas_detectadas", []))
+                                    }
+                                )
+                            
+                            # Agregar frame a la cola
+                            try:
+                                await self.frame_queue.put(frame_procesado)
+                            except asyncio.QueueFull:
+                                _ = await self.frame_queue.get()
+                                await self.frame_queue.put(frame_procesado)
+                        
+                    except Exception as e:
+                        print(f"Error procesando frame {self.frame_count}: {e}")
+                    
+                await asyncio.sleep(1/configuracion.CAMERA_FPS)
+                    
+        except Exception as e:
+            print(f"Error en process_frames: {e}")
+            import traceback
+            print(traceback.format_exc())
+        finally:
+            print(f"Tarea de procesamiento finalizada para cliente {self.cliente_id}")
+    
+    def start_processing(self):
+        """Inicia la tarea de procesamiento en segundo plano"""
+        if not self.processing_task or self.processing_task.done():
+            self.deteccion_activada = True
+            self.processing_task = asyncio.create_task(self.process_frames())
+            print("Tarea de procesamiento iniciada")
+            
+    def stop_processing(self):
+        """Detiene la tarea de procesamiento"""
+        self.deteccion_activada = False
+        if self.processing_task:
+            self.processing_task.cancel()
+        print("Tarea de procesamiento detenida")
+    
     async def recv(self):
         try:
             pts, time_base = await self.next_timestamp()
@@ -60,55 +139,49 @@ class VideoTrackProcesado(VideoStreamTrack):
             if self.cap is None or not self.cap.isOpened():
                 self._start()
 
-            ret, frame = self.cap.read()
-            if not ret:
-                return None
-
-            frame_procesado = frame.copy()
-
-            # Procesar frame si la detección está activada
-            if self.deteccion_activada:
-                resultado = await self.pipeline.procesar_frame(
-                    frame,
-                    camara_id=self.camara_id,
-                    ubicacion="Principal"
-                )
-                
-                if resultado:
-                    # Obtener frame procesado con detecciones
-                    frame_procesado = resultado.get("frame_procesado", frame_procesado)
-                    
-                    # Si hay detección de violencia, enviar al cliente
-                    if resultado.get("violencia_detectada"):
-                        await self.manejador_webrtc.enviar_a_cliente(
-                            self.cliente_id,
-                            {
-                                "tipo": "deteccion_violencia",
-                                "probabilidad": resultado["probabilidad_violencia"],
-                                "mensaje": resultado.get("mensaje", "¡ALERTA! Violencia detectada"),
-                                "personas_detectadas": len(resultado.get("personas_detectadas", []))
-                            }
-                        )
-
-            # Convertir BGR a RGB para WebRTC
-            frame_procesado = cv2.cvtColor(frame_procesado, cv2.COLOR_BGR2RGB)
+            frame_procesado = None
             
-            # Crear VideoFrame
-            video_frame = av.VideoFrame.from_ndarray(frame_procesado, format="rgb24")
+            # Intentar obtener frame procesado de la cola
+            if self.deteccion_activada:
+                try:
+                    frame_procesado = await asyncio.wait_for(
+                        self.frame_queue.get(), 
+                        timeout=1/configuracion.CAMERA_FPS
+                    )
+                except (asyncio.TimeoutError, asyncio.QueueEmpty):
+                    pass
+
+            # Si no hay frame procesado, usar frame directo
+            if frame_procesado is None:
+                ret, frame = self.cap.read()
+                if not ret:
+                    print("No se pudo leer el frame")
+                    return None
+                frame_procesado = frame
+
+            # Convertir y retornar frame
+            frame_rgb = cv2.cvtColor(frame_procesado, cv2.COLOR_BGR2RGB)
+            video_frame = av.VideoFrame.from_ndarray(frame_rgb, format="rgb24")
             video_frame.pts = pts
             video_frame.time_base = time_base
 
             return video_frame
 
         except Exception as e:
-            print(f"Error en recv: {str(e)}")
+            print(f"Error en recv: {e}")
             return None
 
     def stop(self):
-        """Libera recursos"""
+        self.stop_processing()
         if self.cap:
             self.cap.release()
             self.cap = None
+            print("Recursos de captura liberados")
+
+
+
+
+
 
 
 class ManejadorStreaming:
@@ -117,7 +190,15 @@ class ManejadorStreaming:
         self.pipelines: Dict[str, PipelineDeteccion] = {}
         self.deteccion_activada: Dict[str, bool] = {}
         self.servicio_alarma = ServicioAlarma()
-        
+
+    def get_valid_ip_addresses(self):
+        """Obtiene direcciones IP válidas, excluyendo 169.254.x.x"""
+        valid_ips = []
+        for interface in socket.getaddrinfo(socket.gethostname(), None):
+            ip = interface[4][0]
+            if not ip.startswith('169.254.') and ip not in ('127.0.0.1', '::1'):
+                valid_ips.append(ip)
+        return valid_ips
 
     async def crear_conexion_peer(
         self,
@@ -130,28 +211,20 @@ class ManejadorStreaming:
             if cliente_id in self.conexiones_peer:
                 await self.cerrar_conexion(cliente_id)
 
-            # Configuración simplificada de RTCPeerConnection
+            valid_ips = self.get_valid_ip_addresses()
             config = RTCConfiguration(
-                iceServers=[
-                    RTCIceServer(
-                        urls=["stun:stun.l.google.com:19302"]
-                    )
-                ]
+                iceServers=[RTCIceServer(urls=[configuracion.STUN_SERVER])]
             )
 
             pc = RTCPeerConnection(configuration=config)
-            
             self.conexiones_peer[cliente_id] = pc
             self.deteccion_activada[cliente_id] = deteccion_activada
 
-            # Crear pipeline si no existe
-            # Crear pipeline si no existe - Agregar await aquí
             if cliente_id not in self.pipelines:
                 self.pipelines[cliente_id] = await self.crear_pipeline(cliente_id)
 
-            # Crear y agregar video track
             video_track = VideoTrackProcesado(
-                source=1, # ID de la cámara, puede ser dinámico
+                source=configuracion.CAMERA_INDEX,
                 pipeline=self.pipelines[cliente_id],
                 manejador_webrtc=manejador_webrtc,
                 cliente_id=cliente_id,
@@ -160,25 +233,20 @@ class ManejadorStreaming:
             )
             pc.addTrack(video_track)
 
-            # Manejar eventos de conexión
             @pc.on("connectionstatechange")
             async def on_connectionstatechange():
-                logger.info(f"Estado de conexión {cliente_id}: {pc.connectionState}")
                 print(f"Estado de conexión {cliente_id}: {pc.connectionState}")
                 if pc.connectionState == "failed":
                     await self.cerrar_conexion(cliente_id)
 
-            # Manejar negociación
             @pc.on("negotiationneeded")
             async def on_negotiationneeded():
-                logger.info(f"Negociación necesaria para cliente {cliente_id}")
                 print(f"Negociación necesaria para cliente {cliente_id}")
 
             return pc
 
         except Exception as e:
-            logger.error(f"Error al crear conexión peer: {e}")
-            print(f"Error al crear conexión peer: {e}")
+            print(f"Error al crear conexión peer: {str(e)}")
             await self.cerrar_conexion(cliente_id)
             raise
 
@@ -201,39 +269,27 @@ class ManejadorStreaming:
                 deteccion_activada
             )
 
-            # Crear y establecer oferta remota
             offer = RTCSessionDescription(sdp=sdp, type="offer")
             await pc.setRemoteDescription(offer)
 
-            # Crear respuesta
             answer = await pc.createAnswer()
             if not answer:
                 raise ValueError("No se pudo crear respuesta")
 
-            # Establecer descripción local
             await pc.setLocalDescription(answer)
 
             if not pc.localDescription or not pc.localDescription.sdp:
                 raise ValueError("SDP de respuesta vacío")
 
-            logger.info(f"Respuesta SDP creada para cliente {cliente_id}")
             print(f"Respuesta SDP creada para cliente {cliente_id}")
             return pc.localDescription.sdp
 
         except Exception as e:
-            logger.error(f"Error en manejar_offer: {str(e)}")
             print(f"Error en manejar_offer: {str(e)}")
             await self.cerrar_conexion(cliente_id)
             raise
-    
-    async def manejar_comando(self, cliente_id: str, mensaje: dict):
-        if mensaje.get("tipo") == "iniciar_deteccion":
-            self.deteccion_activada[cliente_id] = True
-        elif mensaje.get("tipo") == "detener_deteccion":
-            self.deteccion_activada[cliente_id] = False
-    
+
     async def cerrar_conexion(self, cliente_id: str):
-        """Cierra y limpia recursos de una conexión"""
         try:
             if cliente_id in self.conexiones_peer:
                 pc = self.conexiones_peer[cliente_id]
@@ -241,189 +297,75 @@ class ManejadorStreaming:
                 del self.conexiones_peer[cliente_id]
             
             if cliente_id in self.pipelines:
-                try:
-                    self.pipelines[cliente_id].reiniciar()
-                except Exception as e:
-                    logger.error(f"Error al reiniciar pipeline: {e}")
-                    print(f"Error al reiniciar pipeline: {e}")
-                finally:
-                    del self.pipelines[cliente_id]
+                self.pipelines[cliente_id].reiniciar()
+                del self.pipelines[cliente_id]
             
             if cliente_id in self.deteccion_activada:
                 del self.deteccion_activada[cliente_id]
             
-            logger.info(f"Conexión cerrada para cliente {cliente_id}")
             print(f"Conexión cerrada para cliente {cliente_id}")
             
         except Exception as e:
-            logger.error(f"Error al cerrar conexión: {e}")
             print(f"Error al cerrar conexión: {e}")
-    
-    async def manejar_ice_candidate(
-        self,
-        cliente_id: str,
-        candidate: Dict[str, Any]
-    ):
-        if cliente_id in self.conexiones_peer:
-            pc = self.conexiones_peer[cliente_id]
-            from aiortc import RTCIceCandidate
-            
-            ice_candidate = RTCIceCandidate(
-                foundation=candidate.get("foundation"),
-                component=candidate.get("component"),
-                protocol=candidate.get("protocol"),
-                priority=candidate.get("priority"),
-                ip=candidate.get("ip"),
-                port=candidate.get("port"),
-                type=candidate.get("type"),
-                tcpType=candidate.get("tcpType"),
-                relatedAddress=candidate.get("relatedAddress"),
-                relatedPort=candidate.get("relatedPort"),
-                sdpMLineIndex=candidate.get("sdpMLineIndex"),
-                sdpMid=candidate.get("sdpMid")
-            )
-            
-            await pc.addIceCandidate(ice_candidate)
-    
-    def obtener_estadisticas_stream(self, cliente_id: str) -> Optional[Dict[str, Any]]:
-        if cliente_id in self.pipelines:
-            return self.pipelines[cliente_id].obtener_estadisticas()
-        return None
-    
+
     async def crear_pipeline(self, cliente_id: str) -> PipelineDeteccion:
-        """Crea un nuevo pipeline de procesamiento"""
         try:
-            # Importar SesionAsincrona en lugar de SessionLocal
             from app.core.database import SesionAsincrona
-            
-            # Crear sesión asíncrona
             db = SesionAsincrona()
             
-            # Crear detectores
-            detector_personas = DetectorPersonas(
-                cargador_modelos.obtener_modelo('yolo')
-            )
-            tracker_personas = TrackerPersonas()
+            detector_personas = DetectorPersonas(cargador_modelos.obtener_modelo('yolo'))
             detector_violencia = DetectorViolencia()
-
-            # Crear servicios con la sesión de DB
             servicio_incidentes = ServicioIncidentes(db)
             servicio_notificaciones = ServicioNotificaciones(db)
 
-            # Crear pipeline
             pipeline = PipelineDeteccion(
                 detector_personas=detector_personas,
-                tracker_personas=tracker_personas,
                 detector_violencia=detector_violencia,
                 servicio_alarma=self.servicio_alarma,
                 servicio_notificaciones=servicio_notificaciones,
                 servicio_incidentes=servicio_incidentes,
-                session=db  # Pasar la sesión asíncrona
+                session=db
             )
 
-            logger.info(f"✅ Pipeline creado para cliente {cliente_id}")
-            print(f"✅ Pipeline creado para cliente {cliente_id}")
+            print(f"Pipeline creado para cliente {cliente_id}")
             return pipeline
 
         except Exception as e:
-            logger.error(f"❌ Error creando pipeline: {e}")
-            print(f"❌ Error creando pipeline: {e}")
-            import traceback
-            print(traceback.format_exc())
+            print(f"Error creando pipeline: {e}")
             raise
-    
-    
+
     async def activar_deteccion(self, cliente_id: str, camara_id: int):
-        """Activa la detección de violencia"""
         try:
             if cliente_id in self.deteccion_activada:
                 self.deteccion_activada[cliente_id] = True
                 print(f"Detección activada para cliente {cliente_id}")
 
-                # Reiniciar pipeline si existe
                 if cliente_id in self.pipelines:
                     self.pipelines[cliente_id].reiniciar()
-                    print(f"Pipeline reiniciado para cliente {cliente_id}")
                 
-                # Actualizar VideoTrack
                 if cliente_id in self.conexiones_peer:
                     for sender in self.conexiones_peer[cliente_id].getSenders():
                         if isinstance(sender.track, VideoTrackProcesado):
-                            sender.track.deteccion_activada = True
-                            print(f"Track de video actualizado para cliente {cliente_id}")
-                    
+                            sender.track.start_processing()
+
         except Exception as e:
             print(f"Error al activar detección: {e}")
 
     async def desactivar_deteccion(self, cliente_id: str, camara_id: int):
-        """Desactiva la detección de violencia"""
         try:
             if cliente_id in self.deteccion_activada:
                 self.deteccion_activada[cliente_id] = False
-                logger.info(f"Detección desactivada para cliente {cliente_id}")
                 print(f"Detección desactivada para cliente {cliente_id}")
                 
-                # Reiniciar pipeline
                 if cliente_id in self.pipelines:
-                    pipeline = self.pipelines[cliente_id]
-                    pipeline.reiniciar()  # Este método no es async, así que no necesita await
-                    
+                    self.pipelines[cliente_id].reiniciar()
+                
+                if cliente_id in self.conexiones_peer:
+                    for sender in self.conexiones_peer[cliente_id].getSenders():
+                        if isinstance(sender.track, VideoTrackProcesado):
+                            sender.track.stop_processing()
+
         except Exception as e:
-            logger.error(f"Error al desactivar detección: {e}")
             print(f"Error al desactivar detección: {e}")
 
-    async def cerrar_conexion(self, cliente_id: str):
-        """Cierra y limpia recursos de una conexión"""
-        try:
-            if cliente_id in self.conexiones_peer:
-                pc = self.conexiones_peer[cliente_id]
-                await pc.close()
-                del self.conexiones_peer[cliente_id]
-            
-            if cliente_id in self.pipelines:
-                try:
-                    pipeline = self.pipelines[cliente_id]
-                    pipeline.reiniciar()  # Este método no es async
-                    del self.pipelines[cliente_id]
-                except Exception as e:
-                    logger.error(f"Error al reiniciar pipeline: {e}")
-                    print(f"Error al reiniciar pipeline: {e}")
-            
-            if cliente_id in self.deteccion_activada:
-                del self.deteccion_activada[cliente_id]
-            
-            logger.info(f"Conexión cerrada para cliente {cliente_id}")
-            print(f"Conexión cerrada para cliente {cliente_id}")
-            
-        except Exception as e:
-            logger.error(f"Error al cerrar conexión: {e}")
-            print(f"Error al cerrar conexión: {e}")
-            
-            
-    async def procesar_frame(self, frame: np.ndarray, cliente_id: str, camara_id: int) -> Dict[str, Any]:
-        """Procesa un frame con detección si está activada"""
-        try:
-            if self.deteccion_activada.get(cliente_id, False):
-                # pipeline = self.pipelines.get(cliente_id)
-                if pipeline := self.pipelines.get(cliente_id):
-                    resultado = await pipeline.procesar_frame(
-                        frame,
-                        camara_id=camara_id,
-                        ubicacion="Principal"
-                    )
-                    print(f"Frame procesado para cliente {cliente_id}")
-                    return resultado
-                        
-            return {
-                "frame_procesado": frame,
-                "personas_detectadas": [],
-                "violencia_detectada": False,
-                "probabilidad_violencia": 0.0
-            }
-
-        except Exception as e:
-            print(f"Error procesando frame: {e}")
-            return None
-        
-        
 manejador_streaming = ManejadorStreaming()
