@@ -2,13 +2,13 @@ import tinytuya
 import time
 
 # Configura las credenciales del dispositivo
-DEVICE_ID = "ebba27178c7c2a876ah0rk"  # Device ID de la sirena
-IP_ADDRESS = "192.168.217.231"           # IP de la sirena
-LOCAL_KEY = "ewu^F.4Lw6;$p'Wj"       # Local Key de la sirena
-DEVICE_VERSION = "3.5"   
+TUYA_DEVICE_ID="eb77b7420e666f74c3a3no"
+TUYA_IP_ADDRESS="192.168.1.13"
+TUYA_LOCAL_KEY="]$Kg(L}vgaCn*&^2"
+TUYA_DEVICE_VERSION="3.5"   
 
 # Conectar al dispositivo
-device = tinytuya.Device(DEVICE_ID, IP_ADDRESS, LOCAL_KEY, version=DEVICE_VERSION)
+device = tinytuya.Device(TUYA_DEVICE_ID, TUYA_IP_ADDRESS, TUYA_LOCAL_KEY, version=TUYA_DEVICE_VERSION)
 
 try:
     # Obtener el estado actual del dispositivo (para depuración)

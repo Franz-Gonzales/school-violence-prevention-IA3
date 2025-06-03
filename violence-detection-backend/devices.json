@@ -1,8 +1,8 @@
 [
     {
         "name": "Audible alarm",
-        "id": "ebba27178c7c2a876ah0rk",
-        "key": "ewu^F.4Lw6;$p'Wj",
+        "id": "eb77b7420e666f74c3a3no",
+        "key": "]$Kg(L}vgaCn*&^2",
         "mac": "c0:f8:53:3a:7e:24",
         "uuid": "c1c73e427952d3ec",
         "category": "sgbj",
@@ -13,7 +13,7 @@
         "sub": false,
         "icon": "https://images.tuyaus.com/smart/icon/ay1503986080106Gppjy/d92c93b96ba6defc652d6c3a2f7bcbec.png",
         "mapping": {},
-        "ip": "192.168.217.231",
+        "ip": "192.168.1.13",
         "version": "3.5"
     }
 ]
