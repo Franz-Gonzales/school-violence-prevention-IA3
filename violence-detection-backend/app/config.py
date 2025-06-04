@@ -24,11 +24,11 @@ class Configuracion(BaseSettings):
     CAMERA_INDEX: int = 1
     CAMERA_WIDTH: int = 640
     CAMERA_HEIGHT: int = 480
-    CAMERA_FPS: int = 15  # FPS estable
+    CAMERA_FPS: int = 15  # FPS estable para captura
     DISPLAY_WIDTH: int = 640
     DISPLAY_HEIGHT: int = 480
     BUFFER_FRAMES: int = 8
-    CLIP_DURATION: int = 6  # Aumentado a 6 segundos para mejor evidencia
+    CLIP_DURATION: int = 8  # Duración total del clip (pre + post incidente)
     
     STUN_SERVER: str = "stun:stun.l.google.com:19302"
     TURN_SERVER: Optional[str] = None
@@ -59,19 +59,65 @@ class Configuracion(BaseSettings):
     DEFAULT_FPS: int = 15
     
     # Umbrales de confianza
-    YOLO_CONF_THRESHOLD: float = 0.65  # Reducido ligeramente para mejor detección
+    YOLO_CONF_THRESHOLD: float = 0.65
     VIOLENCE_THRESHOLD: float = 0.72
     
     # Resolución YOLO optimizada para velocidad
-    YOLO_RESOLUTION_WIDTH: int = 416  # Mantener 416 para balance velocidad/precisión
+    YOLO_RESOLUTION_WIDTH: int = 416
     YOLO_RESOLUTION_HEIGHT: int = 416
+    
+    # ========== CONFIGURACIÓN DE VIDEO EVIDENCIA ==========
+    
+    # FPS para videos de evidencia (CRÍTICO para reproducción correcta)
+    EVIDENCE_TARGET_FPS: int = 15  # FPS fijo para todos los videos de evidencia
+    EVIDENCE_QUALITY: str = "alta"  # alta, media, baja
+    
+    # Duración de clips de evidencia
+    EVIDENCE_PRE_INCIDENT_SECONDS: float = 3.0   # Segundos antes del incidente
+    EVIDENCE_POST_INCIDENT_SECONDS: float = 5.0  # Segundos después del incidente
+    EVIDENCE_MAX_DURATION_SECONDS: int = 15      # Duración máxima total
+    
+    # Configuración de codec y compresión
+    VIDEO_CODEC: str = "mp4v"  # Codec para compatibilidad
+    VIDEO_CONTAINER: str = "mp4"  # Contenedor de video
+    VIDEO_BITRATE: str = "2000k"  # Bitrate para calidad alta
+    VIDEO_CRF: int = 23  # Constant Rate Factor (0-51, menor = mejor calidad)
+    
+    # Buffer inteligente para evidencia
+    EVIDENCE_BUFFER_SIZE_SECONDS: int = 20  # Buffer circular para frames
+    EVIDENCE_FRAME_INTERPOLATION: bool = True  # Interpolar frames para FPS consistente
+    EVIDENCE_TIMESTAMP_OVERLAY: bool = True   # Agregar timestamp a los frames
+    
+    # Configuración de compresión por calidad
+    VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
+        "alta": {
+            "bitrate": "2000k",
+            "crf": 20,
+            "scale": 1.0,
+            "fps": 15
+        },
+        "media": {
+            "bitrate": "1000k", 
+            "crf": 25,
+            "scale": 0.75,
+            "fps": 12
+        },
+        "baja": {
+            "bitrate": "500k",
+            "crf": 30,
+            "scale": 0.5,
+            "fps": 10
+        }
+    }
+    
+    # ========== CONFIGURACIÓN DE PROCESAMIENTO ==========
     
     # Configuración de alarma Tuya
     TUYA_DEVICE_ID: Optional[str] = None
     TUYA_LOCAL_KEY: Optional[str] = None
     TUYA_IP_ADDRESS: Optional[str] = None
     TUYA_DEVICE_VERSION: str = "3.5"
-    ALARMA_DURACION: int = 3
+    ALARMA_DURACION: int = 5  # Duración de la alarma en segundos
     
     # Notificaciones web
     VAPID_PUBLIC_KEY: Optional[str] = None
@@ -79,27 +125,87 @@ class Configuracion(BaseSettings):
     VAPID_CLAIMS_EMAIL: Optional[str] = None
     
     # Optimización de procesamiento
-    PROCESS_EVERY_N_FRAMES: int = 4  # Aumentado para reducir carga de procesamiento
-    MAX_CONCURRENT_PROCESSES: int = 2  # Limitar procesos concurrentes
+    PROCESS_EVERY_N_FRAMES: int = 4  # Procesar cada N frames para eficiencia
+    MAX_CONCURRENT_PROCESSES: int = 2
     
     # Configuración GPU
     USE_GPU: bool = False
     GPU_DEVICE: int = 0
-    MAX_BATCH_SIZE: int = 4  # Reducido para evitar OOM
+    MAX_BATCH_SIZE: int = 4
     
     # Configuración de logging
     LOG_LEVEL: str = "INFO"
     LOG_FILE: Optional[str] = "logs_violencia_detection.log"
     
-    # Configuración de rendimiento de video
-    VIDEO_BUFFER_SIZE: int = 30  # Frames en buffer
-    MAX_EVIDENCE_DURATION: int = 15  # Máximo 15 segundos de evidencia
-    VIDEO_COMPRESSION_QUALITY: int = 85  # Calidad de compresión (0-100)
+    # ========== CONFIGURACIÓN DE RENDIMIENTO ==========
+    
+    # Configuración de rendimiento de video mejorada
+    VIDEO_BUFFER_SIZE: int = 30  # Frames en buffer circular
+    FRAME_QUEUE_SIZE: int = 50   # Tamaño de cola de frames
+    PROCESSING_THREAD_COUNT: int = 2  # Hilos para procesamiento
     
     # Control de memoria
-    MAX_MEMORY_USAGE_MB: int = 1024  # Límite de memoria en MB
-    CLEANUP_INTERVAL_SECONDS: int = 60  # Intervalo de limpieza
+    MAX_MEMORY_USAGE_MB: int = 1024
+    CLEANUP_INTERVAL_SECONDS: int = 60
+    FRAME_CACHE_SIZE: int = 100  # Frames en caché para procesamiento
     
+    # Configuración de threading y async
+    ASYNC_WORKERS: int = 4  # Workers para tareas asíncronas
+    THREAD_POOL_SIZE: int = 8  # Tamaño del pool de threads
+    
+    # ========== CONFIGURACIÓN DE ALMACENAMIENTO ==========
+    
+    # Gestión de archivos de evidencia
+    EVIDENCE_CLEANUP_DAYS: int = 30  # Días antes de limpiar evidencias antiguas
+    EVIDENCE_MAX_SIZE_GB: float = 5.0  # Tamaño máximo de directorio de evidencias
+    EVIDENCE_BACKUP_ENABLED: bool = True  # Backup automático de evidencias críticas
+    EVIDENCE_COMPRESSION_ENABLED: bool = True  # Comprimir evidencias antiguas
+    
+    # Configuración de thumbnails
+    THUMBNAIL_ENABLED: bool = True
+    THUMBNAIL_WIDTH: int = 320
+    THUMBNAIL_HEIGHT: int = 180
+    THUMBNAIL_QUALITY: int = 85
+    
+    # ========== CONFIGURACIÓN DE CALIDAD DE STREAM ==========
+    
+    # Configuración adaptativa de calidad
+    ADAPTIVE_QUALITY_ENABLED: bool = True
+    QUALITY_ADAPTATION_INTERVAL: int = 10  # Segundos entre ajustes
+    
+    # Thresholds para cambio automático de calidad
+    QUALITY_THRESHOLDS: Dict[str, Dict[str, float]] = {
+        "cpu_usage": {"high": 80.0, "medium": 60.0, "low": 40.0},
+        "memory_usage": {"high": 80.0, "medium": 60.0, "low": 40.0},
+        "frame_drop_rate": {"high": 5.0, "medium": 2.0, "low": 1.0},
+        "bandwidth": {"high": 2000, "medium": 1000, "low": 500}  # kbps
+    }
+    
+    # Configuraciones de calidad de stream
+    STREAM_QUALITY_PROFILES: Dict[str, Dict[str, Any]] = {
+        "Alta": {
+            "width": 640,
+            "height": 480,
+            "fps": 15,
+            "bitrate": "1500k",
+            "processing_interval": 2
+        },
+        "Media": {
+            "width": 480,
+            "height": 360,
+            "fps": 12,
+            "bitrate": "800k", 
+            "processing_interval": 3
+        },
+        "Baja": {
+            "width": 320,
+            "height": 240,
+            "fps": 8,
+            "bitrate": "400k",
+            "processing_interval": 4
+        }
+    }
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -110,18 +216,22 @@ class Configuracion(BaseSettings):
         return self.MODELOS_PATH / nombre_modelo
     
     def crear_directorios(self):
+        """Crea todos los directorios necesarios para el sistema"""
         directorios = [
             self.MODELOS_PATH,
             self.UPLOAD_PATH,
             self.VIDEO_EVIDENCE_PATH,
             self.VIDEO_EVIDENCE_PATH / "clips",
-            self.VIDEO_EVIDENCE_PATH / "frames",
-            self.VIDEO_EVIDENCE_PATH / "temp"  # Directorio temporal
+            self.VIDEO_EVIDENCE_PATH / "thumbnails",
+            self.VIDEO_EVIDENCE_PATH / "temp",
+            self.VIDEO_EVIDENCE_PATH / "compressed",
+            self.VIDEO_EVIDENCE_PATH / "backup"
         ]
         for directorio in directorios:
             directorio.mkdir(parents=True, exist_ok=True)
     
     def obtener_configuracion_gpu(self) -> Dict[str, Any]:
+        """Obtiene información sobre la configuración de GPU"""
         import torch
         if self.USE_GPU and torch.cuda.is_available():
             return {
@@ -137,15 +247,109 @@ class Configuracion(BaseSettings):
             "memoria_gpu": 0
         }
     
-    def obtener_configuracion_streaming(self) -> Dict[str, Any]:
-        """Obtiene configuración optimizada para streaming"""
+    def obtener_configuracion_evidencia(self) -> Dict[str, Any]:
+        """Obtiene configuración optimizada para evidencia de video"""
+        quality_config = self.VIDEO_QUALITY_SETTINGS[self.EVIDENCE_QUALITY]
+        
         return {
-            "target_fps": self.CAMERA_FPS,
-            "resolution": (self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT),
-            "buffer_size": self.VIDEO_BUFFER_SIZE,
-            "processing_interval": self.PROCESS_EVERY_N_FRAMES,
-            "max_evidence_frames": self.DEFAULT_FPS * self.MAX_EVIDENCE_DURATION
+            "fps_target": self.EVIDENCE_TARGET_FPS,
+            "pre_incident_duration": self.EVIDENCE_PRE_INCIDENT_SECONDS,
+            "post_incident_duration": self.EVIDENCE_POST_INCIDENT_SECONDS,
+            "max_duration": self.EVIDENCE_MAX_DURATION_SECONDS,
+            "quality": quality_config,
+            "codec": self.VIDEO_CODEC,
+            "container": self.VIDEO_CONTAINER,
+            "interpolation_enabled": self.EVIDENCE_FRAME_INTERPOLATION,
+            "timestamp_overlay": self.EVIDENCE_TIMESTAMP_OVERLAY,
+            "buffer_size_seconds": self.EVIDENCE_BUFFER_SIZE_SECONDS
         }
+    
+    def obtener_configuracion_streaming(self, calidad: str = "Alta") -> Dict[str, Any]:
+        """Obtiene configuración optimizada para streaming según calidad"""
+        profile = self.STREAM_QUALITY_PROFILES.get(calidad, self.STREAM_QUALITY_PROFILES["Alta"])
+        
+        return {
+            "resolution": (profile["width"], profile["height"]),
+            "fps": profile["fps"],
+            "bitrate": profile["bitrate"],
+            "processing_interval": profile["processing_interval"],
+            "buffer_size": self.VIDEO_BUFFER_SIZE,
+            "adaptive_quality": self.ADAPTIVE_QUALITY_ENABLED
+        }
+    
+    def calcular_parametros_evidencia(self, duracion_violencia: float) -> Dict[str, Any]:
+        """Calcula parámetros óptimos para un clip de evidencia"""
+        # Calcular duración total del clip
+        duracion_total = (
+            self.EVIDENCE_PRE_INCIDENT_SECONDS + 
+            duracion_violencia + 
+            self.EVIDENCE_POST_INCIDENT_SECONDS
+        )
+        
+        # Limitar a duración máxima
+        if duracion_total > self.EVIDENCE_MAX_DURATION_SECONDS:
+            duracion_total = self.EVIDENCE_MAX_DURATION_SECONDS
+            # Ajustar tiempos proporcionalmente
+            factor = self.EVIDENCE_MAX_DURATION_SECONDS / duracion_total
+            pre_time = self.EVIDENCE_PRE_INCIDENT_SECONDS * factor
+            post_time = self.EVIDENCE_POST_INCIDENT_SECONDS * factor
+        else:
+            pre_time = self.EVIDENCE_PRE_INCIDENT_SECONDS
+            post_time = self.EVIDENCE_POST_INCIDENT_SECONDS
+        
+        # Calcular número de frames necesarios
+        total_frames = int(duracion_total * self.EVIDENCE_TARGET_FPS)
+        
+        return {
+            "duracion_total": duracion_total,
+            "pre_incident_time": pre_time,
+            "post_incident_time": post_time,
+            "total_frames": total_frames,
+            "fps": self.EVIDENCE_TARGET_FPS,
+            "frames_per_second": self.EVIDENCE_TARGET_FPS
+        }
+    
+    def optimizar_configuracion_recursos(self) -> Dict[str, Any]:
+        """Optimiza la configuración basada en recursos del sistema"""
+        import psutil
+        
+        # Obtener información del sistema
+        cpu_count = psutil.cpu_count()
+        memory_gb = psutil.virtual_memory().total / (1024**3)
+        
+        # Ajustar configuración basada en recursos
+        if memory_gb < 4:
+            # Sistema con poca memoria
+            config = {
+                "processing_threads": min(2, cpu_count),
+                "frame_buffer_size": 15,
+                "quality_profile": "Baja",
+                "processing_interval": 6
+            }
+        elif memory_gb < 8:
+            # Sistema con memoria media
+            config = {
+                "processing_threads": min(4, cpu_count),
+                "frame_buffer_size": 25,
+                "quality_profile": "Media", 
+                "processing_interval": 4
+            }
+        else:
+            # Sistema con buena memoria
+            config = {
+                "processing_threads": min(6, cpu_count),
+                "frame_buffer_size": 30,
+                "quality_profile": "Alta",
+                "processing_interval": 2
+            }
+        
+        config.update({
+            "system_memory_gb": memory_gb,
+            "cpu_cores": cpu_count,
+            "recommended_max_cameras": max(1, int(memory_gb / 2))
+        })
+        
+        return config
 
 @lru_cache()
 def obtener_configuracion() -> Configuracion:
@@ -153,4 +357,5 @@ def obtener_configuracion() -> Configuracion:
     config.crear_directorios()
     return config
 
+# Instancia global de configuración
 configuracion = obtener_configuracion()

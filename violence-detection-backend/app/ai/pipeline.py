@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import asyncio
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from app.ai.yolo_detector import DetectorPersonas
 from app.ai.violence_detector import DetectorViolencia
@@ -17,8 +17,44 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import os
 import threading
 import queue
+import time
 
 logger = obtener_logger(__name__)
+
+class FrameBuffer:
+    """Buffer inteligente para frames con timestamps precisos"""
+    def __init__(self, max_duration_seconds=10):
+        self.frames = deque()
+        self.max_duration = max_duration_seconds
+        
+    def add_frame(self, frame, timestamp, detecciones=None):
+        """Agrega un frame con timestamp preciso"""
+        frame_data = {
+            'frame': frame.copy(),
+            'timestamp': timestamp,
+            'detecciones': detecciones or [],
+            'processed': False
+        }
+        self.frames.append(frame_data)
+        
+        # Limpiar frames antiguos
+        current_time = timestamp
+        while self.frames and (current_time - self.frames[0]['timestamp']).total_seconds() > self.max_duration:
+            self.frames.popleft()
+    
+    def get_frames_in_range(self, start_time, end_time):
+        """Obtiene frames en un rango de tiempo específico"""
+        return [f for f in self.frames 
+                if start_time <= f['timestamp'] <= end_time]
+    
+    def get_recent_frames(self, duration_seconds):
+        """Obtiene frames recientes basado en duración"""
+        if not self.frames:
+            return []
+        
+        latest_time = self.frames[-1]['timestamp']
+        start_time = latest_time - timedelta(seconds=duration_seconds)
+        return self.get_frames_in_range(start_time, latest_time)
 
 class PipelineDeteccion:
     def __init__(
@@ -42,14 +78,15 @@ class PipelineDeteccion:
         self.camara_id = None
         self.ubicacion = None
         
-        # Buffer circular para evidencia con tamaño fijo
-        buffer_size = configuracion.DEFAULT_FPS * configuracion.CLIP_DURATION
-        self.buffer_evidencia = deque(maxlen=buffer_size)
+        # Buffer inteligente para evidencia
+        self.buffer_evidencia = FrameBuffer(max_duration_seconds=15)
         
-        # Control de grabación de evidencia
+        # Control de grabación de evidencia mejorado
         self.grabando_evidencia = False
-        self.frames_evidencia = []
-        self.max_frames_evidencia = configuracion.DEFAULT_FPS * 10  # Máximo 10 segundos
+        self.tiempo_inicio_violencia = None
+        self.tiempo_fin_violencia = None
+        self.duracion_evidencia_pre = 3  # 3 segundos antes del incidente
+        self.duracion_evidencia_post = 5  # 5 segundos después del incidente
         
         # Cola para guardar videos de forma asíncrona
         self.cola_guardado = queue.Queue()
@@ -63,12 +100,18 @@ class PipelineDeteccion:
         # Control de tiempo para evitar spam
         self.ultimo_incidente = 0
         self.cooldown_incidente = 5  # 5 segundos entre incidentes
+        
+        # FPS target para evidencia
+        self.target_fps_evidencia = 15
 
     async def procesar_frame(self, frame: np.ndarray, camara_id: int, ubicacion: str) -> Dict[str, Any]:
         try:
             self.camara_id = camara_id
             self.ubicacion = ubicacion
             self.frames_procesados += 1
+            
+            # Timestamp preciso para este frame
+            timestamp_actual = datetime.now()
             
             # Crear copia del frame original con dimensiones consistentes
             frame_original = frame.copy()
@@ -97,16 +140,16 @@ class PipelineDeteccion:
                 'frame_procesado': frame_procesado,
                 'personas_detectadas': detecciones,
                 'violencia_detectada': False,
-                'probabilidad_violencia': 0.0
+                'probabilidad_violencia': 0.0,
+                'timestamp': timestamp_actual
             }
 
-            # Agregar frame al buffer de evidencia (siempre)
-            frame_para_buffer = {
-                'frame': frame_procesado.copy(),
-                'timestamp': datetime.now(),
-                'detecciones': detecciones
-            }
-            self.buffer_evidencia.append(frame_para_buffer)
+            # Agregar frame al buffer de evidencia (SIEMPRE con timestamp preciso)
+            self.buffer_evidencia.add_frame(
+                frame_procesado, 
+                timestamp_actual, 
+                detecciones
+            )
 
             # Solo procesar con TimesFormer si hay personas detectadas
             if detecciones:
@@ -124,10 +167,16 @@ class PipelineDeteccion:
                     resultado.update(deteccion)
 
                     if deteccion['violencia_detectada']:
-                        current_time = datetime.now().timestamp()
+                        current_time = timestamp_actual.timestamp()
                         
                         # Control de cooldown para evitar múltiples incidentes
                         if current_time - self.ultimo_incidente > self.cooldown_incidente:
+                            # Marcar inicio de violencia
+                            if not self.grabando_evidencia:
+                                self.tiempo_inicio_violencia = timestamp_actual
+                                self.grabando_evidencia = True
+                                print(f"🚨 INICIO DE VIOLENCIA DETECTADA: {self.tiempo_inicio_violencia}")
+                            
                             # Activar alarma de forma asíncrona
                             asyncio.create_task(self._activar_alarma())
                             
@@ -143,23 +192,19 @@ class PipelineDeteccion:
                             
                             resultado['frame_procesado'] = frame_procesado
                             
-                            # Iniciar grabación de evidencia si no está activa
-                            if not self.grabando_evidencia:
-                                self.grabando_evidencia = True
-                                # Copiar buffer actual como inicio de evidencia
-                                self.frames_evidencia = [item['frame'].copy() for item in list(self.buffer_evidencia)]
-                                
-                                # Crear incidente de forma asíncrona
+                            # Crear incidente si es el primer frame de violencia
+                            if not hasattr(self, 'incidente_actual_id'):
                                 asyncio.create_task(self._crear_incidente(detecciones, deteccion['probabilidad']))
                                 self.ultimo_incidente = current_time
                             
-                            # Continuar grabando evidencia
-                            if self.grabando_evidencia and len(self.frames_evidencia) < self.max_frames_evidencia:
-                                self.frames_evidencia.append(frame_procesado.copy())
+                            # Actualizar tiempo de fin de violencia
+                            self.tiempo_fin_violencia = timestamp_actual
                     else:
-                        # Si no hay violencia y estábamos grabando, finalizar grabación
-                        if self.grabando_evidencia:
-                            self._finalizar_grabacion_evidencia()
+                        # Si no hay violencia y estábamos grabando, finalizar después de un delay
+                        if self.grabando_evidencia and self.tiempo_fin_violencia:
+                            tiempo_transcurrido = (timestamp_actual - self.tiempo_fin_violencia).total_seconds()
+                            if tiempo_transcurrido >= self.duracion_evidencia_post:
+                                await self._finalizar_grabacion_evidencia()
 
             return resultado
 
@@ -169,7 +214,8 @@ class PipelineDeteccion:
                 'frame_procesado': frame,
                 'personas_detectadas': [],
                 'violencia_detectada': False,
-                'probabilidad_violencia': 0.0
+                'probabilidad_violencia': 0.0,
+                'timestamp': datetime.now()
             }
 
     def _dibujar_detecciones(self, frame: np.ndarray, detecciones: List[Dict]) -> np.ndarray:
@@ -182,93 +228,135 @@ class PipelineDeteccion:
             )
         return frame
 
-    def _finalizar_grabacion_evidencia(self):
-        """Finaliza la grabación y envía a la cola de guardado"""
-        if self.frames_evidencia:
-            print(f"Finalizando grabación con {len(self.frames_evidencia)} frames")
+    async def _finalizar_grabacion_evidencia(self):
+        """Finaliza la grabación y envía a la cola de guardado con timestamps precisos"""
+        if not self.tiempo_inicio_violencia:
+            return
+            
+        print(f"📹 Finalizando grabación de evidencia...")
+        
+        # Calcular tiempos para el clip de evidencia
+        tiempo_inicio_clip = self.tiempo_inicio_violencia - timedelta(seconds=self.duracion_evidencia_pre)
+        tiempo_fin_clip = self.tiempo_fin_violencia + timedelta(seconds=self.duracion_evidencia_post)
+        
+        # Obtener frames del rango de tiempo específico
+        frames_evidencia = self.buffer_evidencia.get_frames_in_range(
+            tiempo_inicio_clip, 
+            tiempo_fin_clip
+        )
+        
+        if frames_evidencia:
+            print(f"📹 Extraídos {len(frames_evidencia)} frames para evidencia")
+            print(f"📹 Duración del clip: {(tiempo_fin_clip - tiempo_inicio_clip).total_seconds():.2f} segundos")
             
             # Enviar a cola de guardado asíncrono
             datos_guardado = {
-                'frames': self.frames_evidencia.copy(),
+                'frames': frames_evidencia,
                 'camara_id': self.camara_id,
-                'timestamp': datetime.now(),
-                'incidente_id': getattr(self, 'incidente_actual_id', None)
+                'tiempo_inicio': tiempo_inicio_clip,
+                'tiempo_fin': tiempo_fin_clip,
+                'incidente_id': getattr(self, 'incidente_actual_id', None),
+                'fps_target': self.target_fps_evidencia
             }
             
             try:
                 self.cola_guardado.put_nowait(datos_guardado)
+                print("📹 Evidencia enviada a cola de guardado")
             except queue.Full:
-                print("Cola de guardado llena, descartando video")
-            
-            # Limpiar
-            self.frames_evidencia.clear()
-            self.grabando_evidencia = False
+                print("❌ Cola de guardado llena, descartando video")
+        
+        # Limpiar estado
+        self.grabando_evidencia = False
+        self.tiempo_inicio_violencia = None
+        self.tiempo_fin_violencia = None
+        if hasattr(self, 'incidente_actual_id'):
+            delattr(self, 'incidente_actual_id')
 
     def _procesar_cola_guardado(self):
         """Procesa la cola de guardado en hilo separado"""
         while True:
             try:
                 datos = self.cola_guardado.get(timeout=1)
-                self._guardar_evidencia_sincrono(datos)
+                self._guardar_evidencia_con_fps_correcto(datos)
                 self.cola_guardado.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
                 print(f"Error en hilo de guardado: {e}")
 
-    def _guardar_evidencia_sincrono(self, datos: Dict[str, Any]):
-        """Guarda evidencia de forma síncrona en hilo separado"""
+    def _guardar_evidencia_con_fps_correcto(self, datos: Dict[str, Any]):
+        """Guarda evidencia con FPS correcto basado en timestamps reales"""
         try:
-            frames = datos['frames']
+            frames_data = datos['frames']
             camara_id = datos['camara_id']
-            timestamp = datos['timestamp']
+            tiempo_inicio = datos['tiempo_inicio']
+            fps_target = datos['fps_target']
             incidente_id = datos.get('incidente_id')
             
-            if not frames:
-                print("No hay frames para guardar evidencia")
+            if not frames_data:
+                print("❌ No hay frames para guardar evidencia")
                 return
 
             # Crear directorio
             ruta_base = configuracion.VIDEO_EVIDENCE_PATH / "clips"
             ruta_base.mkdir(parents=True, exist_ok=True)
 
-            # Generar nombre de archivo
-            timestamp_str = timestamp.strftime("%Y%m%d_%H%M%S")
+            # Generar nombre de archivo con timestamp
+            timestamp_str = tiempo_inicio.strftime("%Y%m%d_%H%M%S")
             nombre_archivo = f"evidencia_camara{camara_id}_{timestamp_str}.mp4"
             ruta_evidencia = ruta_base / nombre_archivo
 
             # Obtener dimensiones del primer frame
-            height, width = frames[0].shape[:2]
+            primer_frame = frames_data[0]['frame']
+            height, width = primer_frame.shape[:2]
             
-            # FPS consistente para el video
-            fps_video = 15  # FPS fijo para evidencia
+            print(f"📹 Guardando video: {nombre_archivo}")
+            print(f"📹 Dimensiones: {width}x{height}")
+            print(f"📹 FPS objetivo: {fps_target}")
             
-            # Crear video writer
-            fourcc = cv2.VideoWriter_fourcc(*'avc1')
+            # Crear video writer con configuración optimizada
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec compatible
             video_writer = cv2.VideoWriter(
                 str(ruta_evidencia),
                 fourcc,
-                fps_video,
+                fps_target,  # FPS consistente
                 (width, height)
             )
 
             if not video_writer.isOpened():
-                print(f"Error: No se pudo crear VideoWriter para {ruta_evidencia}")
+                print(f"❌ Error: No se pudo crear VideoWriter para {ruta_evidencia}")
                 return
 
-            # Escribir frames con control de calidad
+            # Interpolar frames para mantener FPS consistente
+            frames_interpolados = self._interpolar_frames_por_tiempo(frames_data, fps_target)
+            
+            # Escribir frames interpolados
             frames_escritos = 0
-            for i, frame in enumerate(frames):
+            for frame_data in frames_interpolados:
                 try:
+                    frame = frame_data['frame']
+                    
                     # Asegurar dimensiones consistentes
                     if frame.shape[:2] != (height, width):
                         frame = cv2.resize(frame, (width, height))
+                    
+                    # Agregar timestamp al frame para debug
+                    timestamp_str = frame_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+                    cv2.putText(
+                        frame, 
+                        timestamp_str, 
+                        (10, height - 20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        0.5, 
+                        (255, 255, 255), 
+                        1
+                    )
                     
                     video_writer.write(frame)
                     frames_escritos += 1
                     
                 except Exception as e:
-                    print(f"Error escribiendo frame {i}: {e}")
+                    print(f"❌ Error escribiendo frame {frames_escritos}: {e}")
                     continue
 
             video_writer.release()
@@ -276,21 +364,72 @@ class PipelineDeteccion:
             # Verificar que el archivo se creó correctamente
             if ruta_evidencia.exists() and frames_escritos > 0:
                 tamano_archivo = ruta_evidencia.stat().st_size / (1024 * 1024)
-                print(f"Video guardado: {ruta_evidencia} ({tamano_archivo:.2f} MB, {frames_escritos} frames)")
+                duracion_real = frames_escritos / fps_target
+                print(f"✅ Video guardado: {ruta_evidencia}")
+                print(f"📹 Tamaño: {tamano_archivo:.2f} MB")
+                print(f"📹 Frames: {frames_escritos}")
+                print(f"📹 Duración: {duracion_real:.2f} segundos")
                 
-                # Actualizar incidente si existe (de forma asíncrona)
+                # Actualizar incidente si existe
                 if incidente_id:
-                    asyncio.run_coroutine_threadsafe(
-                        self._actualizar_incidente_con_video(incidente_id, str(ruta_evidencia)),
-                        asyncio.get_event_loop()
-                    )
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(
+                            self._actualizar_incidente_con_video(incidente_id, str(ruta_evidencia))
+                        )
+                    finally:
+                        loop.close()
             else:
-                print(f"Error: No se pudo crear el archivo de video o no hay frames")
+                print(f"❌ Error: No se pudo crear el archivo de video o no hay frames")
 
         except Exception as e:
-            print(f"Error al guardar evidencia: {e}")
+            print(f"❌ Error al guardar evidencia: {e}")
             import traceback
-            print(traceback.format_exc())
+            traceback.print_exc()
+
+    def _interpolar_frames_por_tiempo(self, frames_data: List[Dict], fps_target: int) -> List[Dict]:
+        """Interpola frames basado en timestamps reales para mantener FPS consistente"""
+        if not frames_data:
+            return []
+        
+        # Ordenar frames por timestamp
+        frames_ordenados = sorted(frames_data, key=lambda x: x['timestamp'])
+        
+        # Calcular duración total
+        tiempo_inicio = frames_ordenados[0]['timestamp']
+        tiempo_fin = frames_ordenados[-1]['timestamp']
+        duracion_total = (tiempo_fin - tiempo_inicio).total_seconds()
+        
+        if duracion_total <= 0:
+            return frames_ordenados
+        
+        # Calcular intervalos de tiempo para FPS objetivo
+        intervalo_frame = 1.0 / fps_target
+        frames_interpolados = []
+        
+        tiempo_actual = 0
+        while tiempo_actual <= duracion_total:
+            timestamp_objetivo = tiempo_inicio + timedelta(seconds=tiempo_actual)
+            
+            # Encontrar el frame más cercano a este timestamp
+            frame_mas_cercano = min(
+                frames_ordenados,
+                key=lambda x: abs((x['timestamp'] - timestamp_objetivo).total_seconds())
+            )
+            
+            # Crear nuevo frame interpolado
+            frame_interpolado = {
+                'frame': frame_mas_cercano['frame'].copy(),
+                'timestamp': timestamp_objetivo,
+                'detecciones': frame_mas_cercano['detecciones']
+            }
+            
+            frames_interpolados.append(frame_interpolado)
+            tiempo_actual += intervalo_frame
+        
+        print(f"📹 Interpolación: {len(frames_data)} frames originales -> {len(frames_interpolados)} frames interpolados")
+        return frames_interpolados
 
     async def _actualizar_incidente_con_video(self, incidente_id: int, ruta_video: str):
         """Actualiza el incidente con la ruta del video"""
@@ -302,34 +441,22 @@ class PipelineDeteccion:
                     'fecha_hora_fin': datetime.now()
                 }
             )
-            print(f"Incidente {incidente_id} actualizado con video")
+            print(f"✅ Incidente {incidente_id} actualizado con video: {ruta_video}")
         except Exception as e:
-            print(f"Error actualizando incidente con video: {e}")
+            print(f"❌ Error actualizando incidente con video: {e}")
 
     async def _activar_alarma(self):
         """Activa la alarma de forma asíncrona"""
         try:
             await self.servicio_alarma.activar_alarma(duracion=5)
         except Exception as e:
-            print(f"Error al activar alarma: {e}")
-
-    async def _enviar_notificaciones(self, personas_involucradas: List[Dict[str, Any]]):
-        """Envía notificaciones de forma asíncrona"""
-        try:
-            num_personas = len(personas_involucradas)
-            await self.servicio_notificaciones.enviar_notificacion_violencia(
-                camara_id=self.camara_id,
-                ubicacion=self.ubicacion,
-                num_personas=num_personas
-            )
-        except Exception as e:
-            print(f"Error al enviar notificaciones: {e}")
+            print(f"❌ Error al activar alarma: {e}")
 
     async def _crear_incidente(self, personas_involucradas: List[Dict[str, Any]], probabilidad: float):
         """Crea un incidente de forma asíncrona"""
         try:
             if not self.servicio_incidentes:
-                print("Servicio de incidentes no inicializado")
+                print("❌ Servicio de incidentes no inicializado")
                 return
                 
             incidente_data = {
@@ -337,7 +464,7 @@ class PipelineDeteccion:
                 'tipo_incidente': TipoIncidente.VIOLENCIA_FISICA,
                 'severidad': self._calcular_severidad(probabilidad),
                 'probabilidad_violencia': probabilidad,
-                'fecha_hora_inicio': datetime.now(),
+                'fecha_hora_inicio': self.tiempo_inicio_violencia or datetime.now(),
                 'ubicacion': self.ubicacion,
                 'numero_personas_involucradas': len(personas_involucradas),
                 'ids_personas_detectadas': [],
@@ -345,17 +472,22 @@ class PipelineDeteccion:
                 'descripcion': f"Violencia detectada con probabilidad {probabilidad:.2%}"
             }
             
+            print("⏳ Creando incidente con datos:", incidente_data)
+            
+            # Crear incidente
+            print("⏳ Ejecutando commit...")
             incidente = await self.servicio_incidentes.crear_incidente(incidente_data)
             
             if incidente and hasattr(incidente, 'id'):
                 self.incidente_actual_id = incidente.id
                 self.incidentes_detectados += 1
-                print(f"Nuevo incidente registrado ID: {incidente.id}")
+                print(f"✅ Incidente creado exitosamente: ID {incidente.id}")
+                print(f"📊 Nuevo incidente registrado ID: {incidente.id}")
 
         except Exception as e:
-            print(f"Error al crear incidente: {str(e)}")
+            print(f"❌ Error al crear incidente: {str(e)}")
             import traceback
-            print(traceback.format_exc())
+            traceback.print_exc()
 
     def _calcular_severidad(self, probabilidad: float) -> SeveridadIncidente:
         """Calcula la severidad basada en la probabilidad"""
@@ -373,38 +505,42 @@ class PipelineDeteccion:
         return {
             'frames_procesados': self.frames_procesados,
             'incidentes_detectados': self.incidentes_detectados,
-            'personas_rastreadas': 0,
             'violencia_activa': self.detector_violencia.violencia_detectada,
             'probabilidad_actual': self.detector_violencia.probabilidad_violencia,
             'grabando_evidencia': self.grabando_evidencia,
-            'frames_en_buffer': len(self.buffer_evidencia),
-            'frames_evidencia': len(self.frames_evidencia) if self.frames_evidencia else 0
+            'frames_en_buffer': len(self.buffer_evidencia.frames),
+            'tiempo_inicio_violencia': self.tiempo_inicio_violencia.isoformat() if self.tiempo_inicio_violencia else None
         }
 
     def reiniciar(self):
         """Reinicia el estado del pipeline"""
         # Finalizar grabación si está activa
         if self.grabando_evidencia:
-            self._finalizar_grabacion_evidencia()
+            asyncio.create_task(self._finalizar_grabacion_evidencia())
         
         # Reiniciar detector de violencia
         self.detector_violencia.reiniciar()
         
         # Limpiar buffers
-        self.buffer_evidencia.clear()
-        self.frames_evidencia = []
+        self.buffer_evidencia = FrameBuffer(max_duration_seconds=15)
         self.grabando_evidencia = False
+        self.tiempo_inicio_violencia = None
+        self.tiempo_fin_violencia = None
         
         # Reiniciar contadores
         self.frames_procesados = 0
         self.ultimo_incidente = 0
         
-        print("Pipeline reiniciado")
+        if hasattr(self, 'incidente_actual_id'):
+            delattr(self, 'incidente_actual_id')
+        
+        print("🔄 Pipeline reiniciado")
 
     def __del__(self):
         """Destructor para limpiar recursos"""
         try:
             if self.grabando_evidencia:
-                self._finalizar_grabacion_evidencia()
+                # No podemos usar asyncio aquí, así que solo marcamos para limpieza
+                self.grabando_evidencia = False
         except:
             pass
