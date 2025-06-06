@@ -225,3 +225,6 @@ Nombre: Eric, ID: cjVigY5qzO86Huf0OWal
 Nombre: Chris, ID: iP95p4xoKVk53GoZ742B
 Nombre: Brian, ID: nPczCjzI2devNBz1zQrb
 Nombre: Daniel, ID: onwK4e9ZLuTAKqWW03F9
+
+# Principal a ajecutar
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

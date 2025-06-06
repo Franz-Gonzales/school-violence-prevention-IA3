@@ -83,10 +83,6 @@ class Configuracion(BaseSettings):
     VIDEO_CONTAINER: str = "mp4"
     VIDEO_BITRATE: str = "2000k"  # Aumentar bitrate para mejor calidadF
     
-    # Configuración de codec y compresión
-    # VIDEO_CODEC: str = "mp4v"  # Codec para compatibilidad
-    # VIDEO_CONTAINER: str = "mp4"  # Contenedor de video
-    # VIDEO_BITRATE: str = "2000k"  # Bitrate para calidad alta
     VIDEO_CRF: int = 23  # Constant Rate Factor (0-51, menor = mejor calidad)
     
     # Buffer inteligente para evidencia
@@ -150,27 +146,7 @@ class Configuracion(BaseSettings):
     VIDEO_SAVE_INTERMEDIATE: bool = False   # Guardar frames intermedios
     VIDEO_TIMING_LOGS: bool = True          # Logs de timing detallados
     
-    # Configuración de compresión por calidad
-    # VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
-    #     "alta": {
-    #         "bitrate": "2000k",
-    #         "crf": 20,
-    #         "scale": 1.0,
-    #         "fps": 15
-    #     },
-    #     "media": {
-    #         "bitrate": "1000k", 
-    #         "crf": 25,
-    #         "scale": 0.75,
-    #         "fps": 12
-    #     },
-    #     "baja": {
-    #         "bitrate": "500k",
-    #         "crf": 30,
-    #         "scale": 0.5,
-    #         "fps": 10
-    #     }
-    # }
+    
     
     # ========== CONFIGURACIÓN DE PROCESAMIENTO ==========
     
