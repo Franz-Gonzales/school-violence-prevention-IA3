@@ -27,12 +27,13 @@ class FrameBuffer:
         self.frames = deque()
         self.max_duration = max_duration_seconds
         
-    def add_frame(self, frame, timestamp, detecciones=None):
-        """Agrega un frame con timestamp preciso"""
+    def add_frame(self, frame, timestamp, detecciones=None, violencia_info=None):
+        """Agrega un frame con timestamp preciso y información de violencia"""
         frame_data = {
             'frame': frame.copy(),
             'timestamp': timestamp,
             'detecciones': detecciones or [],
+            'violencia_info': violencia_info,  # Nueva información de violencia
             'processed': False
         }
         self.frames.append(frame_data)
@@ -101,7 +102,7 @@ class PipelineDeteccion:
         self.ultimo_incidente = 0
         self.cooldown_incidente = 5  # 5 segundos entre incidentes
         
-        # FPS target para evidencia
+        # FPS target para evidencia - CORREGIDO PARA VIDEO FLUIDO
         self.target_fps_evidencia = 15
 
     async def procesar_frame(self, frame: np.ndarray, camara_id: int, ubicacion: str) -> Dict[str, Any]:
@@ -144,12 +145,8 @@ class PipelineDeteccion:
                 'timestamp': timestamp_actual
             }
 
-            # Agregar frame al buffer de evidencia (SIEMPRE con timestamp preciso)
-            self.buffer_evidencia.add_frame(
-                frame_procesado, 
-                timestamp_actual, 
-                detecciones
-            )
+            # Variable para información de violencia
+            violencia_info = None
 
             # Solo procesar con TimesFormer si hay personas detectadas
             if detecciones:
@@ -169,6 +166,13 @@ class PipelineDeteccion:
                     if deteccion['violencia_detectada']:
                         current_time = timestamp_actual.timestamp()
                         
+                        # Preparar información de violencia para el frame
+                        violencia_info = {
+                            'detectada': True,
+                            'probabilidad': deteccion.get('probabilidad', 0.0),
+                            'timestamp': timestamp_actual
+                        }
+                        
                         # Control de cooldown para evitar múltiples incidentes
                         if current_time - self.ultimo_incidente > self.cooldown_incidente:
                             # Marcar inicio de violencia
@@ -180,12 +184,13 @@ class PipelineDeteccion:
                             # Activar alarma de forma asíncrona
                             asyncio.create_task(self._activar_alarma())
                             
-                            # Agregar alerta al frame
+                            # Agregar alerta al frame CON PROBABILIDAD CORRECTA
+                            probabilidad_texto = f"¡ALERTA! Violencia detectada ({deteccion.get('probabilidad', 0.0):.1%})"
                             frame_procesado = await asyncio.get_event_loop().run_in_executor(
                                 None,
                                 self.procesador_video.agregar_texto_alerta,
                                 frame_procesado,
-                                f"¡ALERTA! Violencia detectada ({deteccion['probabilidad']:.1%})",
+                                probabilidad_texto,
                                 (0, 0, 255),
                                 1.2
                             )
@@ -194,7 +199,7 @@ class PipelineDeteccion:
                             
                             # Crear incidente si es el primer frame de violencia
                             if not hasattr(self, 'incidente_actual_id'):
-                                asyncio.create_task(self._crear_incidente(detecciones, deteccion['probabilidad']))
+                                asyncio.create_task(self._crear_incidente(detecciones, deteccion.get('probabilidad', 0.0)))
                                 self.ultimo_incidente = current_time
                             
                             # Actualizar tiempo de fin de violencia
@@ -205,6 +210,15 @@ class PipelineDeteccion:
                             tiempo_transcurrido = (timestamp_actual - self.tiempo_fin_violencia).total_seconds()
                             if tiempo_transcurrido >= self.duracion_evidencia_post:
                                 await self._finalizar_grabacion_evidencia()
+
+            # Agregar frame al buffer de evidencia (SIEMPRE con timestamp preciso)
+            # INCLUIR INFORMACIÓN DE VIOLENCIA EN EL BUFFER
+            self.buffer_evidencia.add_frame(
+                frame_procesado, 
+                timestamp_actual, 
+                detecciones,
+                violencia_info  # Información de violencia para overlay en video
+            )
 
             return resultado
 
@@ -285,7 +299,7 @@ class PipelineDeteccion:
                 print(f"Error en hilo de guardado: {e}")
 
     def _guardar_evidencia_con_fps_correcto(self, datos: Dict[str, Any]):
-        """Guarda evidencia con FPS correcto basado en timestamps reales"""
+        """Guarda evidencia con FPS correcto basado en timestamps reales - MEJORADO"""
         try:
             frames_data = datos['frames']
             camara_id = datos['camara_id']
@@ -314,43 +328,89 @@ class PipelineDeteccion:
             print(f"📹 Dimensiones: {width}x{height}")
             print(f"📹 FPS objetivo: {fps_target}")
             
-            # Crear video writer con configuración optimizada
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec compatible
+            # USAR CODEC H264 PARA MEJOR COMPATIBILIDAD Y FLUIDEZ
+            fourcc = cv2.VideoWriter_fourcc(*'H264')
             video_writer = cv2.VideoWriter(
                 str(ruta_evidencia),
                 fourcc,
-                fps_target,  # FPS consistente
+                fps_target,
                 (width, height)
             )
+
+            if not video_writer.isOpened():
+                # Fallback a mp4v si H264 no está disponible
+                print("H264 no disponible, usando mp4v...")
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                video_writer = cv2.VideoWriter(
+                    str(ruta_evidencia),
+                    fourcc,
+                    fps_target,
+                    (width, height)
+                )
 
             if not video_writer.isOpened():
                 print(f"❌ Error: No se pudo crear VideoWriter para {ruta_evidencia}")
                 return
 
-            # Interpolar frames para mantener FPS consistente
-            frames_interpolados = self._interpolar_frames_por_tiempo(frames_data, fps_target)
+            # GENERAR FRAMES CON INTERVALOS REGULARES PARA VIDEO FLUIDO
+            frames_regulares = self._generar_frames_regulares(frames_data, fps_target)
             
-            # Escribir frames interpolados
+            # Escribir frames regulares
             frames_escritos = 0
-            for frame_data in frames_interpolados:
+            for frame_data in frames_regulares:
                 try:
-                    frame = frame_data['frame']
+                    frame = frame_data['frame'].copy()
                     
                     # Asegurar dimensiones consistentes
                     if frame.shape[:2] != (height, width):
                         frame = cv2.resize(frame, (width, height))
                     
-                    # Agregar timestamp al frame para debug
-                    timestamp_str = frame_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
-                    cv2.putText(
-                        frame, 
-                        timestamp_str, 
-                        (10, height - 20), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 
-                        0.5, 
-                        (255, 255, 255), 
-                        1
-                    )
+                    # AGREGAR OVERLAY DE VIOLENCIA SI ESTÁ PRESENTE
+                    violencia_info = frame_data.get('violencia_info')
+                    if violencia_info and violencia_info.get('detectada'):
+                        # Agregar texto de VIOLENCIA DETECTADA
+                        probabilidad = violencia_info.get('probabilidad', 0.0)
+                        texto_violencia = f"VIOLENCIA DETECTADA - {probabilidad:.1%}"
+                        
+                        # Fondo rojo para el texto
+                        cv2.rectangle(frame, (10, 10), (width-10, 80), (0, 0, 255), -1)
+                        
+                        # Texto en blanco
+                        cv2.putText(
+                            frame, 
+                            texto_violencia, 
+                            (20, 45), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            1.0, 
+                            (255, 255, 255), 
+                            2,
+                            cv2.LINE_AA
+                        )
+                        
+                        # Tiempo del incidente
+                        timestamp_str = frame_data['timestamp'].strftime("%H:%M:%S")
+                        cv2.putText(
+                            frame, 
+                            timestamp_str, 
+                            (20, 70), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.6, 
+                            (255, 255, 255), 
+                            1,
+                            cv2.LINE_AA
+                        )
+                    else:
+                        # Solo timestamp normal
+                        timestamp_str = frame_data['timestamp'].strftime("%H:%M:%S.%f")[:-3]
+                        cv2.putText(
+                            frame, 
+                            timestamp_str, 
+                            (10, height - 20), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            0.5, 
+                            (255, 255, 255), 
+                            1
+                        )
                     
                     video_writer.write(frame)
                     frames_escritos += 1
@@ -388,8 +448,8 @@ class PipelineDeteccion:
             import traceback
             traceback.print_exc()
 
-    def _interpolar_frames_por_tiempo(self, frames_data: List[Dict], fps_target: int) -> List[Dict]:
-        """Interpola frames basado en timestamps reales para mantener FPS consistente"""
+    def _generar_frames_regulares(self, frames_data: List[Dict], fps_target: int) -> List[Dict]:
+        """Genera frames con intervalos regulares para video fluido - MEJORADO"""
         if not frames_data:
             return []
         
@@ -406,7 +466,7 @@ class PipelineDeteccion:
         
         # Calcular intervalos de tiempo para FPS objetivo
         intervalo_frame = 1.0 / fps_target
-        frames_interpolados = []
+        frames_regulares = []
         
         tiempo_actual = 0
         while tiempo_actual <= duracion_total:
@@ -418,18 +478,19 @@ class PipelineDeteccion:
                 key=lambda x: abs((x['timestamp'] - timestamp_objetivo).total_seconds())
             )
             
-            # Crear nuevo frame interpolado
-            frame_interpolado = {
+            # Crear nuevo frame regular manteniendo toda la información
+            frame_regular = {
                 'frame': frame_mas_cercano['frame'].copy(),
                 'timestamp': timestamp_objetivo,
-                'detecciones': frame_mas_cercano['detecciones']
+                'detecciones': frame_mas_cercano['detecciones'],
+                'violencia_info': frame_mas_cercano.get('violencia_info')  # Mantener info de violencia
             }
             
-            frames_interpolados.append(frame_interpolado)
+            frames_regulares.append(frame_regular)
             tiempo_actual += intervalo_frame
         
-        print(f"📹 Interpolación: {len(frames_data)} frames originales -> {len(frames_interpolados)} frames interpolados")
-        return frames_interpolados
+        print(f"📹 Generación regular: {len(frames_data)} frames originales -> {len(frames_regulares)} frames regulares")
+        return frames_regulares
 
     async def _actualizar_incidente_con_video(self, incidente_id: int, ruta_video: str):
         """Actualiza el incidente con la ruta del video"""

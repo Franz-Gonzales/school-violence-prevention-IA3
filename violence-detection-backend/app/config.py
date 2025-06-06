@@ -60,7 +60,7 @@ class Configuracion(BaseSettings):
     
     # Umbrales de confianza
     YOLO_CONF_THRESHOLD: float = 0.65
-    VIOLENCE_THRESHOLD: float = 0.72
+    VIOLENCE_THRESHOLD: float = 0.70
     
     # Resolución YOLO optimizada para velocidad
     YOLO_RESOLUTION_WIDTH: int = 416
@@ -77,10 +77,16 @@ class Configuracion(BaseSettings):
     EVIDENCE_POST_INCIDENT_SECONDS: float = 5.0  # Segundos después del incidente
     EVIDENCE_MAX_DURATION_SECONDS: int = 15      # Duración máxima total
     
+    # CODEC Y CONTENEDOR OPTIMIZADO
+    VIDEO_CODEC: str = "mp4v"  # Cambiar de mp4v a H264 para mejor compatibilidad
+    VIDEO_CODEC_FALLBACK: str = "mp4v"  # Fallback si H264 no está disponible
+    VIDEO_CONTAINER: str = "mp4"
+    VIDEO_BITRATE: str = "2000k"  # Aumentar bitrate para mejor calidadF
+    
     # Configuración de codec y compresión
-    VIDEO_CODEC: str = "mp4v"  # Codec para compatibilidad
-    VIDEO_CONTAINER: str = "mp4"  # Contenedor de video
-    VIDEO_BITRATE: str = "2000k"  # Bitrate para calidad alta
+    # VIDEO_CODEC: str = "mp4v"  # Codec para compatibilidad
+    # VIDEO_CONTAINER: str = "mp4"  # Contenedor de video
+    # VIDEO_BITRATE: str = "2000k"  # Bitrate para calidad alta
     VIDEO_CRF: int = 23  # Constant Rate Factor (0-51, menor = mejor calidad)
     
     # Buffer inteligente para evidencia
@@ -88,27 +94,83 @@ class Configuracion(BaseSettings):
     EVIDENCE_FRAME_INTERPOLATION: bool = True  # Interpolar frames para FPS consistente
     EVIDENCE_TIMESTAMP_OVERLAY: bool = True   # Agregar timestamp a los frames
     
-    # Configuración de compresión por calidad
+    # CONFIGURACIÓN DE COMPRESIÓN OPTIMIZADA
     VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
         "alta": {
-            "bitrate": "2000k",
-            "crf": 20,
+            "bitrate": "2500k",  # Aumentar bitrate
+            "crf": 18,           # Menor CRF = mejor calidad
             "scale": 1.0,
-            "fps": 15
+            "fps": 15,
+            "codec": "H264"
         },
         "media": {
-            "bitrate": "1000k", 
-            "crf": 25,
-            "scale": 0.75,
-            "fps": 12
+            "bitrate": "1500k", 
+            "crf": 23,
+            "scale": 1.0,        # Mantener escala completa
+            "fps": 15,           # FPS consistente
+            "codec": "H264"
         },
         "baja": {
-            "bitrate": "500k",
-            "crf": 30,
-            "scale": 0.5,
-            "fps": 10
+            "bitrate": "800k",
+            "crf": 28,
+            "scale": 0.75,       # Reducir solo ligeramente
+            "fps": 12,
+            "codec": "H264"
         }
     }
+    
+    # BUFFER Y PROCESAMIENTO MEJORADO
+    EVIDENCE_FRAME_SMOOTHING: bool = True    # Suavizado de frames
+    EVIDENCE_ADAPTIVE_FPS: bool = False      # Desactivar FPS adaptativo para consistencia
+
+    # CONFIGURACIÓN DE OPENCV WRITER MEJORADA
+    OPENCV_WRITER_CONFIG: Dict[str, Any] = {
+        "fourcc_primary": "H264",
+        "fourcc_fallback": "mp4v", 
+        "quality": 95,              # Calidad alta
+        "optimize": True,           # Optimización activada
+        "keyframe_interval": 30,    # Keyframes cada 30 frames
+    }
+    
+    # CONFIGURACIÓN DE PROCESAMIENTO DE FRAMES
+    FRAME_PROCESSING_CONFIG: Dict[str, Any] = {
+        "resize_method": "INTER_LINEAR",     # Método de redimensionado
+        "smooth_frames": True,               # Suavizado entre frames
+        "temporal_consistency": True,        # Consistencia temporal
+        "violence_overlay_duration": 5.0,   # Duración del overlay de violencia
+    }
+    
+    # CONFIGURACIÓN DE THREADING PARA VIDEO
+    VIDEO_PROCESSING_THREADS: int = 2       # Hilos dedicados para video
+    VIDEO_QUEUE_SIZE: int = 100             # Cola más grande para frames
+    VIDEO_WRITE_BUFFER_SIZE: int = 50       # Buffer de escritura
+    
+    # CONFIGURACIÓN DE DEBUGGING
+    VIDEO_DEBUG_ENABLED: bool = True        # Debug de videos
+    VIDEO_SAVE_INTERMEDIATE: bool = False   # Guardar frames intermedios
+    VIDEO_TIMING_LOGS: bool = True          # Logs de timing detallados
+    
+    # Configuración de compresión por calidad
+    # VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
+    #     "alta": {
+    #         "bitrate": "2000k",
+    #         "crf": 20,
+    #         "scale": 1.0,
+    #         "fps": 15
+    #     },
+    #     "media": {
+    #         "bitrate": "1000k", 
+    #         "crf": 25,
+    #         "scale": 0.75,
+    #         "fps": 12
+    #     },
+    #     "baja": {
+    #         "bitrate": "500k",
+    #         "crf": 30,
+    #         "scale": 0.5,
+    #         "fps": 10
+    #     }
+    # }
     
     # ========== CONFIGURACIÓN DE PROCESAMIENTO ==========
     

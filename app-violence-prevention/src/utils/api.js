@@ -20,7 +20,6 @@ export const login = async (formData) => {
     }
 };
 
-
 export const getIncidents = async (params = {}) => {
     try {
         const response = await api.get('/api/v1/incidents', { params });
@@ -31,6 +30,38 @@ export const getIncidents = async (params = {}) => {
     }
 };
 
+// Nueva función para obtener un incidente específico
+export const getIncident = async (incidentId) => {
+    try {
+        const response = await api.get(`/api/v1/incidents/${incidentId}`);
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener el incidente';
+        throw new Error(message);
+    }
+};
+
+// Nueva función para actualizar un incidente
+export const updateIncident = async (incidentId, updateData) => {
+    try {
+        const response = await api.patch(`/api/v1/incidents/${incidentId}`, updateData);
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al actualizar el incidente';
+        throw new Error(message);
+    }
+};
+
+// Nueva función para obtener el video de evidencia
+export const getIncidentVideo = async (incidentId) => {
+    try {
+        const response = await api.get(`/api/v1/incidents/${incidentId}/video`);
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener el video de evidencia';
+        throw new Error(message);
+    }
+};
 
 export const getIncidentStats = async (fechaInicio, fechaFin) => {
     try {
@@ -44,8 +75,6 @@ export const getIncidentStats = async (fechaInicio, fechaFin) => {
     }
 };
 
-
-
 export const getCameras = async (activasSolo = false) => {
     try {
         const response = await api.get('/api/v1/cameras', {
@@ -57,7 +86,6 @@ export const getCameras = async (activasSolo = false) => {
         throw new Error(message);
     }
 };
-
 
 export const api = axios.create({
     baseURL: API_URL,

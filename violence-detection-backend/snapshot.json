@@ -1,5 +1,5 @@
 {
-    "timestamp": 1748981514.578688,
+    "timestamp": 1749175719.7061632,
     "devices": [
         {
             "id": "eb77b7420e666f74c3a3no",
@@ -11,9 +11,9 @@
             "token": true,
             "wf_cfg": true,
             "sl": 0,
-            "clientLink": 3,
+            "clientLink": 2,
             "name": "Audible alarm",
-            "key": "]$Kg(L}vgaCn*&^2",
+            "key": "AU/?lxUzJbpo++B&",
             "mac": "c0:f8:53:3a:7e:24",
             "ability": 0,
             "dev_type": "default",
@@ -23,7 +23,7 @@
                 "dps": {
                     "101": "4",
                     "102": "8",
-                    "103": 5,
+                    "103": 2,
                     "104": false
                 }
             },

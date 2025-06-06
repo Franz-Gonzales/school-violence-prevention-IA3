@@ -174,12 +174,14 @@ class VideoTrackProcesado(VideoStreamTrack):
                             
                             if resultado and resultado.get("violencia_detectada"):
                                 print(f"Violencia detectada para cliente {self.cliente_id}")
+                                # CORREGIR: Usar la probabilidad real del resultado
+                                probabilidad_real = resultado.get("probabilidad_violencia", 0.0)
                                 await self.manejador_webrtc.enviar_a_cliente(
                                     self.cliente_id,
                                     {
                                         "tipo": "deteccion_violencia",
-                                        "probabilidad": resultado.get("probabilidad_violencia", 0.0),
-                                        "mensaje": "¡ALERTA! Violencia detectada",
+                                        "probabilidad": probabilidad_real,  # Usar probabilidad real
+                                        "mensaje": f"¡ALERTA! Violencia detectada - {probabilidad_real:.1%}",
                                         "personas_detectadas": len(resultado.get("personas_detectadas", []))
                                     }
                                 )

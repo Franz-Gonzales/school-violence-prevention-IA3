@@ -1,15 +1,21 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import DashboardContent from './DashboardContent';
 import Cameras from './Cameras';
 import CameraDetail from './CameraDetail';
 import Incidents from './Incidents';
-import Reports from './Reports';
-import Documents from './Documents';
-import Settings from './Settings';
+import IncidentDetail from './IncidentDetail';
+import NotFound from './NotFound';
 
 const MainPage = () => {
+    const { isAuthenticated } = useAuth();
+
+    if (!isAuthenticated) {
+        return <Navigate to="/login" replace />;
+    }
+
     return (
         <Layout>
             <Routes>
@@ -17,10 +23,12 @@ const MainPage = () => {
                 <Route path="/cameras" element={<Cameras />} />
                 <Route path="/cameras/:cameraId" element={<CameraDetail />} />
                 <Route path="/incidents" element={<Incidents />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/documents" element={<Documents />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="*" element={<Navigate to="/dashboard" />} />
+                <Route path="/incidents/:incidentId" element={<IncidentDetail />} />
+                <Route path="/reports" element={<div className="p-6"><h1 className="text-2xl font-bold">Informes - En desarrollo</h1></div>} />
+                <Route path="/documents" element={<div className="p-6"><h1 className="text-2xl font-bold">Documentación - En desarrollo</h1></div>} />
+                <Route path="/settings" element={<div className="p-6"><h1 className="text-2xl font-bold">Configuración - En desarrollo</h1></div>} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<NotFound />} />
             </Routes>
         </Layout>
     );

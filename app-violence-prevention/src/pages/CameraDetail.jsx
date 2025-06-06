@@ -14,7 +14,7 @@ const CameraDetail = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Estados del sistema
+    // Estados del sistema MEJORADOS
     const [systemState, setSystemState] = useState({
         camera: 'inactive',      // inactive, connecting, active, error
         stream: 'disconnected',  // disconnected, connecting, connected, streaming, error
@@ -129,6 +129,7 @@ const CameraDetail = () => {
                 }
 
                 setCameraDetail(camera);
+                // CORREGIR: Actualizar estado de cámara según estado real
                 setSystemState(prev => ({
                     ...prev,
                     camera: camera.estado === 'activa' ? 'active' : 'inactive'
@@ -194,7 +195,7 @@ const CameraDetail = () => {
         }
     }, [addNotification]);
 
-    // Manejo de detección mejorado
+    // Manejo de detección mejorado CORREGIDO
     const handleDetection = useCallback((data) => {
         console.log('🔍 Datos de detección recibidos:', data);
 
@@ -207,8 +208,8 @@ const CameraDetail = () => {
 
         if (data.violencia_detectada) {
             const alertData = {
-                probability: data.probabilidad,
-                peopleCount: data.personas_detectadas,
+                probability: data.probabilidad || 0, // CORREGIR: Usar probabilidad real
+                peopleCount: data.personas_detectadas || 0,
                 timestamp: new Date(),
                 cameraId: cameraId,
                 location: cameraDetail?.ubicacion
@@ -219,10 +220,11 @@ const CameraDetail = () => {
                 violenceAlert: alertData
             }));
 
-            // Notificación crítica
+            // Notificación crítica CON PROBABILIDAD CORRECTA
+            const probabilidadPorcentaje = ((data.probabilidad || 0) * 100).toFixed(1);
             addNotification(
                 'violence',
-                `🚨 VIOLENCIA DETECTADA - Probabilidad: ${(data.probabilidad * 100).toFixed(1)}%`,
+                `🚨 VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
                 alertData
             );
 
@@ -250,7 +252,7 @@ const CameraDetail = () => {
                 setSystemState(prev => ({ ...prev, stream: 'connecting' }));
                 addNotification('info', 'Iniciando conexión de video...');
 
-                // Activar cámara en el backend
+                // CORREGIR: Activar cámara y actualizar estado
                 await api.post(`/api/v1/cameras/${cameraId}/activar`);
                 setSystemState(prev => ({ ...prev, camera: 'active' }));
 
@@ -268,7 +270,7 @@ const CameraDetail = () => {
                 setSystemState(prev => ({ ...prev, stream: 'connecting' }));
                 addNotification('info', 'Deteniendo stream...');
 
-                // Desactivar cámara en el backend
+                // CORREGIR: Desactivar cámara y actualizar estado
                 await api.post(`/api/v1/cameras/${cameraId}/desactivar`);
                 setSystemState(prev => ({ ...prev, camera: 'inactive' }));
 
@@ -297,8 +299,11 @@ const CameraDetail = () => {
                 setSystemState(prev => ({ ...prev, detection: 'starting' }));
                 addNotification('info', 'Iniciando detección de violencia...');
 
-                // Activar cámara en el backend
-                await api.post(`/api/v1/cameras/${cameraId}/activar`);
+                // Activar cámara en el backend si no está activa
+                if (systemState.camera !== 'active') {
+                    await api.post(`/api/v1/cameras/${cameraId}/activar`);
+                    setSystemState(prev => ({ ...prev, camera: 'active' }));
+                }
 
                 // Activar detección en el cliente WebRTC
                 webRTCClientRef.current.toggleDetection(true);
@@ -337,6 +342,7 @@ const CameraDetail = () => {
         console.log(`🎛️ Calidad cambiada a: ${quality}`);
     };
 
+    // CORREGIR: Función mejorada para colores de estado
     const getStatusColor = (status) => {
         const colors = {
             active: 'bg-green-500',
@@ -346,8 +352,8 @@ const CameraDetail = () => {
             starting: 'bg-yellow-500',
             stopping: 'bg-yellow-500',
             buffering: 'bg-yellow-500',
-            inactive: 'bg-gray-500',
-            disconnected: 'bg-gray-500',
+            inactive: 'bg-red-500',  // CORREGIR: Rojo para inactivo
+            disconnected: 'bg-red-500', // CORREGIR: Rojo para desconectado
             error: 'bg-red-500'
         };
         return colors[status] || 'bg-gray-500';
@@ -358,6 +364,7 @@ const CameraDetail = () => {
             camera: {
                 active: 'Activa',
                 inactive: 'Inactiva',
+                connecting: 'Conectando...',
                 error: 'Error'
             },
             stream: {
@@ -432,7 +439,7 @@ const CameraDetail = () => {
                     ← Volver a Cámaras
                 </button>
 
-                {/* Panel de Estado del Sistema */}
+                {/* Panel de Estado del Sistema MEJORADO */}
                 <div className="bg-white rounded-lg shadow-md p-4">
                     <h2 className="text-lg font-semibold text-gray-900 mb-3">Estado del Sistema</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -487,14 +494,15 @@ const CameraDetail = () => {
                         )}
                     </div>
 
-                    {/* Información de la cámara */}
+                    {/* Información de la cámara MEJORADA */}
                     <div className="absolute top-4 right-4">
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${cameraDetail.estado === "activa" ? "bg-green-500 text-white" :
-                                cameraDetail.estado === "inactiva" ? "bg-red-500 text-white" :
-                                    cameraDetail.estado === "mantenimiento" ? "bg-yellow-500 text-white" :
-                                        "bg-gray-500 text-white"
-                            }`}>
-                            {cameraDetail.estado.charAt(0).toUpperCase() + cameraDetail.estado.slice(1)}
+                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                            systemState.camera === "active" ? "bg-green-500 text-white" :
+                            systemState.camera === "inactive" ? "bg-red-500 text-white" :
+                            systemState.camera === "connecting" ? "bg-yellow-500 text-white" :
+                            "bg-gray-500 text-white"
+                        }`}>
+                            {getStatusText('camera', systemState.camera)}
                         </span>
                     </div>
 
@@ -516,12 +524,13 @@ const CameraDetail = () => {
                     <div className="flex flex-wrap justify-center gap-4">
                         <button
                             onClick={handleToggleStream}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${systemState.stream === 'disconnected'
+                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${
+                                systemState.stream === 'disconnected'
                                     ? "bg-green-500 hover:bg-green-600"
                                     : systemState.stream === 'connecting'
                                         ? "bg-yellow-500 cursor-not-allowed"
                                         : "bg-red-500 hover:bg-red-600"
-                                }`}
+                            }`}
                             disabled={systemState.stream === 'connecting' || detectionData.isActive}
                         >
                             {systemState.stream === 'connecting' ? "Conectando..." :
@@ -530,12 +539,13 @@ const CameraDetail = () => {
 
                         <button
                             onClick={handleToggleDetection}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${detectionData.isActive
+                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${
+                                detectionData.isActive
                                     ? "bg-red-500 hover:bg-red-600"
                                     : systemState.detection === 'starting'
                                         ? "bg-yellow-500 cursor-not-allowed"
                                         : "bg-blue-500 hover:bg-blue-600"
-                                }`}
+                            }`}
                             disabled={systemState.stream === 'disconnected' || systemState.detection.includes('ing')}
                         >
                             {systemState.detection === 'starting' ? "Iniciando..." :
@@ -571,19 +581,21 @@ const CameraDetail = () => {
                             {notifications.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-3 rounded-lg border-l-4 ${notification.type === 'violence' ? 'bg-red-50 border-red-500' :
-                                            notification.type === 'error' ? 'bg-red-50 border-red-400' :
-                                                notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                                                    'bg-blue-50 border-blue-400'
-                                        }`}
+                                    className={`p-3 rounded-lg border-l-4 ${
+                                        notification.type === 'violence' ? 'bg-red-50 border-red-500' :
+                                        notification.type === 'error' ? 'bg-red-50 border-red-400' :
+                                        notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                                        'bg-blue-50 border-blue-400'
+                                    }`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
-                                            <p className={`font-medium ${notification.type === 'violence' ? 'text-red-800' :
-                                                    notification.type === 'error' ? 'text-red-700' :
-                                                        notification.type === 'warning' ? 'text-yellow-700' :
-                                                            'text-blue-700'
-                                                }`}>
+                                            <p className={`font-medium ${
+                                                notification.type === 'violence' ? 'text-red-800' :
+                                                notification.type === 'error' ? 'text-red-700' :
+                                                notification.type === 'warning' ? 'text-yellow-700' :
+                                                'text-blue-700'
+                                            }`}>
                                                 {notification.message}
                                             </p>
                                             <p className="text-sm text-gray-500 mt-1">
@@ -605,7 +617,7 @@ const CameraDetail = () => {
                     </div>
                 )}
 
-                {/* Alertas de detección detalladas */}
+                {/* Alertas de detección detalladas CORREGIDAS */}
                 {detectionData.violenceAlert && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-pulse">
                         <h2 className="text-xl font-semibold text-red-800 mb-2">🚨 Alerta de Violencia Crítica</h2>
@@ -613,13 +625,13 @@ const CameraDetail = () => {
                             <div>
                                 <p className="font-medium">Probabilidad:</p>
                                 <p className="text-2xl font-bold">
-                                    {(detectionData.violenceAlert.probability * 100).toFixed(1)}%
+                                    {((detectionData.violenceAlert.probability || 0) * 100).toFixed(1)}%
                                 </p>
                             </div>
                             <div>
                                 <p className="font-medium">Personas detectadas:</p>
                                 <p className="text-2xl font-bold">
-                                    {detectionData.violenceAlert.peopleCount}
+                                    {detectionData.violenceAlert.peopleCount || 0}
                                 </p>
                             </div>
                             <div>
