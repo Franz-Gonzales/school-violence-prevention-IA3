@@ -186,7 +186,42 @@ Mejor estructudado
 
 - pip install -r requirements.txt
 
+# PARA LA ALARMA SONORA
+# para detectar el dispositivo de alarma
+- pip install tinytuya
+- python -m tinytuya scan
+- python -m tinytuya wizard
+
 # Access ID/Client ID: 
 - senmpkvtvguawcydwrxr
 # Access Secret/Client Secret:
 - 0943972feb654916ae352330e866a442
+
+
+
+# PARA EL ALTAVOZ
+Verifica tu Clave API:
+Inicia sesión en tu cuenta en el sitio web de ElevenLabs (https://elevenlabs.io/).
+Ve al panel de usuario o a la sección de "API Keys" (normalmente en "Profile" o "Settings").
+Revisa tu clave API actual. Si no ves una clave válida o si la existente está desactivada, genera una nueva.
+Copia la clave exacta (sin espacios adicionales ni caracteres) y actualiza el código.
+
+
+# LISTA DE VOCES PARA ALTAVOZ
+Nombre: Aria, ID: 9BWtsMINqrJLrRacOk9x
+Nombre: Sarah, ID: EXAVITQu4vr4xnSDxMaL
+Nombre: Laura, ID: FGY2WhTYpPnrIDTdsKH5
+Nombre: Charlie, ID: IKne3meq5aSn9XLyUdCD
+Nombre: George, ID: JBFqnCBsd6RMkjVDRZzb
+Nombre: Callum, ID: N2lVS1w4EtoT3dr4eOWO
+Nombre: River, ID: SAz9YHcvj6GT2YYXdXww
+Nombre: Liam, ID: TX3LPaxmHKxFdv7VOQHJ
+Nombre: Charlotte, ID: XB0fDUnXU5powFXDhCwa
+Nombre: Alice, ID: Xb7hH8MSUJpSbSDYk0k2
+Nombre: Matilda, ID: XrExE9yKIg1WjnnlVkGX
+Nombre: Will, ID: bIHbv24MWmeRgasZH58o
+Nombre: Jessica, ID: cgSgspJ2msm6clMCkdW9
+Nombre: Eric, ID: cjVigY5qzO86Huf0OWal
+Nombre: Chris, ID: iP95p4xoKVk53GoZ742B
+Nombre: Brian, ID: nPczCjzI2devNBz1zQrb
+Nombre: Daniel, ID: onwK4e9ZLuTAKqWW03F9
