@@ -105,36 +105,30 @@ class ViolenceEvidenceRecorder:
         print("🛑 Procesamiento de evidencias detenido")
     
     def add_frame(self, frame: np.ndarray, detections: List[Dict], violence_info: Optional[Dict] = None):
-        """VERSIÓN MEJORADA: Captura MÁS AGRESIVA para garantizar datos suficientes"""
+        """VERSIÓN MEJORADA: Prioriza frames de violencia"""
         current_time = time.time()
         time_since_last = current_time - self.last_frame_time
         
         # DETECTAR ESTADO DE VIOLENCIA
-        violence_detected = violence_info and violence_info.get('violencia_detectada', False)
+        violence_detected = violence_info and violence_info.get('detectada', False)
         
         # GESTIONAR ESTADO DE VIOLENCIA ACTIVA
         if violence_detected and not self.violence_active:
-            print("🔥 INICIANDO SECUENCIA DE VIOLENCIA - Captura ULTRA intensiva")
             self.violence_active = True
-            self.stats['violence_sequences'] += 1
+            self.violence_start_time = current_time
+            print(f"🔥 VIOLENCIA ACTIVA INICIADA en Evidence Recorder")
         elif not violence_detected and self.violence_active:
-            print("✅ FINALIZANDO SECUENCIA DE VIOLENCIA")
-            self.violence_active = False
             self.violence_end_time = current_time
+            print(f"🔄 VIOLENCIA FINALIZADA en Evidence Recorder")
         
-        # ACEPTAR FRAMES MÁS AGRESIVAMENTE
-        # Durante violencia: aceptar TODOS los frames SIN EXCEPCIÓN
-        # Normal: usar intervalo más permisivo
-        if self.violence_active:
-            should_accept = True  # SIEMPRE durante violencia
+        # ACEPTAR FRAMES MÁS AGRESIVAMENTE DURANTE VIOLENCIA
+        if self.violence_active or violence_detected:
+            # Durante violencia: aceptar TODOS los frames
+            should_accept = True
+            self.stats['violence_frames_captured'] += 1
         else:
-            # Aceptar frames más frecuentemente en modo normal también
-            should_accept = (
-                self.last_frame_time == 0 or
-                time_since_last >= (self.capture_interval * 0.5) or  # Reducir threshold a 50%
-                violence_detected or
-                len(self.frame_buffer) < 50  # Aceptar más si el buffer está bajo
-            )
+            # Normal: usar intervalo más permisivo
+            should_accept = time_since_last >= (self.capture_interval * 0.8)
         
         if not should_accept:
             return
@@ -146,9 +140,9 @@ class ViolenceEvidenceRecorder:
         for detection in detections:
             self._draw_detection(frame_copy, detection)
         
-        # Dibujar información de violencia si existe
-        if violence_info and violence_info.get('violencia_detectada'):
-            self._draw_violence_overlay(frame_copy, violence_info)
+        # Dibujar información de violencia si existe CON OVERLAY INTENSO
+        if violence_info and violence_info.get('detectada'):
+            frame_copy = self._draw_violence_overlay_intenso(frame_copy, violence_info)
         
         frame_data = {
             'frame': frame_copy,
@@ -165,27 +159,12 @@ class ViolenceEvidenceRecorder:
         # AGREGAR AL BUFFER PRINCIPAL
         with self.buffer_lock:
             self.frame_buffer.append(frame_data)
-            
-            # Calcular densidad del buffer
-            if len(self.frame_buffer) >= 2:
-                time_span = self.frame_buffer[-1]['timestamp'] - self.frame_buffer[0]['timestamp']
-                if time_span > 0:
-                    self.stats['buffer_density'] = len(self.frame_buffer) / time_span
         
-        # AGREGAR AL BUFFER DE VIOLENCIA DURANTE SECUENCIAS ACTIVAS O DETECCIÓN
+        # AGREGAR AL BUFFER DE VIOLENCIA CON PRIORIDAD MÁXIMA
         if self.violence_active or violence_detected:
             with self.violence_buffer_lock:
                 self.violence_sequence_buffer.append(frame_data)
-                self.stats['violence_frames_captured'] += 1
-                
-                # AGREGAR CONTEXTO ADICIONAL: últimos 15 frames del buffer principal
-                if violence_detected and not self.violence_active:
-                    context_frames = list(self.frame_buffer)[-15:]
-                    for context_frame in context_frames:
-                        if context_frame['frame_id'] < self.frame_counter:
-                            context_frame_copy = context_frame.copy()
-                            context_frame_copy['context_frame'] = True
-                            self.violence_sequence_buffer.append(context_frame_copy)
+                print(f"🔥 Frame VIOLENCIA agregado al buffer dedicado: {len(self.violence_sequence_buffer)}")
         
         # Actualizar estadísticas y estado
         self.frame_counter += 1
@@ -198,11 +177,61 @@ class ViolenceEvidenceRecorder:
             self._start_recording(current_time)
         
         # Log cada 25 frames para debugging
-        if (configuracion.VIDEO_DEBUG_ENABLED if hasattr(configuracion, 'VIDEO_DEBUG_ENABLED') else True) and self.frame_counter % 25 == 0:
+        if self.frame_counter % 25 == 0:
+            violence_count = len([f for f in self.frame_buffer if f.get('is_violence_frame', False)])
             print(f"📊 Buffer Principal: {len(self.frame_buffer)} frames")
             print(f"📊 Buffer Violencia: {len(self.violence_sequence_buffer)} frames")
             print(f"📊 Estado Violencia: {'ACTIVA' if self.violence_active else 'INACTIVA'}")
-            print(f"📊 Densidad: {self.stats['buffer_density']:.2f} fps")
+            print(f"📊 Densidad: {len(self.frame_buffer) / max(1, time_since_last * 30):.2f} fps")
+
+    def _draw_violence_overlay_intenso(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
+        """Overlay INTENSO para frames de violencia"""
+        height, width = frame.shape[:2]
+        probability = violence_info.get('probabilidad', 0.0)
+        
+        # Overlay rojo MÁS INTENSO
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (width, 150), (0, 0, 255), -1)
+        frame = cv2.addWeighted(frame, 0.5, overlay, 0.5, 0)
+        
+        # Texto GRANDE y MUY VISIBLE
+        cv2.putText(
+            frame, 
+            "*** VIOLENCIA DETECTADA ***", 
+            (20, 50), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            1.5, 
+            (255, 255, 255), 
+            5,
+            cv2.LINE_AA
+        )
+        
+        # Probabilidad DESTACADA
+        cv2.putText(
+            frame, 
+            f"PROBABILIDAD: {probability:.1%}", 
+            (20, 100), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            1.2, 
+            (0, 255, 255), 
+            4,
+            cv2.LINE_AA
+        )
+        
+        # Timestamp con milisegundos
+        timestamp_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        cv2.putText(
+            frame, 
+            f"TIEMPO: {timestamp_str}", 
+            (20, 135), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            0.8, 
+            (255, 255, 255), 
+            3,
+            cv2.LINE_AA
+        )
+        
+        return frame
     
     def _start_recording(self, violence_time: float):
         """Inicia la grabación con tiempo EXTENDIDO para garantizar 5+ segundos"""
