@@ -8,6 +8,7 @@ import threading
 import queue
 import time
 import traceback
+import concurrent.futures
 
 from app.ai.yolo_detector import DetectorPersonas
 from app.ai.violence_detector import DetectorViolencia
@@ -25,7 +26,7 @@ logger = obtener_logger(__name__)
 
 class FrameBuffer:
     """Buffer inteligente para frames con timestamps precisos"""
-    def __init__(self, max_duration_seconds=25):  # AUMENTAR BUFFER CONSIDERABLEMENTE
+    def __init__(self, max_duration_seconds=30):
         self.frames = deque()
         self.max_duration = max_duration_seconds
         
@@ -81,20 +82,23 @@ class PipelineDeteccion:
         self.camara_id = None
         self.ubicacion = None
         
-        # Buffer inteligente MUCHO MÁS GRANDE para evidencia
+        # Buffer inteligente para evidencia
         self.buffer_evidencia = FrameBuffer(max_duration_seconds=30)
         
-        # Control de grabación de evidencia mejorado
+        # Control de grabación de evidencia
         self.grabando_evidencia = False
         self.tiempo_inicio_violencia = None
         self.tiempo_fin_violencia = None
-        self.duracion_evidencia_pre = 6  # 6 segundos antes (AUMENTADO)
-        self.duracion_evidencia_post = 8  # 8 segundos después (AUMENTADO)
+        self.duracion_evidencia_pre = 6
+        self.duracion_evidencia_post = 8
         
         # Cola para guardar videos de forma asíncrona
         self.cola_guardado = queue.Queue()
         self.hilo_guardado = threading.Thread(target=self._procesar_cola_guardado, daemon=True)
         self.hilo_guardado.start()
+        
+        # POOL DE HILOS PARA UPDATES DE DB - SOLUCIÓN PRINCIPAL
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="db_update")
         
         # Estadísticas
         self.frames_procesados = 0
@@ -105,10 +109,10 @@ class PipelineDeteccion:
         self.cooldown_incidente = 5
         
         # FPS target para evidencia
-        self.target_fps_evidencia = 15  # FPS CONSISTENTE
+        self.target_fps_evidencia = 15
         
-        # Control MUCHO MÁS AGRESIVO para evidencia
-        self.frame_feed_interval = 1.0 / 25  # ALIMENTAR A 25 FPS
+        # Control para evidencia
+        self.frame_feed_interval = 1.0 / 25
         self.last_evidence_feed = 0
 
         # Inicializar recorder de evidencia
@@ -220,7 +224,7 @@ class PipelineDeteccion:
                             if tiempo_transcurrido >= self.duracion_evidencia_post:
                                 await self._finalizar_grabacion_evidencia()
 
-            # AGREGAR FRAME AL BUFFER MÁS AGRESIVAMENTE
+            # Agregar frame al buffer MÁS AGRESIVAMENTE
             current_time = time.time()
             if current_time - self.last_evidence_feed >= self.frame_feed_interval:
                 self.buffer_evidencia.add_frame(
@@ -261,7 +265,7 @@ class PipelineDeteccion:
             
         print(f"📹 Finalizando grabación de evidencia...")
         
-        # Calcular tiempos para el clip de evidencia MÁS AMPLIOS
+        # Calcular tiempos para el clip de evidencia
         tiempo_inicio_clip = self.tiempo_inicio_violencia - timedelta(seconds=self.duracion_evidencia_pre)
         tiempo_fin_clip = self.tiempo_fin_violencia + timedelta(seconds=self.duracion_evidencia_post)
         
@@ -276,10 +280,10 @@ class PipelineDeteccion:
             print(f"📹 Extraídos {len(frames_evidencia)} frames para evidencia")
             print(f"📹 Duración del clip: {duracion_total:.2f} segundos")
             
-            # GARANTIZAR MÍNIMO 5 SEGUNDOS - SI NO HAY SUFICIENTES FRAMES, USAR FRAMES RECIENTES
+            # GARANTIZAR MÍNIMO 5 SEGUNDOS
             if len(frames_evidencia) < (5 * self.target_fps_evidencia) or duracion_total < 5.0:
                 print(f"⚠️ Video muy corto ({duracion_total:.1f}s), extendiendo con frames recientes...")
-                frames_evidencia = self.buffer_evidencia.get_recent_frames(12)  # Tomar 12 segundos
+                frames_evidencia = self.buffer_evidencia.get_recent_frames(12)
                 print(f"📹 Frames extendidos: {len(frames_evidencia)}")
             
             # Enviar a cola de guardado asíncrono
@@ -318,7 +322,7 @@ class PipelineDeteccion:
                 print(f"Error en hilo de guardado: {e}")
 
     def _guardar_evidencia_mejorado(self, datos: Dict[str, Any]):
-        """VERSIÓN CORREGIDA: Garantiza videos de 5+ segundos con overlay de violencia"""
+        """Guarda evidencia con overlay de violencia - MANTENER FUNCIONAL"""
         try:
             frames_data = datos['frames']
             camara_id = datos['camara_id']
@@ -349,13 +353,13 @@ class PipelineDeteccion:
             print(f"📹 Frames disponibles: {len(frames_data)}")
             
             # DUPLICAR/INTERPOLAR FRAMES PARA GARANTIZAR 5+ SEGUNDOS
-            frames_minimos = int(5.0 * fps_target)  # Frames mínimos para 5 segundos
+            frames_minimos = int(5.0 * fps_target)
             if len(frames_data) < frames_minimos:
                 frames_expandidos = self._expandir_frames_para_duracion(frames_data, frames_minimos)
                 print(f"📹 Frames expandidos de {len(frames_data)} a {len(frames_expandidos)} para 5+ segundos")
                 frames_data = frames_expandidos
             
-            # USAR MP4V COMO CODEC PRINCIPAL (más compatible)
+            # USAR MP4V COMO CODEC PRINCIPAL
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             video_writer = cv2.VideoWriter(
                 str(ruta_evidencia),
@@ -401,9 +405,9 @@ class PipelineDeteccion:
                 print(f"📹 Frames: {frames_escritos}")
                 print(f"📹 Duración: {duracion_real:.2f} segundos")
                 
-                # Actualizar incidente SIN CREAR NUEVO LOOP
+                # ACTUALIZAR INCIDENTE SIN CREAR CONFLICTOS DE LOOP
                 if incidente_id:
-                    self._actualizar_incidente_sync(incidente_id, str(ruta_evidencia))
+                    self._actualizar_incidente_thread_safe(incidente_id, str(ruta_evidencia))
             else:
                 print(f"❌ Error: No se pudo crear el archivo de video o no hay frames")
 
@@ -492,40 +496,67 @@ class PipelineDeteccion:
         
         return frame
 
-    def _actualizar_incidente_sync(self, incidente_id: int, ruta_video: str):
-        """VERSIÓN CORREGIDA: Actualiza el incidente evitando conflictos de loop"""
+    def _actualizar_incidente_thread_safe(self, incidente_id: int, ruta_video: str):
+        """SOLUCIÓN PRINCIPAL: Actualiza incidente usando ThreadPoolExecutor para evitar conflictos de loop"""
         try:
-            def actualizar_en_hilo():
+            def update_sync():
+                """Función síncrona que se ejecuta en el pool de hilos"""
                 try:
-                    import asyncio
-                    from app.core.database import SesionAsincrona
+                    # Usar requests HTTP en lugar de conexión directa a DB para evitar conflictos
+                    import requests
+                    import json
                     
-                    # CREAR NUEVO LOOP ESPECÍFICO PARA ESTE HILO
-                    nuevo_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(nuevo_loop)
+                    # URL del endpoint de actualización INTERNO ⭐ AQUÍ ES DONDE VA EL CAMBIO ⭐
+                    api_url = "http://localhost:8000/api/v1/incidents"
+                    update_url = f"{api_url}/{incidente_id}/internal"  # ⭐ ESTA LÍNEA ⭐
                     
-                    async def update_incident():
-                        async with SesionAsincrona() as session:
-                            servicio = ServicioIncidentes(session)
-                            await servicio.actualizar_incidente(
-                                incidente_id,
-                                {'video_evidencia_path': ruta_video}
-                            )
-                            print(f"✅ Incidente {incidente_id} actualizado con video: {ruta_video}")
+                    # Datos de actualizaciónq
+                    update_data = {
+                        "video_evidencia_path": ruta_video
+                    }
                     
-                    # Ejecutar y cerrar loop limpiamente
-                    nuevo_loop.run_until_complete(update_incident())
-                    nuevo_loop.close()
+                    # Headers básicos
+                    headers = {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
                     
+                    # Realizar petición HTTP PATCH
+                    response = requests.patch(
+                        update_url,
+                        json=update_data,
+                        headers=headers,
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        print(f"✅ Incidente {incidente_id} actualizado con video: {ruta_video}")
+                    else:
+                        print(f"⚠️ Respuesta HTTP {response.status_code} al actualizar incidente {incidente_id}")
+                        # Fallback: Log para revisión manual
+                        print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
+                        
                 except Exception as e:
-                    print(f"❌ Error actualizando incidente en hilo: {e}")
+                    print(f"❌ Error en update_sync: {e}")
+                    # Fallback: Log para revisión manual
+                    print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
             
-            # Ejecutar en hilo separado para evitar conflictos
-            thread = threading.Thread(target=actualizar_en_hilo, daemon=True)
-            thread.start()
+            # Ejecutar en pool de hilos dedicado SIN crear nuevos loops
+            future = self.executor.submit(update_sync)
+            
+            # Opcional: agregar callback para manejar resultado
+            def handle_result(fut):
+                try:
+                    fut.result(timeout=5)  # Timeout de 5 segundos
+                except Exception as e:
+                    print(f"❌ Error en future result: {e}")
+            
+            future.add_done_callback(handle_result)
             
         except Exception as e:
-            print(f"❌ Error en actualización síncrona: {e}")
+            print(f"❌ Error en actualización thread-safe: {e}")
+            # Fallback final
+            print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
 
     async def _activar_alarma(self):
         """Activa la alarma de forma asíncrona"""
@@ -596,7 +627,10 @@ class PipelineDeteccion:
         """Limpieza al destruir el objeto"""
         try:
             if hasattr(self, 'hilo_guardado') and self.hilo_guardado.is_alive():
-                # Señalar al hilo que termine
                 self.cola_guardado.put(None)
+            
+            # Cerrar pool de hilos
+            if hasattr(self, 'executor'):
+                self.executor.shutdown(wait=False)
         except:
             pass

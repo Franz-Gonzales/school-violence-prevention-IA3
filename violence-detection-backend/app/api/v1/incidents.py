@@ -1,7 +1,7 @@
 """
 Endpoints de gestión de incidentes  
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -219,4 +219,31 @@ async def eliminar_incidente(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al eliminar incidente"
+        )
+
+
+@router.patch("/{incidente_id}/internal", include_in_schema=False)
+async def actualizar_incidente_interno(
+    incidente_id: int,
+    update_data: Dict[str, Any],
+    db: AsyncSession = Depends(obtener_db)
+):
+    """Actualiza un incidente internamente (sin autenticación para procesos internos)"""
+    try:
+        servicio = ServicioIncidentes(db)
+        incidente = await servicio.actualizar_incidente(incidente_id, update_data)
+        
+        if not incidente:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Incidente no encontrado"
+            )
+        
+        return {"message": "Incidente actualizado", "incidente_id": incidente_id}
+        
+    except Exception as e:
+        logger.error(f"Error en actualización interna: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno"
         )
