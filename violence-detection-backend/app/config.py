@@ -69,48 +69,51 @@ class Configuracion(BaseSettings):
     # ========== CONFIGURACIÓN DE VIDEO EVIDENCIA ==========
     
     # FPS para videos de evidencia (CRÍTICO para reproducción correcta)
-    EVIDENCE_TARGET_FPS: int = 15  # FPS fijo para todos los videos de evidencia
+    EVIDENCE_TARGET_FPS: int = 20  # FPS fijo para todos los videos de evidencia
     EVIDENCE_QUALITY: str = "alta"  # alta, media, baja
     
     # Duración de clips de evidencia
     EVIDENCE_PRE_INCIDENT_SECONDS: float = 3.0   # Segundos antes del incidente
     EVIDENCE_POST_INCIDENT_SECONDS: float = 5.0  # Segundos después del incidente
-    EVIDENCE_MAX_DURATION_SECONDS: int = 15      # Duración máxima total
+    EVIDENCE_MAX_DURATION_SECONDS: int = 20      # Duración máxima total
     
     # CODEC Y CONTENEDOR OPTIMIZADO
-    VIDEO_CODEC: str = "mp4v"  # Cambiar de mp4v a H264 para mejor compatibilidad
+    VIDEO_CODEC: str = "H264"  # Cambiar de mp4v a H264 para mejor compatibilidad
     VIDEO_CODEC_FALLBACK: str = "mp4v"  # Fallback si H264 no está disponible
     VIDEO_CONTAINER: str = "mp4"
-    VIDEO_BITRATE: str = "2000k"  # Aumentar bitrate para mejor calidadF
+    VIDEO_BITRATE: str = "3000k"  # Aumentar bitrate para mejor calidadF
     
     VIDEO_CRF: int = 23  # Constant Rate Factor (0-51, menor = mejor calidad)
     
-    # Buffer inteligente para evidencia
-    EVIDENCE_BUFFER_SIZE_SECONDS: int = 20  # Buffer circular para frames
-    EVIDENCE_FRAME_INTERPOLATION: bool = True  # Interpolar frames para FPS consistente
-    EVIDENCE_TIMESTAMP_OVERLAY: bool = True   # Agregar timestamp a los frames
+    # Buffer inteligente para evidencia (AMPLIADO)
+    EVIDENCE_BUFFER_SIZE_SECONDS: int = 60  # Buffer más grande (45 segundos)
+    EVIDENCE_FRAME_INTERPOLATION: bool = False  # Desactivar para usar frames reales
+    EVIDENCE_TIMESTAMP_OVERLAY: bool = True
+    EVIDENCE_CAPTURE_FPS: int = 30  # FPS de captura más alto
+    EVIDENCE_SMOOTH_TRANSITIONS: bool = True
+    EVIDENCE_TEMPORAL_SMOOTHING: bool = True
     
     # CONFIGURACIÓN DE COMPRESIÓN OPTIMIZADA
     VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
         "alta": {
-            "bitrate": "2500k",  # Aumentar bitrate
-            "crf": 18,           # Menor CRF = mejor calidad
+            "bitrate": "3000k",  # Bitrate más alto
+            "crf": 16,           # Calidad muy alta
             "scale": 1.0,
             "fps": 15,
             "codec": "H264"
         },
         "media": {
-            "bitrate": "1500k", 
-            "crf": 23,
-            "scale": 1.0,        # Mantener escala completa
-            "fps": 15,           # FPS consistente
+            "bitrate": "2000k", 
+            "crf": 20,           # Calidad alta
+            "scale": 1.0,
+            "fps": 15,
             "codec": "H264"
         },
         "baja": {
-            "bitrate": "800k",
-            "crf": 28,
-            "scale": 0.75,       # Reducir solo ligeramente
-            "fps": 12,
+            "bitrate": "1200k",
+            "crf": 24,
+            "scale": 1.0,        # Mantener escala completa
+            "fps": 15,
             "codec": "H264"
         }
     }
@@ -178,7 +181,7 @@ class Configuracion(BaseSettings):
     # ========== CONFIGURACIÓN DE RENDIMIENTO ==========
     
     # Configuración de rendimiento de video mejorada
-    VIDEO_BUFFER_SIZE: int = 30  # Frames en buffer circular
+    VIDEO_BUFFER_SIZE: int = 40  # Frames en buffer circular
     FRAME_QUEUE_SIZE: int = 50   # Tamaño de cola de frames
     PROCESSING_THREAD_COUNT: int = 2  # Hilos para procesamiento
     
@@ -218,6 +221,13 @@ class Configuracion(BaseSettings):
         "frame_drop_rate": {"high": 5.0, "medium": 2.0, "low": 1.0},
         "bandwidth": {"high": 2000, "medium": 1000, "low": 500}  # kbps
     }
+    
+    # Buffer específico para secuencias de violencia (frames dedicados)
+    EVIDENCE_VIOLENCE_BUFFER_SIZE: int = 800  # Frames dedicados para violencia (opcional)
+
+    # Control de captura durante violencia
+    EVIDENCE_VIOLENCE_CAPTURE_ALL: bool = True  # Capturar TODOS los frames durante violencia
+
     
     # Configuraciones de calidad de stream
     STREAM_QUALITY_PROFILES: Dict[str, Dict[str, Any]] = {

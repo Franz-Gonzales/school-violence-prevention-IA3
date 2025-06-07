@@ -77,15 +77,18 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.capture_thread.start()
 
     def _capture_frames(self):
-        """Hilo dedicado para captura de frames"""
+        """Hilo dedicado para captura de frames MEJORADO"""
         last_capture_time = time.time()
+        
+        # INTERVALO MÁS FRECUENTE PARA MÁS DATOS
+        capture_interval = 1.0 / 25  # 25 FPS de captura
         
         while self.running and self.cap and self.cap.isOpened():
             current_time = time.time()
             
-            # Control de FPS en captura
-            if current_time - last_capture_time < self.frame_interval:
-                time.sleep(0.001)  # Pequeña pausa
+            # CAPTURA MÁS FRECUENTE
+            if current_time - last_capture_time < capture_interval:
+                time.sleep(0.001)
                 continue
                 
             ret, frame = self.cap.read()
@@ -103,26 +106,28 @@ class VideoTrackProcesado(VideoStreamTrack):
                 'frame_id': self.frame_count
             }
             
-            # Agregar a cola de streaming (prioridad)
-            try:
-                self.stream_queue.put_nowait(frame_data)
-            except asyncio.QueueFull:
-                try:
-                    self.stream_queue.get_nowait()  # Remover frame viejo
-                    self.stream_queue.put_nowait(frame_data)
-                except:
-                    pass
-            
-            # Agregar a cola de procesamiento si está activo
+            # PRIORIZAR FRAMES PARA EVIDENCIA
+            # Agregar a cola de procesamiento con mayor frecuencia si está activo
             if self.deteccion_activada:
                 try:
                     self.processing_queue.put_nowait(frame_data)
                 except asyncio.QueueFull:
+                    # Remover frame más viejo para hacer espacio
                     try:
-                        self.processing_queue.get_nowait()  # Remover frame viejo
+                        self.processing_queue.get_nowait()
                         self.processing_queue.put_nowait(frame_data)
                     except:
                         pass
+            
+            # Cola de streaming (menor prioridad)
+            try:
+                self.stream_queue.put_nowait(frame_data)
+            except asyncio.QueueFull:
+                try:
+                    self.stream_queue.get_nowait()
+                    self.stream_queue.put_nowait(frame_data)
+                except:
+                    pass
             
             self.frame_count += 1
             last_capture_time = current_time

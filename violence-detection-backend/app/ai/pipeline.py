@@ -13,6 +13,7 @@ from app.models.incident import TipoIncidente, SeveridadIncidente, EstadoInciden
 from app.utils.video_utils import ProcesadorVideo
 from app.utils.logger import obtener_logger
 from app.config import configuracion
+from app.tasks.video_recorder import evidence_recorder
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
 import threading
@@ -104,6 +105,13 @@ class PipelineDeteccion:
         
         # FPS target para evidencia - CORREGIDO PARA VIDEO FLUIDO
         self.target_fps_evidencia = 15
+
+        # Control mejorado para evidencia
+        self.frame_feed_interval = 1.0 / 25  # Alimentar buffer a 20 FPS
+        self.last_evidence_feed = 0
+
+        # Inicializar recorder de evidencia
+        evidence_recorder.start_processing()
 
     async def procesar_frame(self, frame: np.ndarray, camara_id: int, ubicacion: str) -> Dict[str, Any]:
         try:
@@ -220,6 +228,12 @@ class PipelineDeteccion:
                 violencia_info  # Información de violencia para overlay en video
             )
 
+            # ALIMENTAR EL BUFFER DE EVIDENCIA MÁS FRECUENTEMENTE
+            current_time = time.time()
+            if current_time - self.last_evidence_feed >= self.frame_feed_interval:
+                evidence_recorder.add_frame(frame_original, detecciones, violencia_info)
+                self.last_evidence_feed = current_time
+            
             return resultado
 
         except Exception as e:
