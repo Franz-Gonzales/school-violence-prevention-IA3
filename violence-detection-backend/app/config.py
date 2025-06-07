@@ -73,20 +73,20 @@ class Configuracion(BaseSettings):
     EVIDENCE_QUALITY: str = "alta"  # alta, media, baja
     
     # Duración de clips de evidencia
-    EVIDENCE_PRE_INCIDENT_SECONDS: float = 3.0   # Segundos antes del incidente
-    EVIDENCE_POST_INCIDENT_SECONDS: float = 5.0  # Segundos después del incidente
-    EVIDENCE_MAX_DURATION_SECONDS: int = 20      # Duración máxima total
+    EVIDENCE_PRE_INCIDENT_SECONDS: float = 4.0   # Segundos antes del incidente
+    EVIDENCE_POST_INCIDENT_SECONDS: float = 6.0  # Segundos después del incidente
+    EVIDENCE_MAX_DURATION_SECONDS: int = 25      # Duración máxima total
     
-    # CODEC Y CONTENEDOR OPTIMIZADO
-    VIDEO_CODEC: str = "H264"  # Cambiar de mp4v a H264 para mejor compatibilidad
-    VIDEO_CODEC_FALLBACK: str = "mp4v"  # Fallback si H264 no está disponible
+    # CODEC SIMPLIFICADO (más compatible)
+    VIDEO_CODEC: str = "mp4v"  # Usar mp4v como principal (más compatible)
+    VIDEO_CODEC_FALLBACK: str = "XVID"  # Fallback si mp4v no está disponible
     VIDEO_CONTAINER: str = "mp4"
-    VIDEO_BITRATE: str = "3000k"  # Aumentar bitrate para mejor calidadF
+    VIDEO_BITRATE: str = "3000k"
     
     VIDEO_CRF: int = 23  # Constant Rate Factor (0-51, menor = mejor calidad)
     
     # Buffer inteligente para evidencia (AMPLIADO)
-    EVIDENCE_BUFFER_SIZE_SECONDS: int = 60  # Buffer más grande (45 segundos)
+    EVIDENCE_BUFFER_SIZE_SECONDS: int = 30  # Buffer más grande (45 segundos)
     EVIDENCE_FRAME_INTERPOLATION: bool = False  # Desactivar para usar frames reales
     EVIDENCE_TIMESTAMP_OVERLAY: bool = True
     EVIDENCE_CAPTURE_FPS: int = 30  # FPS de captura más alto
@@ -124,11 +124,12 @@ class Configuracion(BaseSettings):
 
     # CONFIGURACIÓN DE OPENCV WRITER MEJORADA
     OPENCV_WRITER_CONFIG: Dict[str, Any] = {
-        "fourcc_primary": "H264",
-        "fourcc_fallback": "mp4v", 
-        "quality": 95,              # Calidad alta
-        "optimize": True,           # Optimización activada
-        "keyframe_interval": 30,    # Keyframes cada 30 frames
+        "fourcc": "mp4v",  # Usar mp4v como principal
+        "fps": EVIDENCE_TARGET_FPS,  # FPS fijo para todos los videos de evidencia
+        "bitrate": VIDEO_BITRATE,     # Bitrate optimizado
+        "quality": 95,                # Calidad del video (0-100)
+        "compression_level": 3,       # Nivel de compresión (0-9)
+        "use_gpu_acceleration": False  # Desactivar aceleración GPU para compatibilidad
     }
     
     # CONFIGURACIÓN DE PROCESAMIENTO DE FRAMES

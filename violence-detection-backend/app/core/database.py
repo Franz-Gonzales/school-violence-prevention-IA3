@@ -19,7 +19,10 @@ motor = create_async_engine(
     pool_size=configuracion.DB_POOL_SIZE,
     max_overflow=configuracion.DB_MAX_OVERFLOW,
     pool_timeout=configuracion.DB_POOL_TIMEOUT,
-    pool_recycle=configuracion.DB_POOL_RECYCLE
+    pool_recycle=configuracion.DB_POOL_RECYCLE,
+    # AÑADIR CONFIGURACIÓN PARA EVITAR PROBLEMAS DE LOOP
+    pool_reset_on_return='commit',
+    future=True
 )
 
 # Sesión asíncrona
@@ -85,18 +88,17 @@ async def cerrar_db():
     Cierra todas las conexiones del pool de la base de datos de forma segura.
     """
     try:
-        # 1. Esperar a que las conexiones activas terminen
-        await motor.dispose(close=True)
+        # CIERRE MEJORADO PARA EVITAR ERRORES DE LOOP
+        await motor.dispose()
         
-        # 2. Cerrar el pool explícitamente
-        if hasattr(motor, '_async_pool'):
-            pool = motor._async_pool
-            if pool is not None:
-                await asyncio.shield(pool.close())
+        # Dar tiempo para que se cierren completamente
+        await asyncio.sleep(0.5)
         
         logger.info("✅ Conexiones de base de datos cerradas correctamente")
         print("✅ Conexiones de base de datos cerradas correctamente")
         
     except Exception as e:
-        logger.error(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")
-        print(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")
+        # No mostrar error de loop cerrado ya que es esperado durante shutdown
+        if "Event loop is closed" not in str(e):
+            logger.error(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")
+            print(f"❌ Error al cerrar conexiones de base de datos: {str(e)}")
