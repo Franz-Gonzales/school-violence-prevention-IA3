@@ -62,14 +62,18 @@ class FrameBuffer:
 
 class ViolenceFrameBuffer:
     """Buffer dedicado EXCLUSIVAMENTE para frames con violencia detectada"""
-    def __init__(self, max_frames=800):
+    def __init__(self, max_frames=1000):
         self.violence_frames = deque(maxlen=max_frames)
-        self.violence_sequences = []  # Secuencias completas de violencia
+        self.violence_sequences = []
         self.current_sequence = None
         self.sequence_id = 0
+        self.last_violence_state = False  # Para evitar repeticiones
         
     def start_violence_sequence(self, start_time):
         """Inicia una nueva secuencia de violencia"""
+        if self.current_sequence is not None:
+            return  # Ya hay una secuencia activa
+            
         self.sequence_id += 1
         self.current_sequence = {
             'id': self.sequence_id,
@@ -79,12 +83,14 @@ class ViolenceFrameBuffer:
             'max_probability': 0.0,
             'total_frames': 0
         }
+        self.last_violence_state = True
         print(f"🔴 NUEVA SECUENCIA DE VIOLENCIA INICIADA: #{self.sequence_id}")
+        print(f"🚨 INICIO DE VIOLENCIA DETECTADA: {start_time}")
     
     def add_violence_frame(self, frame, timestamp, detecciones, violencia_info):
         """Agrega un frame CON VIOLENCIA DETECTADA al buffer dedicado"""
         if not violencia_info or not violencia_info.get('detectada'):
-            return  # Solo agregar frames con violencia confirmada
+            return
         
         probability = violencia_info.get('probabilidad', 0.0)
         
@@ -113,21 +119,26 @@ class ViolenceFrameBuffer:
             if probability > self.current_sequence['max_probability']:
                 self.current_sequence['max_probability'] = probability
         
-        print(f"🔥 FRAME DE VIOLENCIA AGREGADO: Prob={probability:.3f}, Total buffer={len(self.violence_frames)}")
+        # Solo mostrar log cada 5 frames para reducir spam
+        if len(self.violence_frames) % 5 == 0:
+            print(f"🔥 FRAME DE VIOLENCIA AGREGADO: Prob={probability:.3f}, Total buffer={len(self.violence_frames)}")
     
     def end_violence_sequence(self, end_time):
-        """Finaliza la secuencia actual de violencia"""
-        if self.current_sequence:
-            self.current_sequence['end_time'] = end_time
-            duration = (end_time - self.current_sequence['start_time']).total_seconds()
+        """Finaliza la secuencia actual de violencia - SOLO UNA VEZ"""
+        if self.current_sequence is None or not self.last_violence_state:
+            return  # No hay secuencia activa o ya se finalizó
             
-            print(f"🔴 SECUENCIA #{self.current_sequence['id']} FINALIZADA:")
-            print(f"   - Duración: {duration:.2f}s")
-            print(f"   - Frames de violencia: {self.current_sequence['total_frames']}")
-            print(f"   - Probabilidad máxima: {self.current_sequence['max_probability']:.3f}")
-            
-            self.violence_sequences.append(self.current_sequence)
-            self.current_sequence = None
+        self.current_sequence['end_time'] = end_time
+        duration = (end_time - self.current_sequence['start_time']).total_seconds()
+        
+        print(f"🔴 SECUENCIA #{self.current_sequence['id']} FINALIZADA:")
+        print(f"   - Duración: {duration:.2f}s")
+        print(f"   - Frames de violencia: {self.current_sequence['total_frames']}")
+        print(f"   - Probabilidad máxima: {self.current_sequence['max_probability']:.3f}")
+        
+        self.violence_sequences.append(self.current_sequence)
+        self.current_sequence = None
+        self.last_violence_state = False
     
     def get_violence_frames_in_range(self, start_time, end_time):
         """Obtiene todos los frames de violencia en un rango de tiempo"""
@@ -247,22 +258,27 @@ class PipelineDeteccion:
         # Buffer inteligente para evidencia NORMAL
         self.buffer_evidencia = FrameBuffer(max_duration_seconds=30)
         
-        # NUEVO: Buffer dedicado EXCLUSIVAMENTE para violencia
-        self.violence_buffer = ViolenceFrameBuffer(max_frames=800)
+        # Buffer dedicado EXCLUSIVAMENTE para violencia
+        self.violence_buffer = ViolenceFrameBuffer(max_frames=1000)
         
-        # Control de grabación de evidencia
+        # Control de grabación de evidencia MEJORADO
         self.grabando_evidencia = False
         self.tiempo_inicio_violencia = None
         self.tiempo_fin_violencia = None
         self.duracion_evidencia_pre = 6
         self.duracion_evidencia_post = 8
         
+        # NUEVO: Control de estado de violencia para evitar repeticiones
+        self.violencia_estado_anterior = False
+        self.secuencia_violencia_activa = False
+        self.ultimo_frame_violencia = 0
+        
         # Cola para guardar videos de forma asíncrona
         self.cola_guardado = queue.Queue()
         self.hilo_guardado = threading.Thread(target=self._procesar_cola_guardado, daemon=True)
         self.hilo_guardado.start()
         
-        # POOL DE HILOS PARA UPDATES DE DB
+        # Pool de hilos para updates de DB
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="db_update")
         
         # Estadísticas
@@ -271,7 +287,7 @@ class PipelineDeteccion:
         
         # Control de tiempo para evitar spam
         self.ultimo_incidente = 0
-        self.cooldown_incidente = 5
+        self.cooldown_incidente = 10  # Aumentado a 10 segundos
         
         # FPS target para evidencia
         self.target_fps_evidencia = 15
@@ -325,6 +341,7 @@ class PipelineDeteccion:
 
             # Variable para información de violencia
             violencia_info = None
+            violencia_detectada_ahora = False
 
             # Solo procesar con TimesFormer si hay personas detectadas
             if detecciones:
@@ -340,8 +357,9 @@ class PipelineDeteccion:
                     )
                     
                     resultado.update(deteccion)
+                    violencia_detectada_ahora = deteccion['violencia_detectada']
 
-                    if deteccion['violencia_detectada']:
+                    if violencia_detectada_ahora:
                         current_time = timestamp_actual.timestamp()
                         
                         # Preparar información de violencia para el frame
@@ -351,41 +369,42 @@ class PipelineDeteccion:
                             'timestamp': timestamp_actual
                         }
                         
-                        # Control de cooldown para evitar múltiples incidentes
-                        if current_time - self.ultimo_incidente > self.cooldown_incidente:
-                            # Marcar inicio de violencia
-                            if not self.grabando_evidencia:
+                        # CONTROL MEJORADO: Solo actuar si es una nueva detección o se reanuda
+                        if not self.violencia_estado_anterior:
+                            print(f"¡ALERTA! Violencia detectada")
+                            
+                            # Marcar inicio de violencia SOLO LA PRIMERA VEZ
+                            if not self.secuencia_violencia_activa:
                                 self.tiempo_inicio_violencia = timestamp_actual
+                                self.secuencia_violencia_activa = True
                                 self.grabando_evidencia = True
+                                
                                 # INICIAR SECUENCIA DE VIOLENCIA
                                 self.violence_buffer.start_violence_sequence(timestamp_actual)
-                                print(f"🚨 INICIO DE VIOLENCIA DETECTADA: {self.tiempo_inicio_violencia}")
-                            
-                            # Activar alarma de forma asíncrona
-                            asyncio.create_task(self._activar_alarma())
-                            
-                            # Agregar alerta al frame CON PROBABILIDAD CORRECTA
-                            probabilidad_texto = f"¡ALERTA! Violencia detectada ({deteccion.get('probabilidad', 0.0):.1%})"
-                            frame_procesado = await asyncio.get_event_loop().run_in_executor(
-                                None,
-                                self.procesador_video.agregar_texto_alerta,
-                                frame_procesado,
-                                probabilidad_texto,
-                                (0, 0, 255),
-                                1.2
-                            )
-                            
-                            resultado['frame_procesado'] = frame_procesado
-                            
-                            # Crear incidente si es el primer frame de violencia
-                            if not hasattr(self, 'incidente_actual_id'):
-                                asyncio.create_task(self._crear_incidente(detecciones, deteccion.get('probabilidad', 0.0)))
-                                self.ultimo_incidente = current_time
-                            
-                            # Actualizar tiempo de fin de violencia
-                            self.tiempo_fin_violencia = timestamp_actual
+                                print(f"🚨 Activando alarma por 5 segundos")
+                                
+                                # Activar alarma SOLO una vez
+                                asyncio.create_task(self._activar_alarma())
+                                
+                                # Crear incidente SOLO una vez
+                                if current_time - self.ultimo_incidente > self.cooldown_incidente:
+                                    asyncio.create_task(self._crear_incidente(detecciones, deteccion.get('probabilidad', 0.0)))
+                                    self.ultimo_incidente = current_time
                         
-                        # AGREGAR FRAME AL BUFFER DE VIOLENCIA (SIEMPRE)
+                        # Agregar alerta al frame CON PROBABILIDAD CORRECTA
+                        probabilidad_texto = f"Probabilidad: {deteccion.get('probabilidad', 0.0):.1%}"
+                        frame_procesado = await asyncio.get_event_loop().run_in_executor(
+                            None,
+                            self.procesador_video.agregar_texto_alerta,
+                            frame_procesado,
+                            probabilidad_texto,
+                            (0, 0, 255),
+                            1.2
+                        )
+                        
+                        resultado['frame_procesado'] = frame_procesado
+                        
+                        # SIEMPRE agregar frames de violencia al buffer especializado
                         self.violence_buffer.add_violence_frame(
                             frame_original, 
                             timestamp_actual, 
@@ -393,16 +412,31 @@ class PipelineDeteccion:
                             violencia_info
                         )
                         
+                        # Actualizar tiempo de fin de violencia
+                        self.tiempo_fin_violencia = timestamp_actual
+                        self.ultimo_frame_violencia = self.frames_procesados
+                        
+                        # Actualizar estado
+                        self.violencia_estado_anterior = True
+                        
                     else:
-                        # Si no hay violencia y estábamos grabando, finalizar después de un delay
-                        if self.grabando_evidencia and self.tiempo_fin_violencia:
-                            tiempo_transcurrido = (timestamp_actual - self.tiempo_fin_violencia).total_seconds()
-                            if tiempo_transcurrido >= self.duracion_evidencia_post:
-                                # FINALIZAR SECUENCIA DE VIOLENCIA
-                                self.violence_buffer.end_violence_sequence(timestamp_actual)
-                                await self._finalizar_grabacion_evidencia()
+                        # NO hay violencia en este frame
+                        if self.violencia_estado_anterior:
+                            # FIN de secuencia de violencia
+                            if self.secuencia_violencia_activa and self.tiempo_fin_violencia:
+                                tiempo_transcurrido = (timestamp_actual - self.tiempo_fin_violencia).total_seconds()
+                                
+                                # Esperar un poco más antes de finalizar la secuencia
+                                if tiempo_transcurrido >= (self.duracion_evidencia_post + 2):
+                                    # FINALIZAR SECUENCIA SOLO UNA VEZ
+                                    self.violence_buffer.end_violence_sequence(timestamp_actual)
+                                    await self._finalizar_grabacion_evidencia()
+                                    
+                                    # Reset estado
+                                    self.secuencia_violencia_activa = False
+                                    self.violencia_estado_anterior = False
 
-            # Agregar frame al buffer NORMAL
+            # Agregar frame al buffer NORMAL (SIEMPRE)
             current_time = time.time()
             if current_time - self.last_evidence_feed >= self.frame_feed_interval:
                 self.buffer_evidencia.add_frame(
@@ -411,7 +445,13 @@ class PipelineDeteccion:
                     detecciones,
                     violencia_info
                 )
-                evidence_recorder.add_frame(frame_original, detecciones, violencia_info)
+                
+                # EVIDENCIA: Priorizar frames de violencia
+                evidence_recorder.add_frame(
+                    frame_original, 
+                    detecciones, 
+                    violencia_info
+                )
                 self.last_evidence_feed = current_time
             
             return resultado
@@ -792,8 +832,14 @@ class PipelineDeteccion:
         self.grabando_evidencia = False
         self.tiempo_inicio_violencia = None
         self.tiempo_fin_violencia = None
+        
+        # Reset estados de violencia
+        self.violencia_estado_anterior = False
+        self.secuencia_violencia_activa = False
+        self.ultimo_frame_violencia = 0
+        
         # Limpiar buffer de violencia
-        self.violence_buffer = ViolenceFrameBuffer(max_frames=800)
+        self.violence_buffer = ViolenceFrameBuffer(max_frames=1000)
         print("🔄 Pipeline reiniciado")
 
     def __del__(self):

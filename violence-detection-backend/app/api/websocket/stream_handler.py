@@ -32,9 +32,9 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.deteccion_activada = deteccion_activada
         self.frame_count = 0
         
-        # Colas separadas para streaming y procesamiento
+        # Colas separadas para streaming y procesamiento MEJORADAS
         self.stream_queue = asyncio.Queue(maxsize=5)  # Cola para streaming (más pequeña)
-        self.processing_queue = asyncio.Queue(maxsize=30)  # Cola para procesamiento
+        self.processing_queue = asyncio.Queue(maxsize=50)  # Cola más grande para procesamiento
         
         # Control de tiempo
         self.last_frame_time = time.time()
@@ -49,6 +49,10 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.capture_thread = None
         self.processing_task = None
         self.running = True
+        
+        # NUEVO: Estado de violencia para captura intensiva
+        self.violence_mode = False
+        self.last_violence_detection = 0
         
         self._start()
         
@@ -77,16 +81,22 @@ class VideoTrackProcesado(VideoStreamTrack):
         self.capture_thread.start()
 
     def _capture_frames(self):
-        """Hilo dedicado para captura de frames MEJORADO"""
+        """Hilo dedicado para captura de frames OPTIMIZADO PARA VIOLENCIA"""
         last_capture_time = time.time()
         
-        # INTERVALO MÁS FRECUENTE PARA MÁS DATOS
-        capture_interval = 1.0 / 25  # 25 FPS de captura
+        # CAPTURA ADAPTATIVA SEGÚN MODO DE VIOLENCIA
+        base_capture_interval = 1.0 / 30  # 30 FPS base
+        violence_capture_interval = 1.0 / 40  # 40 FPS durante violencia
         
         while self.running and self.cap and self.cap.isOpened():
             current_time = time.time()
             
-            # CAPTURA MÁS FRECUENTE
+            # AJUSTAR FRECUENCIA SEGÚN MODO DE VIOLENCIA
+            if self.violence_mode:
+                capture_interval = violence_capture_interval
+            else:
+                capture_interval = base_capture_interval
+            
             if current_time - last_capture_time < capture_interval:
                 time.sleep(0.001)
                 continue
@@ -103,21 +113,33 @@ class VideoTrackProcesado(VideoStreamTrack):
             frame_data = {
                 'frame': frame.copy(),
                 'timestamp': current_time,
-                'frame_id': self.frame_count
+                'frame_id': self.frame_count,
+                'violence_mode': self.violence_mode
             }
             
-            # PRIORIZAR FRAMES PARA EVIDENCIA
-            # Agregar a cola de procesamiento con mayor frecuencia si está activo
+            # PRIORIDAD MÁXIMA PARA FRAMES DURANTE VIOLENCIA
             if self.deteccion_activada:
                 try:
-                    self.processing_queue.put_nowait(frame_data)
-                except asyncio.QueueFull:
-                    # Remover frame más viejo para hacer espacio
-                    try:
-                        self.processing_queue.get_nowait()
+                    # Durante violencia: forzar agregar frames
+                    if self.violence_mode:
+                        # Limpiar cola si está llena y agregar frame importante
+                        if self.processing_queue.full():
+                            try:
+                                self.processing_queue.get_nowait()
+                            except:
+                                pass
                         self.processing_queue.put_nowait(frame_data)
-                    except:
-                        pass
+                    else:
+                        # Modo normal
+                        self.processing_queue.put_nowait(frame_data)
+                except asyncio.QueueFull:
+                    # Solo en modo normal, descartar frames si la cola está llena
+                    if not self.violence_mode:
+                        try:
+                            self.processing_queue.get_nowait()
+                            self.processing_queue.put_nowait(frame_data)
+                        except:
+                            pass
             
             # Cola de streaming (menor prioridad)
             try:
@@ -133,11 +155,11 @@ class VideoTrackProcesado(VideoStreamTrack):
             last_capture_time = current_time
 
     async def process_frames(self):
-        """Procesa frames en segundo plano de forma asíncrona"""
+        """Procesa frames con PRIORIDAD para violencia"""
         try:
             print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
-            frame_buffer = []
             last_process_time = time.time()
+            frames_sin_violencia = 0
             
             while self.deteccion_activada and self.running:
                 try:
@@ -149,17 +171,21 @@ class VideoTrackProcesado(VideoStreamTrack):
                     
                     frame = frame_data['frame']
                     frame_id = frame_data['frame_id']
+                    current_time = time.time()
                     
-                    # Procesar cada N frames según configuración
-                    if frame_id % configuracion.PROCESS_EVERY_N_FRAMES == 0:
-                        current_time = time.time()
-                        
-                        # Evitar procesar demasiado rápido
-                        if current_time - last_process_time < 0.1:  # Máximo 10 FPS de procesamiento
-                            continue
-                        
+                    # PROCESAMIENTO ADAPTATIVO
+                    should_process = False
+                    
+                    if self.violence_mode:
+                        # Durante violencia: procesar MÁS frames
+                        should_process = (frame_id % 2 == 0)  # Cada 2 frames
+                    else:
+                        # Modo normal: usar configuración estándar
+                        should_process = (frame_id % configuracion.PROCESS_EVERY_N_FRAMES == 0)
+                    
+                    if should_process and (current_time - last_process_time >= 0.08):  # Máximo 12.5 FPS
                         try:
-                            # Redimensionar para procesamiento (en hilo separado)
+                            # Redimensionar para procesamiento
                             frame_proc = await asyncio.get_event_loop().run_in_executor(
                                 None, 
                                 lambda: cv2.resize(
@@ -170,7 +196,7 @@ class VideoTrackProcesado(VideoStreamTrack):
                             
                             print(f"Procesando frame {frame_id} para cliente {self.cliente_id}")
                             
-                            # Procesar frame de forma asíncrona
+                            # Procesar frame
                             resultado = await self.pipeline.procesar_frame(
                                 frame_proc,
                                 camara_id=self.camara_id,
@@ -179,28 +205,44 @@ class VideoTrackProcesado(VideoStreamTrack):
                             
                             if resultado and resultado.get("violencia_detectada"):
                                 print(f"Violencia detectada para cliente {self.cliente_id}")
-                                # CORREGIR: Usar la probabilidad real del resultado
+                                
+                                # ACTIVAR MODO VIOLENCIA
+                                self.violence_mode = True
+                                self.last_violence_detection = current_time
+                                frames_sin_violencia = 0
+                                
+                                # Enviar notificación
                                 probabilidad_real = resultado.get("probabilidad_violencia", 0.0)
                                 await self.manejador_webrtc.enviar_a_cliente(
                                     self.cliente_id,
                                     {
                                         "tipo": "deteccion_violencia",
-                                        "probabilidad": probabilidad_real,  # Usar probabilidad real
+                                        "probabilidad": probabilidad_real,
                                         "mensaje": f"¡ALERTA! Violencia detectada - {probabilidad_real:.1%}",
                                         "personas_detectadas": len(resultado.get("personas_detectadas", []))
                                     }
                                 )
+                            else:
+                                # NO hay violencia
+                                frames_sin_violencia += 1
+                                
+                                # DESACTIVAR MODO VIOLENCIA después de tiempo sin detecciones
+                                if self.violence_mode and frames_sin_violencia > 30:  # ~2.5 segundos sin violencia
+                                    self.violence_mode = False
+                                    print(f"🔄 Modo violencia desactivado para cliente {self.cliente_id}")
                             
                             last_process_time = current_time
                             
                         except Exception as e:
                             print(f"Error procesando frame {frame_id}: {e}")
                     
-                    # Pequeña pausa para no sobrecargar
-                    await asyncio.sleep(0.001)
+                    # Pausa adaptativa
+                    if self.violence_mode:
+                        await asyncio.sleep(0.001)  # Menos pausa durante violencia
+                    else:
+                        await asyncio.sleep(0.005)  # Pausa normal
                     
                 except asyncio.TimeoutError:
-                    # No hay frames, continuar
                     continue
                 except Exception as e:
                     print(f"Error en process_frames: {e}")
@@ -223,6 +265,7 @@ class VideoTrackProcesado(VideoStreamTrack):
     def stop_processing(self):
         """Detiene la tarea de procesamiento"""
         self.deteccion_activada = False
+        self.violence_mode = False
         if self.processing_task:
             self.processing_task.cancel()
         print("Tarea de procesamiento detenida")
@@ -250,7 +293,7 @@ class VideoTrackProcesado(VideoStreamTrack):
                 )
                 frame = frame_data['frame']
             except asyncio.TimeoutError:
-                # Si no hay frame, usar el último disponible o frame negro
+                # Si no hay frame, usar frame negro
                 print("Timeout obteniendo frame para streaming")
                 frame = np.zeros((self.stream_height, self.stream_width, 3), dtype=np.uint8)
 
@@ -276,6 +319,7 @@ class VideoTrackProcesado(VideoStreamTrack):
     def stop(self):
         """Detiene todos los procesos"""
         self.running = False
+        self.violence_mode = False
         self.stop_processing()
         
         # Esperar a que termine el hilo de captura
