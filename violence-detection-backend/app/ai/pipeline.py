@@ -547,11 +547,12 @@ class PipelineDeteccion:
             # Duplicar frames de violencia existentes
             frames_adicionales_violencia = []
             for _ in range(3):  # 3 rondas adicionales de duplicación
-                for frame_v in frames_violencia[:10]:  # Solo los primeros 10 para evitar spam
-                    frame_copy = frame_v.copy()
-                    frame_copy['timestamp'] = frame_copy['timestamp'] + timedelta(microseconds=len(frames_adicionales_violencia)*100)
-                    frame_copy['duplicate_round'] = _
-                    frames_adicionales_violencia.append(frame_copy)
+                for frame_v in frames_violencia[:10]:
+                    if frame_v:
+                        frame_copia = frame_v.copy()
+                        frame_copia['timestamp'] = frame_copia['timestamp'] + timedelta(microseconds=len(frames_adicionales_violencia)*100)
+                        frame_copia['expanded'] = True
+                        frames_adicionales_violencia.append(frame_copia)
             
             frames_violencia.extend(frames_adicionales_violencia)
             print(f"📹 Frames adicionales de violencia: {len(frames_adicionales_violencia)}")
@@ -570,13 +571,18 @@ class PipelineDeteccion:
                 frames_evidencia = self._expandir_frames_para_duracion(frames_evidencia, 5 * self.target_fps_evidencia)
                 print(f"📹 Frames expandidos a: {len(frames_evidencia)}")
             
+            # **CORREGIDO: Asegurar que se pase el incidente_id**
+            incidente_id = getattr(self, 'incidente_actual_id', None)
+            if not incidente_id:
+                print("⚠️ Advertencia: No se encontró incidente_actual_id")
+            
             # Enviar a cola de guardado asíncrono
             datos_guardado = {
                 'frames': frames_evidencia,
                 'camara_id': self.camara_id,
                 'tiempo_inicio': tiempo_inicio_clip,
                 'tiempo_fin': tiempo_fin_clip,
-                'incidente_id': getattr(self, 'incidente_actual_id', None),
+                'incidente_id': incidente_id,  # Asegurar que esto se pase
                 'fps_target': self.target_fps_evidencia,
                 'violence_frames_count': len(frames_violencia)
             }
@@ -584,6 +590,8 @@ class PipelineDeteccion:
             try:
                 self.cola_guardado.put_nowait(datos_guardado)
                 print("📹 Evidencia enviada a cola de guardado")
+                if incidente_id:
+                    print(f"📝 Incidente {incidente_id} será actualizado con la ruta del video")
             except queue.Full:
                 print("❌ Cola de guardado llena, descartando video")
         
@@ -595,12 +603,21 @@ class PipelineDeteccion:
             delattr(self, 'incidente_actual_id')
 
     def _combinar_frames_con_prioridad_mejorada(self, frames_violencia, frames_contexto):
-        """MEJORADO: Combina frames garantizando presencia masiva de violencia"""
+        """MEJORADO: Combina frames garantizando presencia masiva de violencia - CORREGIDO"""
         frames_combinados = []
+        
+        # **CORREGIR: Validar que frames no sean None**
+        if not frames_violencia:
+            frames_violencia = []
+        if not frames_contexto:
+            frames_contexto = []
         
         # Crear diccionario de frames de violencia por timestamp
         violence_by_time = {}
         for f in frames_violencia:
+            if f is None:  # **AGREGAR: Validación de None**
+                continue
+                
             timestamp_key = f['timestamp'].isoformat()
             if timestamp_key not in violence_by_time:
                 violence_by_time[timestamp_key] = []
@@ -609,9 +626,11 @@ class PipelineDeteccion:
         # Crear lista de todos los timestamps ordenados
         all_timestamps = set()
         for f in frames_violencia:
-            all_timestamps.add(f['timestamp'])
+            if f is not None:  # **AGREGAR: Validación de None**
+                all_timestamps.add(f['timestamp'])
         for f in frames_contexto:
-            all_timestamps.add(f['timestamp'])
+            if f is not None:  # **AGREGAR: Validación de None**
+                all_timestamps.add(f['timestamp'])
         
         # Ordenar timestamps
         sorted_timestamps = sorted(all_timestamps)
@@ -622,15 +641,17 @@ class PipelineDeteccion:
             
             # Si hay frames de violencia para este timestamp, usar TODOS
             if timestamp_key in violence_by_time:
-                for violence_frame in violence_by_time[timestamp_key]:
-                    frames_combinados.append(violence_frame)
+                frames_combinados.extend(violence_by_time[timestamp_key])
             else:
-                # Usar frame de contexto solo si no hay violencia
-                context_frame = next((f for f in frames_contexto if f['timestamp'] == timestamp), None)
+                # Buscar frame de contexto para este timestamp
+                context_frame = next(
+                    (f for f in frames_contexto if f is not None and f['timestamp'] == timestamp), 
+                    None
+                )
                 if context_frame:
                     frames_combinados.append(context_frame)
         
-        violence_count = len([f for f in frames_combinados if f.get('violencia_info', {}).get('detectada', False)])
+        violence_count = len([f for f in frames_combinados if f and f.get('violencia_info', {}).get('detectada', False)])
         print(f"🔄 Frames combinados: {len(frames_combinados)} (Violencia efectiva: {violence_count}, Contexto: {len(frames_contexto)})")
         
         return frames_combinados
@@ -750,19 +771,14 @@ class PipelineDeteccion:
             
             for i, frame_data in enumerate(frames_data):
                 try:
-                    frame = frame_data['frame'].copy()
+                    frame = frame_data['frame']
+                    video_writer.write(frame)
+                    frames_escritos += 1
                     
                     # Contar frames de violencia escritos
                     if frame_data.get('violencia_info', {}).get('detectada', False):
                         frames_violencia_escritos += 1
-                    
-                    # Asegurar dimensiones consistentes
-                    if frame.shape[:2] != (height, width):
-                        frame = cv2.resize(frame, (width, height))
-                    
-                    video_writer.write(frame)
-                    frames_escritos += 1
-                    
+                        
                 except Exception as e:
                     print(f"❌ Error escribiendo frame {i}: {e}")
                     continue
@@ -771,82 +787,138 @@ class PipelineDeteccion:
 
             # Verificar que el archivo se creó correctamente
             if ruta_evidencia.exists() and frames_escritos > 0:
-                tamano_archivo = ruta_evidencia.stat().st_size / (1024 * 1024)
-                duracion_real = frames_escritos / fps_target
-                print(f"✅ Video guardado: {ruta_evidencia}")
-                print(f"📹 Tamaño: {tamano_archivo:.2f} MB")
-                print(f"📹 Frames: {frames_escritos}")
-                print(f"📹 Duración: {duracion_real:.2f} segundos")
-                print(f"🔥 Contenido de violencia: {frames_violencia_escritos} frames")
+                # Calcular estadísticas del video
+                duracion_video = frames_escritos / fps_target
+                tamaño_archivo = ruta_evidencia.stat().st_size / (1024 * 1024)  # MB
+                porcentaje_violencia = (frames_violencia_escritos / frames_escritos) * 100
                 
-                # ACTUALIZAR INCIDENTE SIN CREAR CONFLICTOS DE LOOP
+                print(f"✅ Video guardado: {ruta_evidencia}")
+                print(f"📹 Tamaño: {tamaño_archivo:.2f} MB")
+                print(f"📹 Frames: {frames_escritos}")
+                print(f"📹 Duración: {duracion_video:.2f} segundos")
+                print(f"🔥 Contenido de violencia: {frames_violencia_escritos} frames ({porcentaje_violencia:.1f}%)")
+                
+                # **NUEVO: ACTUALIZAR INCIDENTE EN BASE DE DATOS**
                 if incidente_id:
-                    self._actualizar_incidente_thread_safe(incidente_id, str(ruta_evidencia))
+                    # Crear URL relativa para el video
+                    video_url = f"/api/v1/files/videos/{incidente_id}"
+                    ruta_relativa = f"clips/{nombre_archivo}"
+                    
+                    # Datos de actualización del incidente
+                    datos_actualizacion = {
+                        'video_evidencia_path': ruta_relativa,
+                        'video_url': video_url,
+                        'fecha_hora_fin': datetime.now(),
+                        'duracion_segundos': int(duracion_video),
+                        'estado': 'confirmado',  # Cambiar estado a confirmado
+                        'metadata_json': {
+                            'video_stats': {
+                                'frames_total': frames_escritos,
+                                'frames_violencia': frames_violencia_escritos,
+                                'porcentaje_violencia': round(porcentaje_violencia, 1),
+                                'duracion_segundos': round(duracion_video, 2),
+                                'tamaño_mb': round(tamaño_archivo, 2),
+                                'fps': fps_target,
+                                'resolucion': f"{width}x{height}",
+                                'codec': 'mp4v',
+                                'archivo': nombre_archivo
+                            },
+                            'deteccion_stats': {
+                                'violence_frames_count': violence_frames_count,
+                                'buffer_frames_used': len(frames_data),
+                                'timestamp_inicio': tiempo_inicio.isoformat(),
+                                'timestamp_fin': datetime.now().isoformat()
+                            }
+                        }
+                    }
+                    
+                    print(f"📝 Actualizando incidente {incidente_id} con ruta de video: {ruta_relativa}")
+                    
+                    # Actualizar de forma thread-safe
+                    self._actualizar_incidente_thread_safe(incidente_id, datos_actualizacion)
             else:
-                print(f"❌ Error: No se pudo crear el archivo de video o no hay frames")
+                print(f"❌ Error: El archivo de video no se creó correctamente o no tiene frames")
+                print(f"   - Archivo existe: {ruta_evidencia.exists()}")
+                print(f"   - Frames escritos: {frames_escritos}")
 
         except Exception as e:
-            print(f"❌ Error al guardar evidencia: {e}")
+            print(f"❌ Error en _guardar_evidencia_mejorado: {e}")
             import traceback
-            traceback.print_exc()
+            print(traceback.format_exc())
 
-    def _actualizar_incidente_thread_safe(self, incidente_id: int, ruta_video: str):
+    def _actualizar_incidente_thread_safe(self, incidente_id: int, datos_actualizacion: Dict[str, Any]):
         """Actualiza incidente usando ThreadPoolExecutor para evitar conflictos de loop"""
         try:
-            def update_sync():
-                """Función síncrona que se ejecuta en el pool de hilos"""
-                try:
-                    import requests
-                    import json
-                    
-                    # URL del endpoint de actualización INTERNO
-                    api_url = "http://localhost:8000/api/v1/incidents"
-                    update_url = f"{api_url}/{incidente_id}/internal"
-                    
-                    # Datos de actualización
-                    update_data = {
-                        "video_evidencia_path": ruta_video
-                    }
-                    
-                    # Headers básicos
-                    headers = {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    }
-                    
-                    # Realizar petición HTTP PATCH
-                    response = requests.patch(
-                        update_url,
-                        json=update_data,
-                        headers=headers,
-                        timeout=10
-                    )
-                    
-                    if response.status_code == 200:
-                        print(f"✅ Incidente {incidente_id} actualizado con video: {ruta_video}")
-                    else:
-                        print(f"⚠️ Respuesta HTTP {response.status_code} al actualizar incidente {incidente_id}")
-                        print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
-                        
-                except Exception as e:
-                    print(f"❌ Error en update_sync: {e}")
-                    print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
+            future = self.executor.submit(
+                self._actualizar_incidente_sincrono, 
+                incidente_id, 
+                datos_actualizacion
+            )
             
-            # Ejecutar en pool de hilos dedicado SIN crear nuevos loops
-            future = self.executor.submit(update_sync)
-            
-            # Opcional: agregar callback para manejar resultado
-            def handle_result(fut):
-                try:
-                    fut.result(timeout=5)
-                except Exception as e:
-                    print(f"❌ Error en future result: {e}")
-            
-            future.add_done_callback(handle_result)
-            
+            # Dar tiempo para que se complete la actualización
+            try:
+                result = future.result(timeout=10)
+                if result:
+                    print(f"✅ Incidente {incidente_id} actualizado correctamente")
+                else:
+                    print(f"⚠️ No se pudo actualizar el incidente {incidente_id}")
+            except Exception as e:
+                print(f"❌ Error en actualización thread-safe: {e}")
+                
         except Exception as e:
-            print(f"❌ Error en actualización thread-safe: {e}")
-            print(f"📝 MANUAL UPDATE NEEDED: Incidente {incidente_id} -> {ruta_video}")
+            print(f"❌ Error enviando actualización a thread pool: {e}")
+
+    def _actualizar_incidente_sincrono(self, incidente_id: int, datos_actualizacion: Dict[str, Any]) -> bool:
+        """Actualiza incidente de forma síncrona usando requests - CORREGIDO"""
+        try:
+            import requests
+            import json
+            from datetime import datetime
+            
+            # **CORREGIR: Preparar datos con tipos correctos**
+            datos_para_envio = {}
+            
+            for key, value in datos_actualizacion.items():
+                if key == 'fecha_hora_fin' and isinstance(value, datetime):
+                    # Enviar como string ISO para HTTP request
+                    datos_para_envio[key] = value.isoformat()
+                elif key == 'metadata_json' and isinstance(value, dict):
+                    # Ya es un dict, no necesita conversión especial
+                    datos_para_envio[key] = value
+                else:
+                    datos_para_envio[key] = value
+            
+            # URL del endpoint interno para actualizar incidente
+            url = f"http://localhost:8000/api/v1/incidents/{incidente_id}/internal"
+            
+            # Headers
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+            
+            print(f"🔄 Enviando datos de actualización: {list(datos_para_envio.keys())}")
+            
+            # **CORREGIDO: Usar datos preparados sin conversión automática**
+            response = requests.patch(
+                url,
+                json=datos_para_envio,  # Usar json= en lugar de data=json.dumps()
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print(f"✅ HTTP: Incidente {incidente_id} actualizado exitosamente")
+                return True
+            else:
+                print(f"❌ HTTP Error {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error en actualización HTTP: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return False
 
     async def _activar_alarma(self):
         """Activa la alarma de forma asíncrona"""
@@ -856,31 +928,35 @@ class PipelineDeteccion:
             print(f"Error activando alarma: {e}")
 
     async def _crear_incidente(self, personas_involucradas: List[Dict[str, Any]], probabilidad: float):
-        """Crea un incidente de forma asíncrona"""
+        """Crea un nuevo incidente en la base de datos"""
         try:
             datos_incidente = {
                 'camara_id': self.camara_id,
                 'tipo_incidente': TipoIncidente.VIOLENCIA_FISICA,
                 'severidad': self._calcular_severidad(probabilidad),
                 'probabilidad_violencia': probabilidad,
-                'fecha_hora_inicio': self.tiempo_inicio_violencia,
+                'fecha_hora_inicio': datetime.now(),
                 'ubicacion': self.ubicacion,
                 'numero_personas_involucradas': len(personas_involucradas),
-                'ids_personas_detectadas': [],
+                'ids_personas_detectadas': [str(p.get('id', '')) for p in personas_involucradas],
                 'estado': EstadoIncidente.NUEVO,
-                'descripcion': f"Violencia detectada con probabilidad {probabilidad:.2%}"
+                'descripcion': f'Violencia detectada con probabilidad {probabilidad*100:.2f}%'
             }
             
             incidente = await self.servicio_incidentes.crear_incidente(datos_incidente)
+            
+            # **IMPORTANTE: Guardar el ID del incidente para usar en el video**
             self.incidente_actual_id = incidente.id
-            self.incidentes_detectados += 1
             
             print(f"📊 Nuevo incidente registrado ID: {incidente.id}")
             
+            return incidente
+            
         except Exception as e:
-            print(f"Error creando incidente: {e}")
+            print(f"❌ Error creando incidente: {e}")
             import traceback
-            traceback.print_exc()
+            print(traceback.format_exc())
+            return None
 
     def _calcular_severidad(self, probabilidad: float) -> SeveridadIncidente:
         """Calcula la severidad basada en la probabilidad"""

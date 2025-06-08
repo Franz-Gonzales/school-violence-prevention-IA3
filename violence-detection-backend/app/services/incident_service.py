@@ -97,25 +97,41 @@ class ServicioIncidentes:
             if not incidente:
                 return None
             
+            # **LOGGING MEJORADO para debug**
+            print(f"🔄 Actualizando incidente {incidente_id}")
+            print(f"   - Datos recibidos: {list(datos_actualizacion.keys())}")
+            
             for campo, valor in datos_actualizacion.items():
                 if hasattr(incidente, campo):
+                    # **DEBUG: Mostrar tipo de dato**
+                    print(f"   - {campo}: {type(valor).__name__} = {valor}")
                     setattr(incidente, campo, valor)
+                else:
+                    print(f"   - ⚠️ Campo ignorado (no existe): {campo}")
             
+            # **CORREGIDO: Manejar fecha_resolucion solo si está en RESUELTO**
             if datos_actualizacion.get('estado') == EstadoIncidente.RESUELTO:
                 incidente.fecha_resolucion = datetime.now()
                 if incidente.fecha_hora_fin and not incidente.duracion_segundos:
                     duracion = incidente.fecha_hora_fin - incidente.fecha_hora_inicio
                     incidente.duracion_segundos = int(duracion.total_seconds())
             
+            print(f"   - ⏳ Ejecutando commit para incidente {incidente_id}...")
             await self.db.commit()
             await self.db.refresh(incidente)
             
-            logger.info(f"Incidente {incidente_id} actualizado")
-            print(f"Incidente {incidente_id} actualizado")
+            logger.info(f"✅ Incidente {incidente_id} actualizado exitosamente")
+            print(f"✅ Incidente {incidente_id} actualizado exitosamente")
+            print(f"   - video_url: {incidente.video_url}")
+            print(f"   - video_evidencia_path: {incidente.video_evidencia_path}")
+            
             return incidente
+            
         except Exception as e:
-            logger.error(f"Error al actualizar incidente: {e}")
-            print(f"Error al actualizar incidente: {e}")
+            logger.error(f"❌ Error al actualizar incidente {incidente_id}: {e}")
+            print(f"❌ Error al actualizar incidente {incidente_id}: {e}")
+            import traceback
+            print(traceback.format_exc())
             await self.db.rollback()
             return None
     
