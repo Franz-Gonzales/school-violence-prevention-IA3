@@ -109,7 +109,7 @@ class ViolenceEvidenceRecorder:
         print("🛑 Procesamiento de evidencias detenido")
     
     def add_frame(self, frame: np.ndarray, detections: List[Dict], violence_info: Optional[Dict] = None):
-        """VERSIÓN CORREGIDA: Controla mejor el estado de violencia"""
+        """VERSIÓN MEJORADA: Prioriza captura agresiva de frames con violencia"""
         current_time = time.time()
         time_since_last = current_time - self.last_frame_time
         
@@ -118,27 +118,37 @@ class ViolenceEvidenceRecorder:
         
         # CONTROL MEJORADO DE TRANSICIONES DE ESTADO
         if violence_detected and not self.last_violence_state:
-            # INICIO de violencia
             self.violence_active = True
-            self.violence_start_time = current_time
-            self.violence_sequence_count += 1
+            self.violence_start_time = datetime.now()
             self.last_violence_state = True
+            self.violence_sequence_count += 1
+            
             print(f"🔥 VIOLENCIA ACTIVA INICIADA en Evidence Recorder (Secuencia #{self.violence_sequence_count})")
             
+            # NUEVO: Iniciar grabación inmediatamente al detectar violencia
+            if not self.is_recording:
+                self._start_recording(current_time)
+                
         elif not violence_detected and self.last_violence_state:
-            # FIN de violencia
-            self.violence_end_time = current_time
-            self.last_violence_state = False
-            print(f"🔄 VIOLENCIA FINALIZADA en Evidence Recorder")
+            # Solo finalizar estado de violencia después de un periodo de enfriamiento
+            if not hasattr(self, 'violence_cooldown_time') or current_time - self.violence_cooldown_time > 2.0:
+                self.violence_active = False
+                self.violence_end_time = datetime.now()
+                self.last_violence_state = False
+                print(f"🔄 VIOLENCIA FINALIZADA en Evidence Recorder")
         
-        # CAPTURA SÚPER AGRESIVA DURANTE VIOLENCIA
-        if self.violence_active or violence_detected:
-            # Durante violencia: CAPTURAR TODOS LOS FRAMES
+        # CAPTURA SÚPER AGRESIVA DURANTE VIOLENCIA - SIEMPRE ACEPTAR FRAMES DE VIOLENCIA
+        should_accept = True
+        if violence_detected:
+            # SIEMPRE aceptar frames de violencia, sin importar el tiempo transcurrido
             should_accept = True
-            self.stats['violence_frames_captured'] += 1
+            if not hasattr(self, 'violence_cooldown_time'):
+                self.violence_cooldown_time = current_time
+            else:
+                self.violence_cooldown_time = current_time
         else:
-            # Normal: usar intervalo permisivo
-            should_accept = time_since_last >= (self.capture_interval * 0.7)
+            # Para frames normales, usar el intervalo regular
+            should_accept = time_since_last >= self.capture_interval
         
         if not should_accept:
             return
@@ -148,15 +158,20 @@ class ViolenceEvidenceRecorder:
         
         # Dibujar detecciones de personas
         for detection in detections:
+            bbox = detection.get('bbox', [0, 0, 0, 0])
             self._draw_detection(frame_copy, detection)
         
-        # Dibujar información de violencia si existe CON OVERLAY MUY INTENSO
+        # MEJORADO: Overlay de violencia más intenso y visible
         if violence_info and violence_info.get('detectada'):
             frame_copy = self._draw_violence_overlay_intenso(frame_copy, violence_info)
+            probability = violence_info.get('probabilidad', 0.0)
+            
+            # NUEVO: Log detallado para cada frame de violencia
+            print(f"🔥 Frame de VIOLENCIA capturado - Prob: {probability:.3f} - Frame #{self.frame_counter}")
         
         frame_data = {
             'frame': frame_copy,
-            'timestamp': current_time,
+            'timestamp': datetime.now(),  # CORREGIDO: Usar datetime en lugar de float
             'datetime': datetime.now(),
             'detections': detections,
             'violence_info': violence_info,
@@ -164,39 +179,44 @@ class ViolenceEvidenceRecorder:
             'time_since_last': time_since_last,
             'is_violence_frame': violence_detected,
             'violence_active': self.violence_active,
-            'sequence_id': self.violence_sequence_count
+            'sequence_id': self.violence_sequence_count,
+            'probability': violence_info.get('probabilidad', 0.0) if violence_info else 0.0
         }
         
         # 1) Siempre alimentar el buffer principal
         with self.buffer_lock:
             self.frame_buffer.append(frame_data)
+            self.stats['frames_added'] += 1
 
-        # 2) Capturar TODOS los fotogramas de violencia
-        violence_detected = violence_info and violence_info.get('detectada', False)
+        # 2) MEJORADO: Capturar TODOS los fotogramas de violencia y duplicarlos para mayor presencia
         if violence_detected:
             with self.violence_buffer_lock:
+                # Agregar el frame original
                 self.violence_sequence_buffer.append(frame_data)
-
-        # 3) Resto de lógica de inicio/parada de grabación
-        # Si detectamos violencia y no estamos grabando, iniciar
-        if violence_detected and not self.is_recording:
-            self._start_recording(current_time)
+                
+                # NUEVO: Duplicar el frame de violencia para darle más peso (3 copias)
+                for _ in range(3):  # Crear 3 copias adicionales
+                    duplicate_data = frame_data.copy()
+                    duplicate_data['duplicated'] = True
+                    duplicate_data['frame_id'] = f"{self.frame_counter}_dup{_}"
+                    self.violence_sequence_buffer.append(duplicate_data)
+                    
+                self.stats['violence_frames_captured'] += 4  # 1 original + 3 duplicados
         
-        # Verificar si debemos finalizar la grabación
-        if not violence_detected and self.is_recording and self.violence_end_time:
-            tiempo_sin_violencia = current_time - self.violence_end_time
-            if tiempo_sin_violencia >= 8.0:  # 8 segundos sin violencia
-                # Resetear estado de violencia activa
-                self.violence_active = False
-                self._finish_recording()
+        # 3) Actualizar estadísticas y contadores
+        self.frame_counter += 1
+        self.last_frame_time = current_time
         
         # Log de estadísticas cada 50 frames
         if self.frame_counter % 50 == 0:
-            violence_count = len([f for f in self.frame_buffer if f.get('is_violence_frame', False)])
+            violence_frames = len([f for f in self.violence_sequence_buffer if f.get('is_violence_frame', False)])
+            total_frames = len(self.frame_buffer)
+            density = violence_frames / max(1, total_frames)
+            
             print(f"📊 Buffer Principal: {len(self.frame_buffer)} frames")
-            print(f"📊 Buffer Violencia: {len(self.violence_sequence_buffer)} frames")
+            print(f"📊 Buffer Violencia: {violence_frames} frames")
             print(f"📊 Estado Violencia: {'ACTIVA' if self.violence_active else 'INACTIVA'}")
-            print(f"📊 Densidad: {len(self.frame_buffer) / max(1, time_since_last * 30):.2f} fps")
+            print(f"📊 Densidad: {density:.2f} fps")
 
     def _draw_violence_overlay_intenso(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
         """Overlay MUY INTENSO para frames de violencia"""
@@ -270,38 +290,75 @@ class ViolenceEvidenceRecorder:
         finish_timer.start()
     
     def _extract_evidence_frames(self) -> List[Dict]:
-        """Prioriza todo el contenido de violencia y lo expande si es necesario"""
+        """MEJORADO: Prioriza frames de violencia con mayor peso"""
         # 1) Tomamos ambos buffers
         with self.buffer_lock:
             main_frames = list(self.frame_buffer)
+        
         with self.violence_buffer_lock:
-            violence_frames = list(self.violence_sequence_buffer)
-
-        # 2) Si hay muy pocos fotogramas de violencia, los duplicamos para darles peso
-        target_vf = int(self.fps * 1)  # al menos 1 segundo de violencia
-        if len(violence_frames) and len(violence_frames) < target_vf:
-            dup_factor = (target_vf + len(violence_frames) - 1) // len(violence_frames)
-            extended = []
-            span = (violence_frames[-1]['timestamp'] - violence_frames[0]['timestamp']) if len(violence_frames)>1 else timedelta(milliseconds=100)
-            for vf in violence_frames:
-                for i in range(dup_factor):
+            violence_frames = [f for f in self.violence_sequence_buffer if f.get('is_violence_frame', False)]
+        
+        # Conteos para logs
+        print(f"📹 Frames de VIOLENCIA extraídos: {len(violence_frames)}")
+        print(f"📹 Frames de CONTEXTO extraídos: {len(main_frames)}")
+        
+        # 2) Si hay muy pocos fotogramas de violencia, duplicarlos aún más
+        target_vf = int(self.fps * 2)  # Al menos 2 segundos de violencia
+        if len(violence_frames) > 0 and len(violence_frames) < target_vf:
+            print(f"⚠️ Agregando más frames de violencia para garantizar contenido...")
+            
+            # Duplicar frames existentes hasta alcanzar el objetivo
+            original_vf = len(violence_frames)
+            while len(violence_frames) < target_vf and original_vf > 0:
+                # Tomar un frame de violencia y duplicarlo
+                duplicate_frames = []
+                for vf in violence_frames[:original_vf]:  # Solo duplicar los originales
                     dup = vf.copy()
-                    dup['timestamp'] = vf['timestamp'] + span * (i / dup_factor)
-                    extended.append(dup)
-            violence_frames = violence_frames + extended
-
-        # 3) Combinar: primero todos los de violencia, luego contexto
-        combined = { (f['timestamp'], f['frame_id']): f for f in main_frames }
-        for vf in violence_frames:
-            combined[(vf['timestamp'], vf['frame_id'])] = vf
-
+                    dup['frame_id'] = f"{vf['frame_id']}_extra_{len(duplicate_frames)}"
+                    dup['duplicated'] = True
+                    duplicate_frames.append(dup)
+                
+                # Añadir duplicados a la lista
+                violence_frames.extend(duplicate_frames)
+                
+                # Imprimir progreso
+                print(f"📹 Frames adicionales de violencia: {len(duplicate_frames)}")
+                
+                # Evitar bucle infinito si no hay frames originales
+                if original_vf == 0:
+                    break
+        
+        # 3) MEJORADO: Combinar dando ALTA PRIORIDAD a frames de violencia
+        # Primero ordenar por timestamp para garantizar secuencia temporal
+        sorted_frames = sorted(main_frames, key=lambda x: x['timestamp'])
+        
+        # Crear diccionario con todos los frames normales
+        combined = {(f['timestamp'], f['frame_id']): f for f in sorted_frames}
+        
+        # Insertar frames de violencia con mayor prioridad
+        for vf in sorted(violence_frames, key=lambda x: x['timestamp']):
+            # Asegurar que el frame de violencia se incluya, incluso si ya existe uno en ese timestamp
+            key = (vf['timestamp'], vf['frame_id'])
+            combined[key] = vf
+        
+        # Convertir de vuelta a lista y ordenar por timestamp
         frames = sorted(combined.values(), key=lambda x: x['timestamp'])
-
+        
+        print(f"🔄 Frames combinados: {len(frames)} (Violencia: {len(violence_frames)}, Contexto: {len(main_frames)})")
+        
         # 4) Garantizar mínima duración
-        start = violence_frames[0]['timestamp'] - timedelta(seconds=self.min_duration_seconds/2) if violence_frames else frames[0]['timestamp']
-        end   = violence_frames[-1]['timestamp'] + timedelta(seconds=self.min_duration_seconds/2) if violence_frames else frames[-1]['timestamp']
-        selected = [f for f in frames if start <= f['timestamp'] <= end]
-
+        start_time = violence_frames[0]['timestamp'] - timedelta(seconds=self.min_duration_seconds/2) if violence_frames else frames[0]['timestamp']
+        end_time = violence_frames[-1]['timestamp'] + timedelta(seconds=self.min_duration_seconds/2) if violence_frames else frames[-1]['timestamp']
+        
+        # Seleccionar frames dentro del rango de tiempo
+        selected = [f for f in frames if start_time <= f['timestamp'] <= end_time]
+        
+        # 5) NUEVO: Verificar que hay suficientes frames para una buena duración
+        min_frames_needed = int(self.fps * 5)  # Al menos 5 segundos de video
+        
+        print(f"📹 TOTAL frames para evidencia: {len(selected)}")
+        print(f"📹 Duración del clip: {len(selected)/self.fps:.2f} segundos")
+        
         return selected
     
     def _finish_recording(self):
@@ -355,103 +412,96 @@ class ViolenceEvidenceRecorder:
         self.stats['violence_sequences'] = 0
     
     def _save_evidence_video(self, save_data: Dict):
-        """Guarda el video con MÁXIMO contenido de violencia"""
+        """CORREGIDO: Guarda el video con máximo contenido de violencia"""
         frames = save_data['frames']
         if not frames:
+            print("❌ No hay frames para guardar en el video")
             return
         
-        # Obtener configuración de evidencia desde config
-        evidence_config = configuracion.obtener_configuracion_evidencia()
+        # Verificar que hay suficientes frames o expandirlos
+        if len(frames) < int(self.fps * 5):  # Mínimo 5 segundos
+            frames = self._expandir_frames_para_duracion(frames, int(self.fps * 5))
+            print(f"📹 Frames expandidos de {len(save_data['frames'])} a {len(frames)} para 5+ segundos")
         
         # Generar nombre de archivo con información de violencia
-        timestamp = save_data['timestamp'].strftime("%Y%m%d_%H%M%S")
-        violence_frames = save_data.get('violence_frames_count', 0)
-        sequences = save_data.get('violence_sequences', 0)
-        estimated_duration = len(frames) / self.fps
+        timestamp = save_data['timestamp'].strftime("%Y%m%d_%H%M%S") if isinstance(save_data['timestamp'], datetime) else datetime.now().strftime("%Y%m%d_%H%M%S")
+        camera_id = save_data.get('camera_id', 1)
         
-        filename = f"violence_evidence_{timestamp}_f{len(frames)}_v{violence_frames}_d{estimated_duration:.1f}s.{configuracion.VIDEO_CONTAINER}"
+        # CORREGIDO: Calcular datos de violencia correctamente
+        violence_frames_count = len([f for f in frames if f.get('is_violence_frame', False)])
+        
+        filename = f"evidencia_camara{camera_id}_{timestamp}.mp4"
         filepath = configuracion.VIDEO_EVIDENCE_PATH / "clips" / filename
         
         # Crear directorio si no existe
         filepath.parent.mkdir(parents=True, exist_ok=True)
         
         try:
-            print(f"💾 Guardando evidencia CON MÁXIMA VIOLENCIA:")
-            print(f"📊 Frames totales: {len(frames)}")
-            print(f"📊 Frames de violencia: {violence_frames}")
-            print(f"📊 Duración estimada: {estimated_duration:.2f}s")
-            print(f"📊 Garantía mínima: {save_data.get('min_duration_guarantee', 5)}s")
+            # Obtener primer frame para dimensiones
+            first_frame = frames[0]['frame']
+            height, width = first_frame.shape[:2]
             
-            # USAR FRAMES DIRECTOS para preservar TODA la violencia
-            smooth_frames = frames
-            
-            if not smooth_frames:
-                print("❌ No se pudieron procesar frames")
-                return
-            
-            print(f"📊 Frames finales: {len(smooth_frames)}")
-            
-            # Crear video writer
-            target_fps = evidence_config['fps_target']
-            video_writer = cv2.VideoWriter(
-                str(filepath), self.fourcc, target_fps,
-                (self.frame_width, self.frame_height)
+            # Configurar escritor de video
+            fourcc = cv2.VideoWriter_fourcc(*self.fourcc)
+            out = cv2.VideoWriter(
+                str(filepath),
+                fourcc,
+                self.fps,
+                (width, height)
             )
             
-            if not video_writer.isOpened():
-                video_writer = cv2.VideoWriter(
-                    str(filepath), self.fourcc_fallback, target_fps,
-                    (self.frame_width, self.frame_height)
-                )
+            # Contador para frames de violencia
+            violence_count = 0
             
-            if not video_writer.isOpened():
-                logger.error(f"No se pudo crear video writer para {filename}")
-                return
-            
-            # Escribir frames
-            frames_written = 0
-            violence_frames_written = 0
-            for frame_data in smooth_frames:
+            # Escribir frames al video con RESALTADO de frames de violencia
+            for i, frame_data in enumerate(frames):
                 frame = frame_data['frame']
                 
-                # Asegurar dimensiones correctas
-                if frame.shape[:2] != (self.frame_height, self.frame_width):
-                    frame = cv2.resize(frame, (self.frame_width, self.frame_height))
-                
-                video_writer.write(frame)
-                frames_written += 1
-                
+                # MEJORADO: Resaltar frames con violencia aún más
                 if frame_data.get('is_violence_frame', False):
-                    violence_frames_written += 1
-            
-            video_writer.release()
-            
-            # Verificar archivo y estadísticas FINALES
-            if filepath.exists() and frames_written > 0:
-                file_size = filepath.stat().st_size / (1024 * 1024)
-                final_duration = frames_written / target_fps
-                effective_fps = frames_written / final_duration
-                self.stats['videos_saved'] += 1
+                    violence_count += 1
+                    
+                    # Agregar borde rojo para enfatizar frame de violencia
+                    cv2.rectangle(frame, (0, 0), (width-1, height-1), (0, 0, 255), 15)
+                    
+                    # Añadir texto "VIOLENCIA DETECTADA" más grande
+                    cv2.putText(
+                        frame,
+                        "VIOLENCIA DETECTADA",
+                        (int(width/2) - 240, height - 50),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1.5,
+                        (0, 0, 255),
+                        5,
+                        cv2.LINE_AA
+                    )
                 
-                print(f"✅ Evidencia CON MÁXIMA VIOLENCIA guardada: {filename}")
-                print(f"📊 {frames_written} frames escritos")
-                print(f"📊 {violence_frames_written} frames de violencia escritos")
-                print(f"📊 Duración FINAL: {final_duration:.2f}s")
-                print(f"📊 FPS efectivo: {effective_fps:.2f}")
-                print(f"📊 Tamaño archivo: {file_size:.2f}MB")
-                print(f"📊 Densidad de violencia: {(violence_frames_written/frames_written)*100:.1f}%")
-                
-                # VERIFICAR CUMPLIMIENTO DE GARANTÍA
-                min_required = save_data.get('min_duration_guarantee', 5)
-                if final_duration >= min_required and violence_frames_written >= 2:
-                    print(f"✅ GARANTÍA CUMPLIDA: {final_duration:.2f}s >= {min_required}s con {violence_frames_written} frames de violencia")
-                else:
-                    print(f"⚠️ GARANTÍA PARCIAL: {final_duration:.2f}s, {violence_frames_written} frames de violencia")
-            else:
-                print(f"❌ Error: No se generó el archivo correctamente")
+                # Escribir frame al video
+                out.write(frame)
+            
+            # Liberar recursos
+            out.release()
+            
+            # Calcular tamaño del archivo
+            file_size_mb = os.path.getsize(filepath) / (1024 * 1024)
+            
+            # Log detallado
+            print(f"✅ Video guardado: {filepath}")
+            print(f"📹 Tamaño: {file_size_mb:.2f} MB")
+            print(f"📹 Frames: {len(frames)}")
+            print(f"📹 Duración: {len(frames)/self.fps:.2f} segundos")
+            print(f"🔥 Contenido de violencia: {violence_count} frames")
+            
+            # NUEVO: Agregar datos al incidente a través de una API interna
+            self._actualizar_incidente_thread_safe(save_data.get('incidente_id'), str(filepath))
+            
+            return str(filepath)
             
         except Exception as e:
-            logger.error(f"Error guardando evidencia: {e}")
+            print(f"❌ Error al guardar video: {e}")
+            import traceback
+            print(traceback.format_exc())
+            return None
     
     def _draw_detection(self, frame: np.ndarray, detection: Dict):
         """Dibuja bounding box de persona detectada"""
