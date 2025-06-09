@@ -54,6 +54,22 @@ async def lifespan(app: FastAPI):
             # Continuar sin modelos en desarrollo
         
             # Continuar sin modelos en desarrollo
+            
+        # *** NUEVO: Inicializar servicio de alertas de voz ***
+        try:
+            from app.services.voice_alert_service import servicio_alertas_voz
+            if servicio_alertas_voz.habilitado:
+                logger.info("✅ Servicio de alertas de voz inicializado")
+                print("✅ Servicio de alertas de voz inicializado")
+                
+                # Opcional: Hacer una prueba rápida al iniciar
+                # await servicio_alertas_voz.probar_alerta("Sistema iniciado")
+            else:
+                logger.info("⚠️ Servicio de alertas de voz deshabilitado (revisar configuración)")
+                print("⚠️ Servicio de alertas de voz deshabilitado")
+        except Exception as e:
+            logger.error(f"❌ Error inicializando alertas de voz: {e}")
+            print(f"❌ Error inicializando alertas de voz: {e}")
     
         # Iniciar tareas en background
         # asyncio.create_task(procesar_notificaciones())
@@ -62,6 +78,14 @@ async def lifespan(app: FastAPI):
         
         # Shutdown
         print("Iniciando cierre ordenado de la aplicación...")
+        
+        # *** NUEVO: Cerrar servicio de alertas de voz ***
+        try:
+            from app.services.voice_alert_service import servicio_alertas_voz
+            servicio_alertas_voz.cerrar()
+            print("✅ Servicio de alertas de voz cerrado")
+        except Exception as e:
+            print(f"⚠️ Error cerrando alertas de voz: {e}")
         
         # 1. Cerrar conexiones WebSocket primero
         from app.api.websocket.stream_handler import manejador_streaming

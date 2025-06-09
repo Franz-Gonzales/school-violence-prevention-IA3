@@ -22,6 +22,8 @@ from app.utils.logger import obtener_logger
 from app.config import configuracion
 from app.tasks.video_recorder import evidence_recorder
 from sqlalchemy.ext.asyncio import AsyncSession
+# AGREGAR AL INICIO DEL ARCHIVO (después de los imports existentes):
+from app.services.voice_alert_service import servicio_alertas_voz
 
 logger = obtener_logger(__name__)
 
@@ -350,6 +352,9 @@ class PipelineDeteccion:
         
         # **NUEVO: Lock para threading safety**
         self.finalization_lock = threading.Lock()
+        
+        # AGREGAR: Servicio de alertas de voz
+        self.servicio_alertas_voz = servicio_alertas_voz
 
     async def procesar_frame(self, frame: np.ndarray, camara_id: int, ubicacion: str) -> Dict[str, Any]:
         try:
@@ -438,6 +443,16 @@ class PipelineDeteccion:
                                 # Activar alarma SOLO una vez
                                 asyncio.create_task(self._activar_alarma())
                                 
+                                # *** NUEVO: EMITIR ALERTA DE VOZ INMEDIATAMENTE ***
+                                probabilidad = deteccion.get('probabilidad', 0.0)
+                                personas_count = len(detecciones) if detecciones else 0
+                                
+                                asyncio.create_task(self._emitir_alerta_voz(
+                                    ubicacion=ubicacion,
+                                    probabilidad=probabilidad,
+                                    personas_detectadas=personas_count
+                                ))
+                                
                                 # Crear incidente SOLO una vez
                                 if current_time - self.ultimo_incidente > self.cooldown_incidente:
                                     asyncio.create_task(self._crear_incidente(detecciones, deteccion.get('probabilidad', 0.0)))
@@ -517,6 +532,28 @@ class PipelineDeteccion:
                 'probabilidad_violencia': 0.0,
                 'timestamp': datetime.now()
             }
+
+    async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int = 0):
+        """Emite alerta de voz por violencia detectada"""
+        try:
+            print(f"🎙️ Emitiendo alerta de voz para ubicación: {ubicacion}")
+            
+            # Emitir alerta de voz de forma asíncrona
+            success = await self.servicio_alertas_voz.emitir_alerta_violencia(
+                ubicacion=ubicacion,
+                probabilidad=probabilidad,
+                personas_detectadas=personas_detectadas
+            )
+            
+            if success:
+                print(f"✅ Alerta de voz emitida exitosamente - {ubicacion}")
+            else:
+                print(f"⚠️ No se pudo emitir alerta de voz - {ubicacion}")
+                
+        except Exception as e:
+            print(f"❌ Error emitiendo alerta de voz: {e}")
+            import traceback
+            print(traceback.format_exc())
 
     def _dibujar_detecciones(self, frame: np.ndarray, detecciones: List[Dict]) -> np.ndarray:
         """Dibuja las detecciones en el frame"""
