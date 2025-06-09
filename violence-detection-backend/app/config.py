@@ -265,19 +265,25 @@ class Configuracion(BaseSettings):
         return self.MODELOS_PATH / nombre_modelo
     
     def crear_directorios(self):
-        """Crea todos los directorios necesarios para el sistema"""
+        """Crea los directorios necesarios de forma segura"""
         directorios = [
-            self.MODELOS_PATH,
             self.UPLOAD_PATH,
             self.VIDEO_EVIDENCE_PATH,
             self.VIDEO_EVIDENCE_PATH / "clips",
-            self.VIDEO_EVIDENCE_PATH / "thumbnails",
-            self.VIDEO_EVIDENCE_PATH / "temp",
+            self.VIDEO_EVIDENCE_PATH / "backup",
             self.VIDEO_EVIDENCE_PATH / "compressed",
-            self.VIDEO_EVIDENCE_PATH / "backup"
+            self.VIDEO_EVIDENCE_PATH / "debug",
+            self.VIDEO_EVIDENCE_PATH / "frames",
+            self.VIDEO_EVIDENCE_PATH / "temp",
+            self.VIDEO_EVIDENCE_PATH / "thumbnails"
         ]
+        
         for directorio in directorios:
-            directorio.mkdir(parents=True, exist_ok=True)
+            try:
+                directorio.mkdir(parents=True, exist_ok=True)
+                print(f"✅ Directorio creado/verificado: {directorio}")
+            except Exception as e:
+                print(f"❌ Error creando directorio {directorio}: {e}")
     
     def obtener_configuracion_gpu(self) -> Dict[str, Any]:
         """Obtiene información sobre la configuración de GPU"""

@@ -9,6 +9,7 @@ import queue
 import time
 import traceback
 import concurrent.futures
+from pathlib import Path
 
 from app.ai.yolo_detector import DetectorPersonas
 from app.ai.violence_detector import DetectorViolencia
@@ -528,84 +529,39 @@ class PipelineDeteccion:
         return frame
 
     async def _finalizar_grabacion_evidencia(self):
-        """CORREGIDO: Finaliza la grabación SOLO UNA VEZ por incidente"""
-        
-        # **DOBLE VERIFICACIÓN: Evitar múltiples ejecuciones**
-        if self.video_ya_guardado or not self.tiempo_inicio_violencia:
-            print("⚠️ Finalización ya procesada o no hay violencia para procesar")
-            return
-            
-        # **VERIFICAR: Si el incidente ya fue procesado**
-        incidente_id = getattr(self, 'incidente_actual_id', None)
-        if incidente_id and incidente_id in self.incidente_procesado:
-            print(f"⚠️ Incidente {incidente_id} ya fue procesado")
-            return
-            
-        print(f"📹 Finalizando grabación de evidencia...")
-        
+        """CORREGIDO: Evitar grabación duplicada - Solo notificar al evidence_recorder"""
         try:
-            # **MARCAR COMO PROCESADO INMEDIATAMENTE**
-            self.video_ya_guardado = True
-            if incidente_id:
-                self.incidente_procesado.add(incidente_id)
+            if not self.grabando_evidencia or not self.tiempo_inicio_violencia:
+                print("⚠️ No hay grabación activa para finalizar")
+                return
             
-            # Calcular tiempos para el clip de evidencia
-            tiempo_inicio_clip = self.tiempo_inicio_violencia - timedelta(seconds=self.duracion_evidencia_pre)
-            tiempo_fin_clip = self.tiempo_fin_violencia + timedelta(seconds=self.duracion_evidencia_post)
+            if self.finalizacion_en_progreso:
+                print("⚠️ Finalización ya en progreso, saltando")
+                return
             
-            # Obtener frames de violencia
-            frames_violencia = self.violence_buffer.get_violence_frames_in_range(
-                tiempo_inicio_clip, 
-                tiempo_fin_clip
-            )
+            self.finalizacion_en_progreso = True
+            self.tiempo_fin_violencia = datetime.now()
             
-            # Obtener frames de contexto
-            frames_contexto = self.buffer_evidencia.get_frames_in_range(
-                tiempo_inicio_clip, 
-                tiempo_fin_clip
-            )
+            print("📹 Finalizando grabación de evidencia...")
             
-            print(f"📹 Frames de VIOLENCIA extraídos: {len(frames_violencia)}")
-            print(f"📹 Frames de CONTEXTO extraídos: {len(frames_contexto)}")
+            # **CAMBIO CRÍTICO: Solo notificar al evidence_recorder, NO generar video aquí**
+            from app.tasks.video_recorder import evidence_recorder
             
-            # **USAR MÉTODO ROBUSTO para combinar frames**
-            if len(frames_violencia) < 30:  # Pocos frames de violencia
-                frames_evidencia = self._combinar_frames_evidencia_robusta(frames_violencia, frames_contexto)
-            else:
-                frames_evidencia = self._combinar_frames_con_prioridad_mejorada(frames_violencia, frames_contexto)
+            # Notificar al evidence_recorder que termine la grabación
+            # El evidence_recorder se encargará de generar EL ÚNICO video
+            evidence_recorder._finish_recording()
             
-            # **GENERAR EVIDENCIA COMPLETA**
-            if frames_evidencia:
-                frames_finales = self._generar_frames_evidencia_completos(frames_evidencia, 8.0)  # 8 segundos mínimo
-                
-                if frames_finales:
-                    datos_guardado = {
-                        'frames': frames_finales,
-                        'camara_id': self.camara_id,
-                        'tiempo_inicio': tiempo_inicio_clip,
-                        'tiempo_fin': tiempo_fin_clip,
-                        'incidente_id': incidente_id,
-                        'fps_target': self.target_fps_evidencia,
-                        'violence_frames_count': len(frames_violencia)
-                    }
-                    
-                    try:
-                        if self.cola_guardado.qsize() < 5:
-                            self.cola_guardado.put_nowait(datos_guardado)
-                            print("📹 Evidencia enviada a cola de guardado")
-                            if incidente_id:
-                                print(f"📝 Incidente {incidente_id} será actualizado con la ruta del video")
-                        else:
-                            print("⚠️ Cola de guardado llena, el video ya fue enviado")
-                            
-                    except queue.Full:
-                        print("❌ Cola de guardado llena, pero el video ya fue procesado")
+            print("✅ Grabación finalizada - evidence_recorder generará el video")
+            
+            # **ELIMINAR: Todo el código de generación de video de aquí**
+            # Ya no extraemos frames ni generamos video en el pipeline
+            # El evidence_recorder tiene toda la información necesaria
             
         except Exception as e:
-            print(f"❌ Error en _finalizar_grabacion_evidencia: {e}")
+            print(f"❌ Error finalizando grabación: {e}")
             import traceback
             print(traceback.format_exc())
-        
+            
         finally:
             # **RESET COMPLETO del estado**
             self.finalizacion_en_progreso = False
@@ -681,159 +637,53 @@ class PipelineDeteccion:
 
     # 2. MEJORA EN _guardar_evidencia_mejorado para actualizar el incidente con URL
     def _guardar_evidencia_mejorado(self, datos: Dict[str, Any]):
-        """MEJORADO: Guarda evidencia Y actualiza incidente con URL del video"""
+        """ACTUALIZADO: Solo actualizar incidente - evidence_recorder genera el video"""
         try:
-            incidente_id = getattr(self, 'incidente_actual_id', None)
+            incidente_id = datos.get('incidente_id')
+            video_path = datos.get('video_path')  # Ruta generada por evidence_recorder
             
-            # Verificación de que tenemos un incidente válido
             if not incidente_id:
-                print("⚠️ No hay incidente_id disponible para actualizar")
+                print("❌ No hay incidente_id para actualizar")
+                return
             
-            # Crear directorio
-            ruta_base = configuracion.VIDEO_EVIDENCE_PATH / "clips"
-            ruta_base.mkdir(parents=True, exist_ok=True)
-
-            # Generar nombre de archivo con timestamp
-            timestamp_str = datos['tiempo_inicio'].strftime("%Y%m%d_%H%M%S")
-            nombre_archivo = f"evidencia_camara{datos['camara_id']}_{timestamp_str}.mp4"
-            ruta_evidencia = ruta_base / nombre_archivo
-
-            # Obtener dimensiones del primer frame
-            primer_frame = datos['frames'][0]['frame']
-            height, width = primer_frame.shape[:2]
+            if not video_path or not Path(video_path).exists():
+                print(f"❌ Video no encontrado: {video_path}")
+                return
             
-            print(f"📹 Guardando video: {nombre_archivo}")
-            print(f"📹 Dimensiones: {width}x{height}")
-            print(f"📹 FPS objetivo: {datos['fps_target']}")
-            print(f"📹 Frames disponibles: {len(datos['frames'])}")
-            print(f"🔥 Frames de VIOLENCIA: {datos['violence_frames_count']}")
+            print(f"📝 Actualizando incidente {incidente_id} con video generado por evidence_recorder")
             
-            # Expandir frames si es necesario para garantizar duración mínima
-            frames_minimos = int(5.0 * datos['fps_target'])
-            if len(datos['frames']) < frames_minimos:
-                print(f"⚠️ Expandiendo frames para garantizar 5+ segundos...")
-                datos['frames'] = self._expandir_frames_para_duracion(datos['frames'], frames_minimos)
-                print(f"📹 Frames expandidos a: {len(datos['frames'])}")
+            # Generar URL relativa
+            nombre_archivo = Path(video_path).name
+            video_url = f"/api/v1/files/videos/{incidente_id}"
             
-            # Usar MP4V como codec principal
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            video_writer = cv2.VideoWriter(
-                str(ruta_evidencia),
-                fourcc,
-                datos['fps_target'],
-                (width, height)
-            )
-
-            if not video_writer.isOpened():
-                print(f"❌ Error: No se pudo abrir VideoWriter con mp4v")
-                # Intentar con codec de fallback
-                fourcc_fallback = cv2.VideoWriter_fourcc(*'XVID')
-                video_writer = cv2.VideoWriter(
-                    str(ruta_evidencia),
-                    fourcc_fallback,
-                    datos['fps_target'],
-                    (width, height)
-                )
-                
-                if not video_writer.isOpened():
-                    print(f"❌ Error: No se pudo abrir VideoWriter con ningún codec")
-                    return None
-
-            # Escribir frames al video
-            frames_escritos = 0
-            frames_violencia_escritos = 0
+            # Obtener estadísticas del video
+            file_size = Path(video_path).stat().st_size
             
-            for i, frame_data in enumerate(datos['frames']):
-                if frame_data is None or not isinstance(frame_data, dict):
-                    continue
-                    
-                frame = frame_data['frame']
-                if frame is None:
-                    continue
-                    
-                # Redimensionar frame si es necesario
-                if frame.shape[:2] != (height, width):
-                    frame = cv2.resize(frame, (width, height))
-                
-                video_writer.write(frame)
-                frames_escritos += 1
-                
-                # Contar frames de violencia escritos
-                violencia_info = frame_data.get('violencia_info')
-                if violencia_info is not None and isinstance(violencia_info, dict):
-                    if violencia_info.get('detectada', False):
-                        frames_violencia_escritos += 1
-
-            video_writer.release()
-            
-            # Verificar que el archivo se creó correctamente
-            if ruta_evidencia.exists():
-                file_size_mb = ruta_evidencia.stat().st_size / (1024 * 1024)
-                duracion_segundos = frames_escritos / datos['fps_target']
-                porcentaje_violencia = (frames_violencia_escritos / frames_escritos * 100) if frames_escritos > 0 else 0
-                
-                print(f"✅ Video guardado: {ruta_evidencia}")
-                print(f"📹 Tamaño: {file_size_mb:.2f} MB")
-                print(f"📹 Frames: {frames_escritos}")
-                print(f"📹 Duración: {duracion_segundos:.2f} segundos")
-                print(f"🔥 Contenido de violencia: {frames_violencia_escritos} frames ({porcentaje_violencia:.1f}%)")
-                
-                # **NUEVO: ACTUALIZAR INCIDENTE CON URL DEL VIDEO**
-                if incidente_id:
-                    # Calcular rutas para DB
-                    ruta_relativa = f"clips/{nombre_archivo}"
-                    video_url = f"/api/v1/files/videos/{incidente_id}"
-                    
-                    print(f"📝 Actualizando incidente {incidente_id} con URL del video")
-                    print(f"🔗 URL del video: {video_url}")
-                    print(f"📂 Ruta del archivo: {ruta_relativa}")
-                    
-                    # Preparar datos de actualización
-                    datos_actualizacion = {
-                        'video_evidencia_path': ruta_relativa,
-                        'video_url': video_url,
-                        'fecha_hora_fin': datos.get('tiempo_fin', datetime.now()),
-                        'duracion_segundos': int(duracion_segundos),
-                        'estado': EstadoIncidente.CONFIRMADO,
-                        'metadata_json': {
-                            'video_stats': {
-                                'frames_total': frames_escritos,
-                                'frames_violencia': frames_violencia_escritos,
-                                'porcentaje_violencia': porcentaje_violencia,
-                                'duracion_segundos': duracion_segundos,
-                                'tamaño_mb': file_size_mb,
-                                'fps': datos['fps_target'],
-                                'resolucion': f"{width}x{height}",
-                                'codec': 'mp4v',
-                                'archivo': nombre_archivo
-                            },
-                            'deteccion_stats': {
-                                'violence_frames_count': datos['violence_frames_count'],
-                                'buffer_frames_used': len(datos['frames']),
-                                'timestamp_inicio': datos['tiempo_inicio'].isoformat(),
-                                'timestamp_fin': datos.get('tiempo_fin', datetime.now()).isoformat()
-                            }
-                        }
+            # Preparar datos de actualización
+            datos_actualizacion = {
+                'video_evidencia_path': f"clips/{nombre_archivo}",
+                'video_url': video_url,
+                'fecha_hora_fin': self.tiempo_fin_violencia,
+                'estado': EstadoIncidente.CONFIRMADO,
+                'metadata_json': {
+                    'video_stats': {
+                        'archivo': nombre_archivo,
+                        'tamaño_mb': file_size / (1024*1024),
+                        'generado_por': 'evidence_recorder'
                     }
-                    
-                    # **LLAMAR AL MÉTODO DE ACTUALIZACIÓN ASÍNCRONO**
-                    success = self._actualizar_incidente_async(incidente_id, datos_actualizacion)
-                    
-                    if success:
-                        print(f"✅ Incidente {incidente_id} actualizado correctamente con URL del video")
-                    else:
-                        print(f"⚠️ No se pudo actualizar el incidente {incidente_id}")
-                
-                return ruta_evidencia
+                }
+            }
+            
+            # Actualizar el incidente
+            success = self._actualizar_incidente_thread_safe(incidente_id, datos_actualizacion)
+            
+            if success:
+                print(f"✅ Incidente {incidente_id} actualizado con video: {video_url}")
             else:
-                print(f"❌ Error: El archivo de video no se creó correctamente")
-                return None
-
+                print(f"⚠️ No se pudo actualizar el incidente {incidente_id}")
+                
         except Exception as e:
-            print(f"❌ Error en _guardar_evidencia_mejorado: {e}")
-            import traceback
-            print(traceback.format_exc())
-            return None
+            print(f"❌ Error en actualización de incidente: {e}")
 
 
     # 3. NUEVO MÉTODO: Actualización asíncrona del incidente
@@ -1060,6 +910,13 @@ class PipelineDeteccion:
                 }
             )
             
+            # **NUEVO: Pasar el ID del incidente al evidence_recorder**
+            from app.tasks.video_recorder import evidence_recorder
+            evidence_recorder.set_current_incident_id(incidente.id)
+            
+            print(f"🔗 ID del incidente {incidente.id} enviado al evidence_recorder")
+            
+            
             return incidente
             
         except Exception as e:
@@ -1170,7 +1027,7 @@ class PipelineDeteccion:
             for i in range(min(frames_faltantes, len(frames_originales) - 1)):
                 idx = i % (len(frames_originales) - 1)
                 
-                # **VERIFICAR QUE EL FRAME ES VÁLIDO**
+                # **VERIFICACIÓN QUE EL FRAME ES VÁLIDO**
                 if frames_originales[idx] is not None and isinstance(frames_originales[idx], dict):
                     # Crear frame interpolado
                     frame_interpolado = {
