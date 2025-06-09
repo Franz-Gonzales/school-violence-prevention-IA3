@@ -228,48 +228,70 @@ async def actualizar_incidente_interno(
     update_data: Dict[str, Any],
     db: AsyncSession = Depends(obtener_db)
 ):
-    """Actualiza un incidente internamente (sin autenticación para procesos internos) - CORREGIDO"""
+    """
+    MEJORADO: Actualiza un incidente internamente desde el pipeline
+    Este endpoint es usado exclusivamente por el sistema interno
+    """
     try:
         from datetime import datetime
         
-        # **CORREGIR: Convertir strings de fecha de vuelta a datetime**
+        print(f"📝 [INTERNO] Actualizando incidente {incidente_id}")
+        print(f"📝 [INTERNO] Datos recibidos: {list(update_data.keys())}")
+        
+        # Convertir strings de fecha de vuelta a datetime si es necesario
         if 'fecha_hora_fin' in update_data and isinstance(update_data['fecha_hora_fin'], str):
             try:
                 update_data['fecha_hora_fin'] = datetime.fromisoformat(update_data['fecha_hora_fin'])
+                print(f"📝 [INTERNO] Fecha convertida: {update_data['fecha_hora_fin']}")
             except ValueError as e:
                 logger.error(f"Error parsing fecha_hora_fin: {e}")
-                # Si falla, usar datetime actual
                 update_data['fecha_hora_fin'] = datetime.now()
         
-        # **CORREGIR: Manejar estado correctamente**
-        if 'estado' in update_data and isinstance(update_data['estado'], str):
-            from app.models.incident import EstadoIncidente
-            try:
-                update_data['estado'] = EstadoIncidente(update_data['estado'])
-            except ValueError:
-                # Si el estado no es válido, usar CONFIRMADO por defecto
-                update_data['estado'] = EstadoIncidente.CONFIRMADO
+        # Manejar estado correctamente
+        if 'estado' in update_data:
+            if isinstance(update_data['estado'], str):
+                from app.models.incident import EstadoIncidente
+                try:
+                    update_data['estado'] = EstadoIncidente(update_data['estado'])
+                    print(f"📝 [INTERNO] Estado convertido: {update_data['estado']}")
+                except ValueError:
+                    update_data['estado'] = EstadoIncidente.CONFIRMADO
+            print(f"📝 [INTERNO] Estado final: {update_data['estado']}")
         
-        print(f"📝 Actualizando incidente {incidente_id} con datos internos")
-        print(f"   - Campos: {list(update_data.keys())}")
+        # Log de los campos más importantes
+        if 'video_url' in update_data:
+            print(f"🔗 [INTERNO] URL del video: {update_data['video_url']}")
+        if 'video_evidencia_path' in update_data:
+            print(f"📂 [INTERNO] Ruta del archivo: {update_data['video_evidencia_path']}")
         
+        # Actualizar usando el servicio
         servicio = ServicioIncidentes(db)
         incidente = await servicio.actualizar_incidente(incidente_id, update_data)
         
         if not incidente:
+            print(f"❌ [INTERNO] Incidente {incidente_id} no encontrado")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Incidente no encontrado"
             )
         
-        print(f"✅ Incidente {incidente_id} actualizado correctamente desde pipeline")
-        return {"message": "Incidente actualizado", "incidente_id": incidente_id}
+        print(f"✅ [INTERNO] Incidente {incidente_id} actualizado correctamente")
+        print(f"✅ [INTERNO] video_url guardado: {incidente.video_url}")
+        print(f"✅ [INTERNO] video_evidencia_path guardado: {incidente.video_evidencia_path}")
+        
+        return {
+            "message": "Incidente actualizado correctamente", 
+            "incidente_id": incidente_id,
+            "video_url": incidente.video_url,
+            "video_path": incidente.video_evidencia_path,
+            "estado": incidente.estado.value if incidente.estado else None
+        }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en actualización interna: {e}")
-        print(f"Error en actualización interna: {e}")
+        logger.error(f"❌ [INTERNO] Error en actualización: {e}")
+        print(f"❌ [INTERNO] Error en actualización: {e}")
         import traceback
         print(traceback.format_exc())
         raise HTTPException(

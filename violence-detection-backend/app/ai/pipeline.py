@@ -29,6 +29,11 @@ class FrameBuffer:
     def __init__(self, max_duration_seconds=30):
         self.frames = deque()
         self.max_duration = max_duration_seconds
+        # Pool de hilos para updates de DB
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="db_update")
+        
+        # **NUEVO: Variable para guardar ID del incidente actual**
+        self.incidente_actual_id = None
         
     def add_frame(self, frame, timestamp, detecciones=None, violencia_info=None):
         """Agrega un frame con timestamp preciso y información de violencia"""
@@ -674,19 +679,15 @@ class PipelineDeteccion:
         return frames_combinados
 
 
+    # 2. MEJORA EN _guardar_evidencia_mejorado para actualizar el incidente con URL
     def _guardar_evidencia_mejorado(self, datos: Dict[str, Any]):
-        """CORREGIDO: Verifica que no se guarde múltiples veces el mismo incidente"""
+        """MEJORADO: Guarda evidencia Y actualiza incidente con URL del video"""
         try:
-            incidente_id = datos.get('incidente_id')
+            incidente_id = getattr(self, 'incidente_actual_id', None)
             
-            # **VERIFICACIÓN ADICIONAL: No procesar el mismo incidente dos veces**
-            if incidente_id and incidente_id in self.incidente_procesado:
-                print(f"⚠️ Incidente {incidente_id} ya fue procesado, saltando guardado")
-                return
-            
-            # **CRÍTICO: NO marcar como procesado hasta el final**
-            # if incidente_id:
-            #     self.incidente_procesado.add(incidente_id)  # ← MOVER AL FINAL
+            # Verificación de que tenemos un incidente válido
+            if not incidente_id:
+                print("⚠️ No hay incidente_id disponible para actualizar")
             
             # Crear directorio
             ruta_base = configuracion.VIDEO_EVIDENCE_PATH / "clips"
@@ -707,24 +708,14 @@ class PipelineDeteccion:
             print(f"📹 Frames disponibles: {len(datos['frames'])}")
             print(f"🔥 Frames de VIOLENCIA: {datos['violence_frames_count']}")
             
-            # CONTAR frames de violencia reales en los datos
-            violence_frames_reales = 0
-            for f in datos['frames']:
-                if f is not None and isinstance(f, dict):
-                    violencia_info = f.get('violencia_info')
-                    if violencia_info is not None and isinstance(violencia_info, dict):
-                        if violencia_info.get('detectada', False):
-                            violence_frames_reales += 1
-            
-            # DUPLICAR/INTERPOLAR FRAMES PARA GARANTIZAR 5+ SEGUNDOS
+            # Expandir frames si es necesario para garantizar duración mínima
             frames_minimos = int(5.0 * datos['fps_target'])
             if len(datos['frames']) < frames_minimos:
-                print(f"📹 Duración del clip: {len(datos['frames'])/datos['fps_target']:.2f} segundos")
                 print(f"⚠️ Expandiendo frames para garantizar 5+ segundos...")
                 datos['frames'] = self._expandir_frames_para_duracion(datos['frames'], frames_minimos)
                 print(f"📹 Frames expandidos a: {len(datos['frames'])}")
             
-            # USAR MP4V COMO CODEC PRINCIPAL
+            # Usar MP4V como codec principal
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             video_writer = cv2.VideoWriter(
                 str(ruta_evidencia),
@@ -746,9 +737,9 @@ class PipelineDeteccion:
                 
                 if not video_writer.isOpened():
                     print(f"❌ Error: No se pudo abrir VideoWriter con ningún codec")
-                    return
+                    return None
 
-            # ESCRIBIR FRAMES (ya tienen overlay si son de violencia)
+            # Escribir frames al video
             frames_escritos = 0
             frames_violencia_escritos = 0
             
@@ -787,14 +778,15 @@ class PipelineDeteccion:
                 print(f"📹 Duración: {duracion_segundos:.2f} segundos")
                 print(f"🔥 Contenido de violencia: {frames_violencia_escritos} frames ({porcentaje_violencia:.1f}%)")
                 
-                # **CRÍTICO: ACTUALIZAR BASE DE DATOS CON LA URL DEL VIDEO**
+                # **NUEVO: ACTUALIZAR INCIDENTE CON URL DEL VIDEO**
                 if incidente_id:
-                    # Calcular ruta relativa para almacenar en DB
+                    # Calcular rutas para DB
                     ruta_relativa = f"clips/{nombre_archivo}"
                     video_url = f"/api/v1/files/videos/{incidente_id}"
                     
-                    print(f"📝 Actualizando incidente {incidente_id} con ruta de video: {ruta_relativa}")
-                    print(f"🔄 Enviando datos de actualización: ['video_evidencia_path', 'video_url', 'fecha_hora_fin', 'duracion_segundos', 'estado', 'metadata_json']")
+                    print(f"📝 Actualizando incidente {incidente_id} con URL del video")
+                    print(f"🔗 URL del video: {video_url}")
+                    print(f"📂 Ruta del archivo: {ruta_relativa}")
                     
                     # Preparar datos de actualización
                     datos_actualizacion = {
@@ -824,27 +816,131 @@ class PipelineDeteccion:
                         }
                     }
                     
-                    # **LLAMAR AL MÉTODO DE ACTUALIZACIÓN**
-                    exito = self._actualizar_incidente_sincrono(incidente_id, datos_actualizacion)
+                    # **LLAMAR AL MÉTODO DE ACTUALIZACIÓN ASÍNCRONO**
+                    success = self._actualizar_incidente_async(incidente_id, datos_actualizacion)
                     
-                    if exito:
-                        print(f"✅ Incidente {incidente_id} actualizado correctamente")
-                        
-                        # **SOLO MARCAR COMO PROCESADO SI LA ACTUALIZACIÓN FUE EXITOSA**
-                        if incidente_id:
-                            self.incidente_procesado.add(incidente_id)
-                            print(f"📝 Incidente {incidente_id} marcado como procesado exitosamente")
-                        
+                    if success:
+                        print(f"✅ Incidente {incidente_id} actualizado correctamente con URL del video")
                     else:
                         print(f"⚠️ No se pudo actualizar el incidente {incidente_id}")
-                        # **NO marcar como procesado si falla la actualización**
+                
+                return ruta_evidencia
             else:
                 print(f"❌ Error: El archivo de video no se creó correctamente")
+                return None
 
         except Exception as e:
             print(f"❌ Error en _guardar_evidencia_mejorado: {e}")
             import traceback
             print(traceback.format_exc())
+            return None
+
+
+    # 3. NUEVO MÉTODO: Actualización asíncrona del incidente
+    def _actualizar_incidente_async(self, incidente_id: int, datos_actualizacion: Dict[str, Any]) -> bool:
+        """NUEVO: Actualiza incidente de forma asíncrona con ThreadPoolExecutor"""
+        try:
+            import asyncio
+            import threading
+            
+            # Si estamos en un hilo separado, usar requests
+            if threading.current_thread() != threading.main_thread():
+                return self._actualizar_incidente_http(incidente_id, datos_actualizacion)
+            
+            # Si estamos en el hilo principal, usar asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Si ya hay un loop corriendo, usar ThreadPoolExecutor
+                    future = self.executor.submit(
+                        self._actualizar_incidente_http, 
+                        incidente_id, 
+                        datos_actualizacion
+                    )
+                    return future.result(timeout=10)
+                else:
+                    # Si no hay loop, crear uno
+                    return loop.run_until_complete(
+                        self._actualizar_incidente_db(incidente_id, datos_actualizacion)
+                    )
+            except RuntimeError:
+                # Si hay problemas con asyncio, usar HTTP
+                return self._actualizar_incidente_http(incidente_id, datos_actualizacion)
+            
+        except Exception as e:
+            print(f"❌ Error en _actualizar_incidente_async: {e}")
+            return False
+
+
+    # 4. NUEVO MÉTODO: Actualización vía HTTP
+    def _actualizar_incidente_http(self, incidente_id: int, datos_actualizacion: Dict[str, Any]) -> bool:
+        """NUEVO: Actualiza incidente usando HTTP requests (thread-safe)"""
+        try:
+            import requests
+            from datetime import datetime
+            
+            # Preparar datos para envío HTTP
+            datos_para_envio = {}
+            
+            for key, value in datos_actualizacion.items():
+                if key == 'fecha_hora_fin' and isinstance(value, datetime):
+                    datos_para_envio[key] = value.isoformat()
+                elif key == 'estado' and hasattr(value, 'value'):
+                    datos_para_envio[key] = value.value
+                else:
+                    datos_para_envio[key] = value
+            
+            # URL del endpoint interno
+            url = f"http://localhost:8000/api/v1/incidents/{incidente_id}/internal"
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+            
+            print(f"🔄 Enviando actualización HTTP para incidente {incidente_id}")
+            print(f"📤 Campos: {list(datos_para_envio.keys())}")
+            
+            response = requests.patch(
+                url,
+                json=datos_para_envio,
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                print(f"✅ HTTP: Incidente {incidente_id} actualizado exitosamente")
+                return True
+            else:
+                print(f"❌ HTTP Error {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Error en actualización HTTP: {e}")
+            return False
+        
+    # 5. NUEVO MÉTODO: Actualización vía DB directa  
+    async def _actualizar_incidente_db(self, incidente_id: int, datos_actualizacion: Dict[str, Any]) -> bool:
+        """NUEVO: Actualiza incidente directamente en DB (para uso en async context)"""
+        try:
+            from app.core.database import SesionAsincrona
+            
+            async with SesionAsincrona() as session:
+                incidente = await self.servicio_incidentes.actualizar_incidente(
+                    incidente_id, 
+                    datos_actualizacion
+                )
+                
+                if incidente:
+                    print(f"✅ DB: Incidente {incidente_id} actualizado exitosamente")
+                    return True
+                else:
+                    print(f"⚠️ DB: No se encontró incidente {incidente_id}")
+                    return False
+                    
+        except Exception as e:
+            print(f"❌ Error en actualización DB: {e}")
+            return False
 
     def _actualizar_incidente_thread_safe(self, incidente_id: int, datos_actualizacion: Dict[str, Any]):
         """Actualiza incidente usando ThreadPoolExecutor para evitar conflictos de loop"""
@@ -927,8 +1023,9 @@ class PipelineDeteccion:
         except Exception as e:
             print(f"Error activando alarma: {e}")
 
+    # 1. MEJORA EN LA FUNCIÓN _crear_incidente para guardar el ID del incidente
     async def _crear_incidente(self, personas_involucradas: List[Dict[str, Any]], probabilidad: float):
-        """Crea un nuevo incidente en la base de datos"""
+        """Crea un nuevo incidente en la base de datos - MEJORADO"""
         try:
             datos_incidente = {
                 'camara_id': self.camara_id,
@@ -945,10 +1042,23 @@ class PipelineDeteccion:
             
             incidente = await self.servicio_incidentes.crear_incidente(datos_incidente)
             
-            # **IMPORTANTE: Guardar el ID del incidente para usar en el video**
+            # **CRÍTICO: Guardar el ID del incidente para usar en el video**
             self.incidente_actual_id = incidente.id
-            
             print(f"📊 Nuevo incidente registrado ID: {incidente.id}")
+            print(f"🔗 ID del incidente guardado para video: {self.incidente_actual_id}")
+            
+            # Notificar sobre nuevo incidente
+            from app.api.websocket.notifications_ws import manejador_notificaciones_ws
+            await manejador_notificaciones_ws.notificar_incidente(
+                incidente.id,
+                incidente.tipo_incidente,
+                incidente.ubicacion or "Sin ubicación",
+                incidente.severidad,
+                {
+                    "timestamp": incidente.fecha_hora_inicio.isoformat(),
+                    "personas_involucradas": incidente.numero_personas_involucradas
+                }
+            )
             
             return incidente
             
@@ -986,18 +1096,14 @@ class PipelineDeteccion:
             'violence_frame_counter': violence_stats['violence_frame_counter']
         }
 
+    # 7. MEJORA EN reiniciar() para limpiar el ID del incidente
     def reiniciar(self):
-        """MEJORADO: Reset completo del estado"""
+        """MEJORADO: Reset completo del estado incluyendo incidente_id"""
         # Reset de estado de violencia
         self.violencia_estado_anterior = False
         self.secuencia_violencia_activa = False
         self.tiempo_inicio_violencia = None
         self.tiempo_fin_violencia = None
-        
-        # **NUEVO: Reset de controles de finalización**
-        self.finalizacion_en_progreso = False
-        self.video_ya_guardado = False
-        self.incidente_procesado.clear()
         
         # Reset de buffers
         self.buffer_evidencia = FrameBuffer(max_duration_seconds=30)
@@ -1006,10 +1112,10 @@ class PipelineDeteccion:
         # Reset de detectores
         self.detector_violencia.reiniciar()
         
-        if hasattr(self, 'incidente_actual_id'):
-            delattr(self, 'incidente_actual_id')
+        # **NUEVO: Limpiar ID del incidente**
+        self.incidente_actual_id = None
         
-        print("🔄 Pipeline reiniciado completamente")
+        print("🔄 Pipeline reiniciado completamente (incluyendo incidente_id)")
 
     def _procesar_cola_guardado(self):
         """Procesa la cola de guardado de videos de forma asíncrona"""
