@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grabador de Video</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Grabador de Video con Base64</h1>
+        
+        <div class="controls">
+            <button id="recordBtn" class="btn btn-primary">📹 Grabar Video</button>
+            <button id="refreshBtn" class="btn btn-secondary">🔄 Actualizar Lista</button>
+        </div>
+        
+        <div id="status" class="status"></div>
+        
+        <div class="video-section">
+            <h2>📁 Videos Grabados</h2>
+            <div id="videoList" class="video-list">
+                <!-- Videos se cargarán aquí -->
+            </div>
+        </div>
+        
+        <div id="videoPlayer" class="video-player" style="display: none;">
+            <h3>🎥 Reproductor de Video</h3>
+            <video id="videoElement" controls width="640" height="480">
+                Tu navegador no soporta el elemento video.
+            </video>
+            <button id="closePlayer" class="btn btn-secondary">❌ Cerrar Reproductor</button>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
