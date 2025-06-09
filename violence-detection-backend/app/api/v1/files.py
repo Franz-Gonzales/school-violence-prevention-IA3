@@ -28,7 +28,6 @@ async def obtener_video_evidencia(
     Sirve el video de evidencia de un incidente específico
     """
     try:
-        # Obtener el incidente de la base de datos
         servicio = ServicioIncidentes(deps.db)
         incidente = await servicio.obtener_incidente(incidente_id)
         
@@ -38,7 +37,6 @@ async def obtener_video_evidencia(
                 detail="Incidente no encontrado"
             )
         
-        # Verificar que el incidente tiene video
         if not incidente.video_evidencia_path:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -48,10 +46,8 @@ async def obtener_video_evidencia(
         # Construir la ruta completa del archivo
         video_path = configuracion.VIDEO_EVIDENCE_PATH / incidente.video_evidencia_path
         
-        # Verificar que el archivo existe
         if not video_path.exists():
             logger.error(f"Video no encontrado en: {video_path}")
-            print(f"❌ Video no encontrado en: {video_path}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Archivo de video no encontrado en el servidor"
@@ -65,11 +61,7 @@ async def obtener_video_evidencia(
                 detail="Formato de archivo no válido"
             )
         
-        # Log para debugging
-        print(f"🎬 Sirviendo video: {video_path}")
-        print(f"🎬 Tamaño: {video_path.stat().st_size / (1024*1024):.2f} MB")
-        
-        # Determinar el media type basado en la extensión
+        # Determinar el media type
         media_type_map = {
             '.mp4': 'video/mp4',
             '.avi': 'video/avi', 
@@ -86,7 +78,8 @@ async def obtener_video_evidencia(
             filename=f"evidencia_incidente_{incidente_id}{video_path.suffix}",
             headers={
                 "Content-Disposition": f"inline; filename=evidencia_incidente_{incidente_id}{video_path.suffix}",
-                "Cache-Control": "max-age=3600",  # Cache por 1 hora
+                "Cache-Control": "max-age=3600",
+                "Accept-Ranges": "bytes"
             }
         )
         
@@ -94,7 +87,6 @@ async def obtener_video_evidencia(
         raise
     except Exception as e:
         logger.error(f"Error sirviendo video: {e}")
-        print(f"❌ Error sirviendo video: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno del servidor"

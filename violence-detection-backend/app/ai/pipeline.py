@@ -664,7 +664,7 @@ class PipelineDeteccion:
                 'video_evidencia_path': f"clips/{nombre_archivo}",
                 'video_url': video_url,
                 'fecha_hora_fin': self.tiempo_fin_violencia,
-                'estado': EstadoIncidente.CONFIRMADO,
+                'estado': EstadoIncidente.CONFIRMADO.value,
                 'metadata_json': {
                     'video_stats': {
                         'archivo': nombre_archivo,

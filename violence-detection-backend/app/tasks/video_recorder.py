@@ -216,6 +216,26 @@ class ViolenceEvidenceRecorder:
         # Log de estadísticas cada 50 frames
         if self.frame_counter % 50 == 0:
             self._log_buffer_stats()
+            
+    def _log_buffer_stats(self):
+        """Log de estadísticas del buffer cada cierto tiempo"""
+        with self.buffer_lock:
+            buffer_size = len(self.frame_buffer)
+        
+        with self.violence_buffer_lock:
+            violence_size = len(self.violence_sequence_buffer)
+        
+        # Calcular densidad del buffer
+        if self.frame_buffer.maxlen > 0:
+            buffer_density = (buffer_size / self.frame_buffer.maxlen) * 100
+        else:
+            buffer_density = 0
+        
+        self.stats['buffer_density'] = buffer_density
+        
+        # Log cada 100 frames para no saturar
+        if self.frame_counter % 100 == 0:
+            print(f"📊 Buffer Stats - Principal: {buffer_size}, Violencia: {violence_size}, Densidad: {buffer_density:.1f}%")
 
     def _draw_violence_overlay_intenso(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
         """Overlay MUY INTENSO para frames de violencia"""
@@ -646,7 +666,7 @@ class ViolenceEvidenceRecorder:
                 'video_url': video_url,
                 'fecha_hora_fin': datetime.now().isoformat(),
                 'duracion_segundos': int(stats['duracion_segundos']),
-                'estado': EstadoIncidente.CONFIRMADO,
+                'estado': EstadoIncidente.CONFIRMADO.value,
                 'metadata_json': {
                     'video_stats': {
                         'archivo': nombre_archivo,

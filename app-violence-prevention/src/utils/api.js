@@ -87,6 +87,30 @@ export const getCameras = async (activasSolo = false) => {
     }
 };
 
+// Nueva función para obtener información del video
+export const getVideoInfo = async (incidentId) => {
+    try {
+        const response = await api.get(`/api/v1/files/videos/${incidentId}/info`);
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al obtener información del video';
+        throw new Error(message);
+    }
+};
+
+// Nueva función para descargar video
+export const downloadVideo = async (incidentId) => {
+    try {
+        const response = await api.get(`/api/v1/files/videos/${incidentId}`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    } catch (error) {
+        const message = error.response?.data?.detail || 'Error al descargar el video';
+        throw new Error(message);
+    }
+};
+
 export const api = axios.create({
     baseURL: API_URL,
     headers: {
