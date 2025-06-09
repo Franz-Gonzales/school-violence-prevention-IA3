@@ -299,6 +299,27 @@ class Configuracion(BaseSettings):
             "processing_interval": 4
         }
     }
+    
+    
+    # ===================== CONFIGURACIÓN BASE64 OPTIMIZADA =====================
+
+    # Límites para Base64
+    MAX_VIDEO_SIZE_MB: int = 10  # Tamaño máximo del archivo de video
+    MAX_BASE64_SIZE_MB: int = 15  # Tamaño máximo del Base64 resultante (30% más que el video)
+    BASE64_CHUNK_SIZE: int = 1024 * 1024  # 1MB chunks para procesamiento
+
+    # Optimización de compresión para Base64
+    BASE64_COMPRESSION_CONFIG: Dict[str, Any] = {
+        "target_size_mb": 8,      # Objetivo de tamaño final
+        "max_duration_seconds": 15,  # Duración máxima
+        "quality_crf": 25,        # Mayor compresión (peor calidad pero menor tamaño) 
+        "bitrate_limit": "800k",  # Límite de bitrate más agresivo
+        "scale_factor": 0.8       # Reducir resolución si es necesario 
+    }
+
+    # Control de memoria para Base64
+    BASE64_MEMORY_LIMIT_MB: int = 200  # Límite de memoria durante conversión
+    BASE64_TEMP_CLEANUP: bool = True    # Limpiar archivos temporales automáticamente
 
     class Config:
         env_file = ".env"

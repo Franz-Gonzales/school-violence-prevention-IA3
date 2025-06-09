@@ -1,5 +1,5 @@
 """
-Endpoints de gestión de incidentes  
+Endpoints de gestión de incidentes - ACTUALIZADO PARA BASE64
 """
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -7,9 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import obtener_db
 from app.core.dependencies import DependenciasComunes
-from app.schemas.incident import Incidente, IncidenteCrear, IncidenteActualizar
+from app.schemas.incident import (
+    Incidente, IncidenteCrear, IncidenteActualizar, 
+    IncidenteConVideoBase64  # NUEVO SCHEMA
+)
 from app.services.incident_service import ServicioIncidentes
-from app.models.incident import TipoIncidente, SeveridadIncidente, EstadoIncidente  # Importar los Enum
+from app.models.incident import TipoIncidente, SeveridadIncidente, EstadoIncidente
 from app.utils.logger import obtener_logger
 
 logger = obtener_logger(__name__)
@@ -18,7 +21,7 @@ router = APIRouter(prefix="/incidents", tags=["incidentes"])
 
 @router.get("/", response_model=List[Incidente])
 async def listar_incidentes(
-    estado: Optional[EstadoIncidente] = Query(None, description="Filtrar por estado"),  # Usar Enum
+    estado: Optional[EstadoIncidente] = Query(None, description="Filtrar por estado"),
     camara_id: Optional[int] = Query(None, description="Filtrar por cámara"),
     fecha_inicio: Optional[datetime] = Query(None, description="Fecha inicio"),
     fecha_fin: Optional[datetime] = Query(None, description="Fecha fin"),
@@ -49,12 +52,12 @@ async def obtener_estadisticas(
     return await servicio.obtener_estadisticas(fecha_inicio, fecha_fin)
 
 
-@router.get("/{incidente_id}", response_model=Incidente)
-async def obtener_incidente(
+@router.get("/{incidente_id}", response_model=IncidenteConVideoBase64)
+async def obtener_incidente_con_video(
     incidente_id: int,
     deps: DependenciasComunes = Depends()
 ):
-    """Obtiene un incidente específico"""
+    """*** ACTUALIZADO: Obtiene un incidente específico CON VIDEO BASE64 ***"""
     servicio = ServicioIncidentes(deps.db)
     incidente = await servicio.obtener_incidente(incidente_id)
     
@@ -63,6 +66,18 @@ async def obtener_incidente(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Incidente no encontrado"
         )
+    
+    print(f"📹 Sirviendo incidente {incidente_id} con Base64")
+    
+    # Log para debug del Base64
+    if incidente.video_base64:
+        base64_size = len(incidente.video_base64)
+        print(f"🎥 Base64 disponible: {base64_size} caracteres")
+        print(f"🎥 Codec: {incidente.video_codec}")
+        print(f"🎥 Duración: {incidente.video_duration}s")
+        print(f"🎥 Resolución: {incidente.video_resolution}")
+    else:
+        print(f"⚠️ No hay video Base64 para incidente {incidente_id}")
     
     return incidente
 
@@ -113,7 +128,7 @@ async def actualizar_incidente(
     
     # Si se está atendiendo, asignar usuario actual
     datos_actualizacion = actualizacion.model_dump(exclude_unset=True)
-    if datos_actualizacion.get("estado") == EstadoIncidente.EN_REVISION:  # Usar Enum
+    if datos_actualizacion.get("estado") == EstadoIncidente.EN_REVISION:
         datos_actualizacion["atendido_por"] = deps.usuario_actual["id"]
     
     incidente = await servicio.actualizar_incidente(
@@ -133,17 +148,18 @@ async def actualizar_incidente(
 @router.post("/{incidente_id}/finalizar")
 async def finalizar_incidente(
     incidente_id: int,
-    video_path: Optional[str] = None,
-    thumbnail_path: Optional[str] = None,
     deps: DependenciasComunes = Depends()
 ):
-    """Finaliza un incidente activo"""
+    """*** ACTUALIZADO: Finaliza un incidente activo (ya no necesita video_path) ***"""
     servicio = ServicioIncidentes(deps.db)
     
-    incidente = await servicio.finalizar_incidente(
+    # Solo necesitamos actualizar el estado, el video ya está en Base64
+    incidente = await servicio.actualizar_incidente(
         incidente_id,
-        video_path,
-        thumbnail_path
+        {
+            "estado": EstadoIncidente.RESUELTO,
+            "fecha_resolucion": datetime.now()
+        }
     )
     
     if not incidente:
@@ -159,11 +175,11 @@ async def finalizar_incidente(
 
 
 @router.get("/{incidente_id}/video")
-async def obtener_video_incidente(
+async def obtener_info_video_incidente(
     incidente_id: int,
     deps: DependenciasComunes = Depends()
 ):
-    """Obtiene la URL del video de evidencia"""
+    """*** ACTUALIZADO: Obtiene información del video Base64 ***"""
     servicio = ServicioIncidentes(deps.db)
     incidente = await servicio.obtener_incidente(incidente_id)
     
@@ -173,16 +189,54 @@ async def obtener_video_incidente(
             detail="Incidente no encontrado"
         )
     
-    if not incidente.video_evidencia_path:
+    if not incidente.video_base64:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No hay video disponible para este incidente"
         )
     
-    # TODO: Implementar servicio de archivos para servir el video
     return {
-        "video_url": f"/api/v1/files/videos/{incidente_id}",
-        "thumbnail_url": incidente.thumbnail_url
+        "has_video": True,
+        "video_format": "base64",
+        "video_codec": incidente.video_codec or "mp4v",
+        "video_duration": float(incidente.video_duration or 0),
+        "video_fps": incidente.video_fps or 15,
+        "video_resolution": incidente.video_resolution or "640x480",
+        "video_file_size": incidente.video_file_size or 0,
+        "base64_length": len(incidente.video_base64),
+        "base64_size_mb": len(incidente.video_base64) / (1024 * 1024),
+        "metadata": incidente.metadata_json
+    }
+
+
+@router.get("/{incidente_id}/video/base64")
+async def obtener_video_base64(
+    incidente_id: int,
+    deps: DependenciasComunes = Depends()
+):
+    """*** NUEVO: Endpoint específico para obtener solo el Base64 del video ***"""
+    servicio = ServicioIncidentes(deps.db)
+    incidente = await servicio.obtener_incidente(incidente_id)
+    
+    if not incidente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Incidente no encontrado"
+        )
+    
+    if not incidente.video_base64:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No hay video Base64 disponible para este incidente"
+        )
+    
+    return {
+        "video_base64": incidente.video_base64,
+        "codec": incidente.video_codec or "mp4v",
+        "mime_type": "video/mp4",  # Siempre MP4 después de conversión
+        "duration": float(incidente.video_duration or 0),
+        "fps": incidente.video_fps or 15,
+        "resolution": incidente.video_resolution or "640x480"
     }
 
 
@@ -228,73 +282,124 @@ async def actualizar_incidente_interno(
     update_data: Dict[str, Any],
     db: AsyncSession = Depends(obtener_db)
 ):
-    """
-    MEJORADO: Actualiza un incidente internamente desde el pipeline
-    Este endpoint es usado exclusivamente por el sistema interno
-    """
+    """*** CORREGIDO: Manejo optimizado de Base64 grandes ***"""
     try:
         from datetime import datetime
         
-        print(f"📝 [INTERNO] Actualizando incidente {incidente_id}")
-        print(f"📝 [INTERNO] Datos recibidos: {list(update_data.keys())}")
+        print(f"📝 [INTERNO BASE64] Actualizando incidente {incidente_id}")
         
-        # Convertir strings de fecha de vuelta a datetime si es necesario
-        if 'fecha_hora_fin' in update_data and isinstance(update_data['fecha_hora_fin'], str):
+        # *** VALIDACIÓN DE BASE64 ANTES DE PROCESAR ***
+        if 'video_base64' in update_data:
+            base64_data = update_data['video_base64']
+            base64_size_mb = len(base64_data) / (1024 * 1024)
+            
+            print(f"🎥 [INTERNO BASE64] Tamaño Base64: {base64_size_mb:.2f} MB")
+            
+            # Límite preventivo de 50MB
+            if base64_size_mb > 50:
+                print(f"❌ [INTERNO BASE64] Base64 demasiado grande: {base64_size_mb:.2f} MB")
+                return HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Video demasiado grande: {base64_size_mb:.2f} MB. Máximo: 50 MB"
+                )
+            
+            # Validar formato Base64
             try:
-                update_data['fecha_hora_fin'] = datetime.fromisoformat(update_data['fecha_hora_fin'])
-                print(f"📝 [INTERNO] Fecha convertida: {update_data['fecha_hora_fin']}")
-            except ValueError as e:
-                logger.error(f"Error parsing fecha_hora_fin: {e}")
-                update_data['fecha_hora_fin'] = datetime.now()
+                import base64
+                decoded_test = base64.b64decode(base64_data[:100])  # Test pequeño
+                print(f"✅ [INTERNO BASE64] Formato Base64 válido")
+            except Exception as validation_error:
+                print(f"❌ [INTERNO BASE64] Base64 inválido: {validation_error}")
+                update_data.pop('video_base64')
         
-        # Manejar estado correctamente
-        if 'estado' in update_data:
-            if isinstance(update_data['estado'], str):
-                from app.models.incident import EstadoIncidente
-                try:
-                    update_data['estado'] = EstadoIncidente(update_data['estado'])
-                    print(f"📝 [INTERNO] Estado convertido: {update_data['estado']}")
-                except ValueError:
-                    update_data['estado'] = EstadoIncidente.CONFIRMADO
-            print(f"📝 [INTERNO] Estado final: {update_data['estado']}")
+        # *** SEPARAR ACTUALIZACIÓN EN DOS FASES ***
         
-        # Log de los campos más importantes
-        if 'video_url' in update_data:
-            print(f"🔗 [INTERNO] URL del video: {update_data['video_url']}")
-        if 'video_evidencia_path' in update_data:
-            print(f"📂 [INTERNO] Ruta del archivo: {update_data['video_evidencia_path']}")
+        # Fase 1: Campos pequeños
+        campos_pequeños = {k: v for k, v in update_data.items() 
+                          if k not in ['video_base64']}
         
-        # Actualizar usando el servicio
+        # Convertir fecha si es necesario
+        if 'fecha_hora_fin' in campos_pequeños and isinstance(campos_pequeños['fecha_hora_fin'], str):
+            try:
+                campos_pequeños['fecha_hora_fin'] = datetime.fromisoformat(campos_pequeños['fecha_hora_fin'])
+            except ValueError:
+                campos_pequeños['fecha_hora_fin'] = datetime.now()
+        
+        # Manejar estado
+        if 'estado' in campos_pequeños and isinstance(campos_pequeños['estado'], str):
+            from app.models.incident import EstadoIncidente
+            try:
+                campos_pequeños['estado'] = EstadoIncidente(campos_pequeños['estado'])
+            except ValueError:
+                campos_pequeños['estado'] = EstadoIncidente.CONFIRMADO
+        
+        # Actualizar con servicio optimizado
         servicio = ServicioIncidentes(db)
-        incidente = await servicio.actualizar_incidente(incidente_id, update_data)
         
-        if not incidente:
-            print(f"❌ [INTERNO] Incidente {incidente_id} no encontrado")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Incidente no encontrado"
-            )
+        # Actualizar campos pequeños primero
+        if campos_pequeños:
+            print(f"📝 [INTERNO BASE64] Actualizando campos pequeños: {list(campos_pequeños.keys())}")
+            incidente = await servicio.actualizar_incidente(incidente_id, campos_pequeños)
+            
+            if not incidente:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Incidente no encontrado"
+                )
         
-        print(f"✅ [INTERNO] Incidente {incidente_id} actualizado correctamente")
-        print(f"✅ [INTERNO] video_url guardado: {incidente.video_url}")
-        print(f"✅ [INTERNO] video_evidencia_path guardado: {incidente.video_evidencia_path}")
+        # Fase 2: Base64 por separado si existe
+        if 'video_base64' in update_data:
+            base64_data = update_data['video_base64']
+            print(f"🎥 [INTERNO BASE64] Actualizando Base64 por separado...")
+            
+            try:
+                # Actualización SQL directa para Base64
+                from sqlalchemy import text
+                
+                query = text("""
+                    UPDATE incidentes 
+                    SET video_base64 = :base64_data,
+                        fecha_actualizacion = NOW()
+                    WHERE id = :incidente_id
+                """)
+                
+                await db.execute(query, {
+                    'base64_data': base64_data,
+                    'incidente_id': incidente_id
+                })
+                
+                await db.commit()
+                print(f"✅ [INTERNO BASE64] Base64 actualizado directamente en BD")
+                
+            except Exception as base64_error:
+                print(f"❌ [INTERNO BASE64] Error con Base64: {base64_error}")
+                await db.rollback()
+                
+                # Continuar sin Base64 pero con éxito en otros campos
+                return {
+                    "message": "Incidente actualizado parcialmente (sin video Base64)",
+                    "incidente_id": incidente_id,
+                    "video_format": "error",
+                    "error_detail": str(base64_error)
+                }
+        
+        # Respuesta exitosa
+        print(f"✅ [INTERNO BASE64] Incidente {incidente_id} actualizado completamente")
         
         return {
-            "message": "Incidente actualizado correctamente", 
+            "message": "Incidente actualizado correctamente con Base64",
             "incidente_id": incidente_id,
-            "video_url": incidente.video_url,
-            "video_path": incidente.video_evidencia_path,
-            "estado": incidente.estado.value if incidente.estado else None
+            "video_format": "base64" if 'video_base64' in update_data else "metadata_only",
+            "video_size_mb": len(update_data.get('video_base64', '')) / (1024 * 1024) if 'video_base64' in update_data else 0,
+            "campos_actualizados": list(update_data.keys())
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ [INTERNO] Error en actualización: {e}")
-        print(f"❌ [INTERNO] Error en actualización: {e}")
-        import traceback
-        print(traceback.format_exc())
+        logger.error(f"❌ [INTERNO BASE64] Error crítico: {e}")
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno en actualización"
+            detail=f"Error interno: {str(e)}"
         )

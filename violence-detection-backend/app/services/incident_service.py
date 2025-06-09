@@ -87,53 +87,84 @@ class ServicioIncidentes:
             print(f"Error al listar incidentes: {e}")
             return []
     
-    async def actualizar_incidente(
-        self,
-        incidente_id: int,
-        datos_actualizacion: Dict[str, Any]
-    ) -> Optional[Incidente]:
+    async def actualizar_incidente(self, incidente_id: int, datos_actualizacion: Dict[str, Any]) -> Optional[Incidente]:
+        """MEJORADO: Actualizar incidente con manejo optimizado de Base64"""
         try:
-            incidente = await self.obtener_incidente(incidente_id)
+            # Buscar incidente
+            resultado = await self.db.execute(
+                select(Incidente).where(Incidente.id == incidente_id)
+            )
+            incidente = resultado.scalars().first()
+            
             if not incidente:
+                logger.error(f"❌ Incidente {incidente_id} no encontrado para actualización")
                 return None
             
-            # **LOGGING MEJORADO para debug**
-            print(f"🔄 Actualizando incidente {incidente_id}")
-            print(f"   - Datos recibidos: {list(datos_actualizacion.keys())}")
+            # *** OPTIMIZACIÓN PARA BASE64 GRANDES ***
+            video_base64 = datos_actualizacion.get('video_base64')
+            if video_base64:
+                # Validar tamaño antes de actualizar
+                base64_size_mb = len(video_base64) / (1024 * 1024)
+                logger.info(f"📊 Actualizando incidente {incidente_id} con Base64 de {base64_size_mb:.2f} MB")
+                
+                # Límite de 50MB para Base64
+                if base64_size_mb > 50:
+                    logger.error(f"❌ Base64 demasiado grande: {base64_size_mb:.2f} MB > 50 MB")
+                    datos_actualizacion.pop('video_base64')
+                    datos_actualizacion['video_evidencia_path'] = 'video_too_large'
             
-            for campo, valor in datos_actualizacion.items():
-                if hasattr(incidente, campo):
-                    # **DEBUG: Mostrar tipo de dato**
-                    print(f"   - {campo}: {type(valor).__name__} = {valor}")
-                    setattr(incidente, campo, valor)
-                else:
-                    print(f"   - ⚠️ Campo ignorado (no existe): {campo}")
+            # *** ACTUALIZACIÓN POR LOTES PARA CAMPOS GRANDES ***
+            # Separar campos grandes de campos pequeños
+            campos_pequeños = {k: v for k, v in datos_actualizacion.items() 
+                            if k != 'video_base64'}
             
-            # **CORREGIDO: Manejar fecha_resolucion solo si está en RESUELTO**
-            if datos_actualizacion.get('estado') == EstadoIncidente.RESUELTO:
-                incidente.fecha_resolucion = datetime.now()
-                if incidente.fecha_hora_fin and not incidente.duracion_segundos:
-                    duracion = incidente.fecha_hora_fin - incidente.fecha_hora_inicio
-                    incidente.duracion_segundos = int(duracion.total_seconds())
+            # 1. Actualizar primero campos pequeños
+            if campos_pequeños:
+                for campo, valor in campos_pequeños.items():
+                    if hasattr(incidente, campo):
+                        setattr(incidente, campo, valor)
+                
+                # Commit intermedio para campos pequeños
+                await self.db.commit()
+                await self.db.refresh(incidente)
+                logger.info(f"✅ Campos pequeños actualizados para incidente {incidente_id}")
             
-            print(f"   - ⏳ Ejecutando commit para incidente {incidente_id}...")
-            await self.db.commit()
+            # 2. Actualizar Base64 por separado si existe
+            if video_base64:
+                try:
+                    # Actualización específica solo para Base64 usando SQL directo
+                    from sqlalchemy import text
+                    
+                    query = text("""
+                        UPDATE incidentes 
+                        SET video_base64 = :base64_data,
+                            fecha_actualizacion = NOW()
+                        WHERE id = :incidente_id
+                    """)
+                    
+                    await self.db.execute(query, {
+                        'base64_data': video_base64,
+                        'incidente_id': incidente_id
+                    })
+                    
+                    await self.db.commit()
+                    logger.info(f"✅ Base64 actualizado separadamente para incidente {incidente_id}")
+                    
+                except Exception as base64_error:
+                    logger.error(f"❌ Error actualizando Base64: {base64_error}")
+                    await self.db.rollback()
+                    # Continuar sin Base64 pero con otros campos actualizados
+                    
+            # Refrescar objeto final
             await self.db.refresh(incidente)
             
-            logger.info(f"✅ Incidente {incidente_id} actualizado exitosamente")
-            print(f"✅ Incidente {incidente_id} actualizado exitosamente")
-            print(f"   - video_url: {incidente.video_url}")
-            print(f"   - video_evidencia_path: {incidente.video_evidencia_path}")
-            
+            logger.info(f"✅ Incidente {incidente_id} actualizado correctamente")
             return incidente
             
         except Exception as e:
             logger.error(f"❌ Error al actualizar incidente {incidente_id}: {e}")
-            print(f"❌ Error al actualizar incidente {incidente_id}: {e}")
-            import traceback
-            print(traceback.format_exc())
             await self.db.rollback()
-            return None
+            raise
     
     async def obtener_estadisticas(
         self,
