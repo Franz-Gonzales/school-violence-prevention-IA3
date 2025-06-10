@@ -18,7 +18,12 @@ class Configuracion(BaseSettings):
     
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    # Cambiar la duración del token a 1 hora
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    
+    # Para mayor seguridad, agregar estas configuraciones
+    TOKEN_REFRESH_EXPIRE_HOURS: int = 24
+    SESSION_TIMEOUT_MINUTES: int = 30
     
     # Configuración de cámara optimizada
     CAMERA_INDEX: int = 1

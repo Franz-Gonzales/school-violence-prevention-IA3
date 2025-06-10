@@ -56,14 +56,14 @@ async def registrar_usuario(
         await db.commit()
         await db.refresh(usuario)
         
-        logger.info(f"Usuario registrado: {usuario.email}")
+        print(f"Usuario registrado: {usuario.email}")
         print(f"Usuario registrado: {usuario.email}")
         return usuario
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al registrar usuario: {e}")
+        print(f"Error al registrar usuario: {e}")
         print(f"Error al registrar usuario: {e}")
         await db.rollback()
         raise HTTPException(
@@ -115,7 +115,7 @@ async def login(
             expires_delta=access_token_expires
         )
         
-        logger.info(f"Usuario {usuario.email} inició sesión")
+        print(f"Usuario {usuario.email} inició sesión")
         print(f"Usuario {usuario.email} inició sesión")
         
         return {
@@ -133,13 +133,59 @@ async def login(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en login: {e}")
+        print(f"Error en login: {e}")
         print(f"Error en login: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al iniciar sesión"
         )
 
+# Agregar este endpoint después del login
+
+@router.post("/refresh")
+async def refresh_token(
+    usuario_actual: dict = Depends(obtener_usuario_actual),
+    db: AsyncSession = Depends(obtener_db)
+):
+    """Renueva el token de acceso"""
+    try:
+        # Crear nuevo token con tiempo extendido
+        access_token_expires = timedelta(minutes=configuracion.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = crear_token_acceso(
+            data={
+                "sub": str(usuario_actual["id"]),
+                "email": usuario_actual["email"], 
+                "rol": usuario_actual.get("rol", "admin")
+            },
+            expires_delta=access_token_expires
+        )
+        
+        print(f"Token renovado para usuario {usuario_actual['email']}")
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": configuracion.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        }
+        
+    except Exception as e:
+        print(f"Error renovando token: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al renovar token"
+        )
+
+@router.get("/verify")
+async def verify_token(
+    usuario_actual: dict = Depends(obtener_usuario_actual)
+):
+    """Verifica si el token actual es válido"""
+    return {
+        "valid": True,
+        "user_id": usuario_actual["id"],
+        "email": usuario_actual["email"],
+        "timestamp": datetime.now().isoformat()
+    }
 
 @router.get("/perfil", response_model=UsuarioSchema)
 async def obtener_perfil(
@@ -164,7 +210,7 @@ async def obtener_perfil(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al obtener perfil: {e}")
+        print(f"Error al obtener perfil: {e}")
         print(f"Error al obtener perfil: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -177,7 +223,7 @@ async def logout(
     usuario_actual: dict = Depends(obtener_usuario_actual)
 ):
     """Cierra sesión del usuario"""
-    logger.info(f"Usuario {usuario_actual['email']} cerró sesión")
+    print(f"Usuario {usuario_actual['email']} cerró sesión")
     print(f"Usuario {usuario_actual['email']} cerró sesión")
     return {"mensaje": "Sesión cerrada exitosamente"}
 
@@ -214,7 +260,7 @@ async def cambiar_password(
         usuario.password_hash = obtener_hash_password(password_nuevo)
         await db.commit()
         
-        logger.info(f"Usuario {usuario.email} cambió su contraseña")
+        print(f"Usuario {usuario.email} cambió su contraseña")
         print(f"Usuario {usuario.email} cambió su contraseña")
         print(f"Usuario {usuario.user_name} cambió su contraseña")
         return {"mensaje": "Contraseña actualizada exitosamente"}
@@ -222,7 +268,7 @@ async def cambiar_password(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error al cambiar contraseña: {e}")
+        print(f"Error al cambiar contraseña: {e}")
         print(f"Error al cambiar contraseña: {e}")
         await db.rollback()
         raise HTTPException(

@@ -2,34 +2,73 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* Animaciones personalizadas para el login */
+@keyframes float-1 {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(10deg); }
+}
+
+@keyframes float-2 {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-15px) rotate(-10deg); }
+}
+
+@keyframes float-3 {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-25px) rotate(5deg); }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.animate-float-1 { animation: float-1 6s ease-in-out infinite; }
+.animate-float-2 { animation: float-2 8s ease-in-out infinite; }
+.animate-float-3 { animation: float-3 7s ease-in-out infinite; }
+.animate-fade-in { animation: fade-in 1s ease-out forwards; }
+.animate-shake { animation: shake 0.5s ease-in-out; }
+
+/* Delay utilities */
+.delay-500 { animation-delay: 0.5s; }
+.delay-1000 { animation-delay: 1s; }
+.delay-2000 { animation-delay: 2s; }
+.delay-3000 { animation-delay: 3s; }
+
+/* Estilos existentes */
 body {
     font-family: "Inter", sans-serif;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
-/* Estilos personalizados para componentes */
+/* Componentes existentes... */
 .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-200;
 }
 
 .stat-card {
-    @apply bg-white rounded-lg shadow-md p-4 flex items-center justify-between;
+    @apply bg-white rounded-lg shadow-md p-6 border border-gray-200 flex items-center justify-between;
 }
 
 .sidebar {
-    @apply bg-white w-64 h-screen fixed top-0 left-0 shadow-lg;
+    @apply bg-white shadow-lg border-r border-gray-200;
 }
 
 .sidebar-item {
-    @apply flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors;
+    @apply flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200;
 }
 
 .sidebar-item.active {
-    @apply bg-gray-100 text-primary font-semibold;
+    @apply bg-blue-50 text-blue-700 border-r-2 border-blue-500;
 }
 
 .main-content {
-    @apply ml-64 p-6;
+    @apply flex-1 p-6 bg-gray-50;
 }
