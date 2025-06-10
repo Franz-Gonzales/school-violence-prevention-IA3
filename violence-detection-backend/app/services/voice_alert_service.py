@@ -130,7 +130,7 @@ class ServicioAlertasVoz:
                     "stability": 0.3,      # Menos estabilidad para tono urgente
                     "similarity_boost": 0.8, # Alta claridad
                     "style": 0.9,          # Máxima expresividad para urgencia
-                    "speed": 1.17           # Velocidad ligeramente aumentada
+                    "speed": 1.2           # Velocidad ligeramente aumentada
                 },
                 optimize_streaming_latency=1
             )
@@ -158,16 +158,7 @@ class ServicioAlertasVoz:
         forzar: bool = False
     ) -> bool:
         """
-        Emite una alerta de voz por violencia detectada
-        
-        Args:
-            ubicacion: Ubicación donde se detectó la violencia
-            probabilidad: Probabilidad de violencia (0.0 - 1.0)
-            personas_detectadas: Número de personas involucradas
-            forzar: Si True, ignora el cooldown
-            
-        Returns:
-            True si la alerta se emitió correctamente
+        Emite una alerta de voz por violencia detectada (con verificación de créditos)
         """
         if not self.habilitado:
             return False
@@ -184,17 +175,25 @@ class ServicioAlertasVoz:
             # Generar mensaje personalizado
             mensaje = self._generar_mensaje_alerta(ubicacion, probabilidad, personas_detectadas)
             
+            # *** NUEVO: Verificar créditos antes de proceder ***
+            verificacion = self.puede_generar_audio(mensaje)
+            if not verificacion["puede_generar"]:
+                print(f"❌ No se puede generar alerta: {verificacion['razon']}")
+                print(f"   Créditos necesarios: {verificacion['creditos_necesarios']}")
+                print(f"   Créditos disponibles: {verificacion['creditos_disponibles']}")
+                return False
+            
+            print(f"✅ Créditos suficientes para generar alerta")
+            print(f"   Necesarios: {verificacion['creditos_necesarios']} | Disponibles: {verificacion['creditos_disponibles']}")
+            
             print(f"🚨 EMITIENDO ALERTA DE VOZ - Ubicación: {ubicacion}")
             print(f"📢 Mensaje: {mensaje}")
             
-            # Ejecutar en thread separado para no bloquear
+            # Resto del código existente...
             if self.executor:
                 future = self.executor.submit(self._generar_y_reproducir_alerta, mensaje)
-                
-                # Actualizar timestamp inmediatamente para evitar duplicados
                 self.ultima_alerta = current_time
                 
-                # Log del resultado (sin esperar)
                 def callback(future_result):
                     try:
                         success = future_result.result(timeout=30)
@@ -242,6 +241,113 @@ class ServicioAlertasVoz:
             "puede_emitir_alerta": tiempo_desde_ultima >= self.cooldown_segundos,
             "voice_id": self.voice_id
         }
+    
+    def verificar_creditos(self) -> Dict[str, Any]:
+        """
+        Verifica los créditos disponibles en la cuenta de ElevenLabs
+        
+        Returns:
+            Dict con información de créditos y estado
+        """
+        try:
+            if not self.client:
+                return {
+                    "success": False,
+                    "error": "Cliente de ElevenLabs no disponible",
+                    "creditos_disponibles": 0,
+                    "cuota_total": 0,
+                    "creditos_usados": 0,
+                    "porcentaje_usado": 0
+                }
+            
+            # Hacer una solicitud a la API de usuario para obtener información de créditos
+            # Nota: ElevenLabs no tiene endpoint directo de créditos, pero podemos usar el endpoint de usuario
+            response = self.client.user.get()
+            
+            # Extraer información relevante
+            subscription = response.subscription if hasattr(response, 'subscription') else None
+            
+            if subscription:
+                character_count = subscription.character_count
+                character_limit = subscription.character_limit
+                creditos_restantes = character_limit - character_count
+                porcentaje_usado = (character_count / character_limit) * 100 if character_limit > 0 else 0
+                
+                return {
+                    "success": True,
+                    "creditos_disponibles": creditos_restantes,
+                    "cuota_total": character_limit,
+                    "creditos_usados": character_count,
+                    "porcentaje_usado": round(porcentaje_usado, 2),
+                    "plan_tipo": subscription.tier if hasattr(subscription, 'tier') else "Unknown",
+                    "estado": "activa" if creditos_restantes > 0 else "agotada",
+                    "fecha_consulta": datetime.now().isoformat()
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "No se pudo obtener información de suscripción",
+                    "creditos_disponibles": 0,
+                    "cuota_total": 0,
+                    "creditos_usados": 0,
+                    "porcentaje_usado": 0
+                }
+                
+        except Exception as e:
+            logger.error(f"Error verificando créditos de ElevenLabs: {e}")
+            return {
+                "success": False,
+                "error": f"Error en verificación: {str(e)}",
+                "creditos_disponibles": 0,
+                "cuota_total": 0,
+                "creditos_usados": 0,
+                "porcentaje_usado": 0
+            }
+
+    def puede_generar_audio(self, texto: str) -> Dict[str, Any]:
+        """
+        Verifica si hay suficientes créditos para generar audio con el texto dado
+        
+        Args:
+            texto: Texto a convertir a audio
+            
+        Returns:
+            Dict con información de viabilidad
+        """
+        try:
+            # Estimar créditos necesarios (aproximadamente 1 crédito por caracter)
+            caracteres_necesarios = len(texto)
+            
+            # Verificar créditos disponibles
+            info_creditos = self.verificar_creditos()
+            
+            if not info_creditos["success"]:
+                return {
+                    "puede_generar": False,
+                    "razon": "No se pudo verificar créditos",
+                    "creditos_necesarios": caracteres_necesarios,
+                    "creditos_disponibles": 0
+                }
+            
+            creditos_disponibles = info_creditos["creditos_disponibles"]
+            puede_generar = creditos_disponibles >= caracteres_necesarios
+            
+            return {
+                "puede_generar": puede_generar,
+                "razon": "Suficientes créditos" if puede_generar else "Créditos insuficientes",
+                "creditos_necesarios": caracteres_necesarios,
+                "creditos_disponibles": creditos_disponibles,
+                "creditos_restantes_despues": creditos_disponibles - caracteres_necesarios if puede_generar else creditos_disponibles
+            }
+            
+        except Exception as e:
+            logger.error(f"Error verificando viabilidad de audio: {e}")
+            return {
+                "puede_generar": False,
+                "razon": f"Error en verificación: {str(e)}",
+                "creditos_necesarios": len(texto),
+                "creditos_disponibles": 0
+            }
     
     def cerrar(self):
         """Cierra el servicio y libera recursos"""

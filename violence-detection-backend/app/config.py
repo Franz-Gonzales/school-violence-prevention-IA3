@@ -245,14 +245,14 @@ class Configuracion(BaseSettings):
     VOICE_ALERTS_ENABLED: bool = True  # Habilitar/deshabilitar alertas de voz
     VOICE_ALERT_COOLDOWN_SECONDS: int = 15  # Tiempo entre alertas para evitar spam
     VOICE_ALERT_VOLUME_FACTOR: float = 1.8  # Factor de volumen (1.0 = normal, 2.0 = doble)
-    VOICE_ALERT_SPEED: float = 1.17  # Velocidad de habla (1.0 = normal, 1.2 = 20% más rápido)
+    VOICE_ALERT_SPEED: float = 1.2  # Velocidad de habla (1.0 = normal, 1.2 = 20% más rápido)
 
     # Configuración avanzada de voz
     VOICE_SETTINGS_CONFIG: Dict[str, Any] = {
         "stability": 0.3,        # Menos estabilidad para tono urgente
         "similarity_boost": 0.8, # Alta claridad de voz
         "style": 0.9,           # Máxima expresividad para urgencia
-        "speed": 1.1            # Velocidad ligeramente aumentada
+        "speed": 1.2            # Velocidad ligeramente aumentada
     }
 
     # Configuración de audio

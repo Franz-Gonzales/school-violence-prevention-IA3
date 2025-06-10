@@ -161,3 +161,67 @@ async def diagnostico_sistema_voz(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error en diagnóstico: {str(e)}"
         )
+        
+
+@router.get("/creditos")
+async def verificar_creditos_elevenlabs(
+    deps: DependenciasComunes = Depends()
+):
+    """Verifica los créditos disponibles en ElevenLabs"""
+    try:
+        info_creditos = servicio_alertas_voz.verificar_creditos()
+        
+        if info_creditos["success"]:
+            # Agregar recomendaciones basadas en créditos restantes
+            creditos = info_creditos["creditos_disponibles"]
+            
+            if creditos < 100:
+                info_creditos["recomendacion"] = "⚠️ Créditos muy bajos - considera recargar tu cuenta"
+                info_creditos["nivel_alerta"] = "critico"
+            elif creditos < 500:
+                info_creditos["recomendacion"] = "⚠️ Créditos bajos - monitorear uso"
+                info_creditos["nivel_alerta"] = "advertencia"
+            else:
+                info_creditos["recomendacion"] = "✅ Créditos suficientes"
+                info_creditos["nivel_alerta"] = "normal"
+        
+        return info_creditos
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo créditos: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error verificando créditos: {str(e)}"
+        )
+
+@router.post("/verificar-viabilidad")
+async def verificar_viabilidad_texto(
+    request: AlertaVozRequest,
+    deps: DependenciasComunes = Depends()
+):
+    """Verifica si se puede generar audio para un texto específico"""
+    try:
+        # Generar mensaje de prueba
+        servicio = servicio_alertas_voz
+        mensaje = servicio._generar_mensaje_alerta(
+            request.ubicacion, 
+            request.probabilidad, 
+            request.personas_detectadas
+        )
+        
+        # Verificar viabilidad
+        viabilidad = servicio.puede_generar_audio(mensaje)
+        
+        return {
+            "mensaje_generado": mensaje,
+            "longitud_caracteres": len(mensaje),
+            "viabilidad": viabilidad,
+            "creditos_actuales": servicio.verificar_creditos()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error verificando viabilidad: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error verificando viabilidad: {str(e)}"
+        )
