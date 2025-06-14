@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getIncidents } from '../utils/api';
+import { getIncidents, getCameras } from '../utils/api';
 
 const Incidents = () => {
     const navigate = useNavigate();
@@ -18,6 +18,10 @@ const Incidents = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
 
+    // *** NUEVO: Estados para cámaras y ubicaciones ***
+    const [cameras, setCameras] = useState([]);
+    const [availableLocations, setAvailableLocations] = useState([]);
+
     useEffect(() => {
         if (!isAuthenticated) {
             navigate('/login');
@@ -27,11 +31,24 @@ const Incidents = () => {
         fetchIncidents();
     }, [isAuthenticated, navigate]);
 
+    // *** MEJORADA: Función para cargar incidentes y cámaras ***
     const fetchIncidents = async () => {
         try {
             setLoading(true);
-            const data = await getIncidents({ limite: 100 });
-            setIncidents(data || []);
+            
+            // Cargar incidentes y cámaras en paralelo
+            const [incidentsData, camerasData] = await Promise.all([
+                getIncidents({ limite: 100 }),
+                getCameras() // Obtener todas las cámaras para ubicaciones
+            ]);
+
+            setIncidents(incidentsData || []);
+            setCameras(camerasData || []);
+
+            // Extraer ubicaciones únicas de las cámaras
+            const locations = [...new Set(camerasData.map(camera => camera.ubicacion).filter(Boolean))];
+            setAvailableLocations(locations);
+
         } catch (error) {
             console.error('Error al cargar incidentes:', error);
             setError('Error al cargar los incidentes');
@@ -40,17 +57,101 @@ const Incidents = () => {
         }
     };
 
-    // Función para filtrar incidentes
+    // *** NUEVA: Función para aplicar filtros con búsqueda en backend ***
+    const applyFilters = async () => {
+        try {
+            setLoading(true);
+            
+            // Construir parámetros de búsqueda
+            const searchParams = {
+                limite: 100,
+                offset: 0
+            };
+
+            // *** FILTRO POR RANGO DE FECHAS ***
+            if (selectedDateRange) {
+                const now = new Date();
+                let fecha_inicio, fecha_fin;
+
+                switch (selectedDateRange) {
+                    case 'today':
+                        fecha_inicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                        fecha_fin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                        break;
+                    
+                    case 'week':
+                        const inicioSemana = new Date(now);
+                        inicioSemana.setDate(now.getDate() - now.getDay());
+                        inicioSemana.setHours(0, 0, 0, 0);
+                        
+                        const finSemana = new Date(inicioSemana);
+                        finSemana.setDate(inicioSemana.getDate() + 6);
+                        finSemana.setHours(23, 59, 59, 999);
+                        
+                        fecha_inicio = inicioSemana;
+                        fecha_fin = finSemana;
+                        break;
+                    
+                    case 'month':
+                        fecha_inicio = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+                        fecha_fin = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                        break;
+                }
+
+                if (fecha_inicio && fecha_fin) {
+                    searchParams.fecha_inicio = fecha_inicio.toISOString();
+                    searchParams.fecha_fin = fecha_fin.toISOString();
+                }
+            }
+
+            // *** FILTRO POR SEVERIDAD ***
+            if (selectedSeverity) {
+                searchParams.severidad = selectedSeverity;
+            }
+
+            // *** FILTRO POR UBICACIÓN (usando cámara) ***
+            if (selectedLocation) {
+                const camerasEnUbicacion = cameras.filter(camera => 
+                    camera.ubicacion === selectedLocation
+                );
+                
+                if (camerasEnUbicacion.length > 0) {
+                    searchParams.camara_id = camerasEnUbicacion[0].id;
+                }
+            }
+
+            // Realizar búsqueda
+            const searchResults = await getIncidents(searchParams);
+            setIncidents(searchResults || []);
+            setCurrentPage(1);
+
+        } catch (error) {
+            console.error('Error en búsqueda:', error);
+            setError('Error al buscar incidentes');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // *** MEJORADA: Función para filtrar incidentes localmente ***
     const filteredIncidents = incidents.filter(incident => {
         const matchesSearch = incident.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                              incident.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                              incident.tipo_incidente?.toLowerCase().includes(searchTerm.toLowerCase());
         
-        const matchesSeverity = !selectedSeverity || incident.severidad === selectedSeverity;
-        const matchesLocation = !selectedLocation || incident.ubicacion === selectedLocation;
-        
-        return matchesSearch && matchesSeverity && matchesLocation;
+        // Los filtros de severidad, ubicación y fecha se aplican en el backend
+        // Solo aplicamos filtro de búsqueda de texto local
+        return matchesSearch;
     });
+
+    // Detectar cambios en filtros para aplicar búsqueda automática
+    useEffect(() => {
+        if (selectedDateRange || selectedSeverity || selectedLocation) {
+            applyFilters();
+        } else if (!selectedDateRange && !selectedSeverity && !selectedLocation) {
+            fetchIncidents(); // Recargar todos si no hay filtros
+        }
+    }, [selectedDateRange, selectedSeverity, selectedLocation]);
 
     // Paginación
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -58,8 +159,8 @@ const Incidents = () => {
     const currentIncidents = filteredIncidents.slice(indexOfFirstItem, indexOfLastItem);
     const totalPages = Math.ceil(filteredIncidents.length / itemsPerPage);
 
-    // Obtener ubicaciones únicas para el filtro
-    const uniqueLocations = [...new Set(incidents.map(inc => inc.ubicacion).filter(Boolean))];
+    // *** MEJORADA: Obtener ubicaciones de cámaras en lugar de incidentes ***
+    const uniqueLocations = availableLocations;
 
     const getSeverityColor = (severity) => {
         switch (severity?.toLowerCase()) {
@@ -221,7 +322,7 @@ const Incidents = () => {
                             </select>
                         </div>
 
-                        {/* Filtro por Ubicación */}
+                        {/* *** MEJORADO: Filtro por Ubicación (desde cámaras) *** */}
                         <div>
                             <select
                                 value={selectedLocation}

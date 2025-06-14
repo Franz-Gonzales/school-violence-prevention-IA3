@@ -97,9 +97,12 @@ export const getCameras = async (activasSolo = false) => {
         const response = await api.get('/api/v1/cameras', {
             params: { activas_solo: activasSolo }
         });
+        
+        console.log('📹 Cámaras obtenidas:', response.data);
         return response.data;
     } catch (error) {
         const message = error.response?.data?.detail || 'Error al obtener cámaras';
+        console.error('Error obteniendo cámaras:', message);
         throw new Error(message);
     }
 };

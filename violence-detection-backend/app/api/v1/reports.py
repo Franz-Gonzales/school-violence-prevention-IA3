@@ -1,5 +1,5 @@
 """
-Endpoints de generación de informes
+Endpoints de generación de informes - CORREGIDO para estadísticas reales
 """
 from typing import Optional
 from datetime import datetime, date
@@ -8,9 +8,13 @@ from fastapi.responses import FileResponse
 from app.core.dependencies import DependenciasComunes
 from app.services.report_service import ServicioInformes
 from app.services.incident_service import ServicioIncidentes
+from app.services.camera_service import ServicioCamaras
+from app.models.incident import EstadoIncidente
+from app.models.camera import EstadoCamara
 from app.utils.logger import obtener_logger
 import json
 from pathlib import Path
+from sqlalchemy import select, func, and_
 
 logger = obtener_logger(__name__)
 router = APIRouter(prefix="/reports", tags=["informes"])
@@ -123,31 +127,108 @@ async def exportar_informe(
 async def obtener_datos_dashboard(
     deps: DependenciasComunes = Depends()
 ):
-    """Obtiene datos para el dashboard principal"""
-    servicio = ServicioInformes(deps.db)
-    servicio_incidentes = ServicioIncidentes(deps.db)
-    
-    # Obtener estadísticas generales
-    estadisticas = await servicio_incidentes.obtener_estadisticas()
-    
-    # Obtener informe del día
-    informe_hoy = await servicio.generar_informe_diario()
-    
-    # Obtener tendencia semanal
-    informe_semanal = await servicio.generar_informe_semanal()
-    
-    return {
-        "estadisticas_generales": estadisticas,
-        "resumen_hoy": {
-            "total_incidentes": informe_hoy.get("total_incidentes", 0),
-            "incidentes_resueltos": informe_hoy.get("incidentes_resueltos", 0),
-            "severidad_promedio": informe_hoy.get("severidad_promedio", 0)
-        },
-        "tendencia_semanal": {
-            "tendencia": informe_semanal.get("tendencia", "estable"),
-            "promedio_diario": informe_semanal.get("promedio_diario", 0),
-            "grafico_datos": informe_semanal.get("incidentes_por_dia", {})
-        },
-        "alertas_activas": 0,  # TODO: Implementar conteo de alertas activas
-        "camaras_activas": 0   # TODO: Implementar conteo de cámaras activas
-    }
+    """*** CORREGIDO: Obtiene datos REALES para el dashboard principal ***"""
+    try:
+        # Importar modelos necesarios
+        from app.models.incident import Incidente
+        from app.models.camera import Camara
+        
+        # Calcular fechas para "hoy"
+        hoy = datetime.now().date()
+        inicio_dia = datetime.combine(hoy, datetime.min.time())
+        fin_dia = datetime.combine(hoy, datetime.max.time())
+        
+        # *** 1. CONTAR INCIDENTES DE HOY (REAL) ***
+        query_incidentes_hoy = select(func.count(Incidente.id)).where(
+            and_(
+                Incidente.fecha_hora_inicio >= inicio_dia,
+                Incidente.fecha_hora_inicio <= fin_dia
+            )
+        )
+        resultado_incidentes = await deps.db.execute(query_incidentes_hoy)
+        total_incidentes_hoy = resultado_incidentes.scalar() or 0
+        
+        # *** 2. CONTAR CÁMARAS ACTIVAS (REAL) ***
+        query_camaras_activas = select(func.count(Camara.id)).where(
+            Camara.estado == EstadoCamara.ACTIVA
+        )
+        resultado_camaras = await deps.db.execute(query_camaras_activas)
+        total_camaras_activas = resultado_camaras.scalar() or 0
+        
+        # *** 3. OBTENER INCIDENTES RESUELTOS HOY ***
+        query_incidentes_resueltos = select(func.count(Incidente.id)).where(
+            and_(
+                Incidente.fecha_hora_inicio >= inicio_dia,
+                Incidente.fecha_hora_inicio <= fin_dia,
+                Incidente.estado == EstadoIncidente.RESUELTO
+            )
+        )
+        resultado_resueltos = await deps.db.execute(query_incidentes_resueltos)
+        incidentes_resueltos_hoy = resultado_resueltos.scalar() or 0
+        
+        # *** 4. OBTENER TENDENCIA SEMANAL ***
+        servicio_informes = ServicioInformes(deps.db)
+        informe_semanal = await servicio_informes.generar_informe_semanal()
+        
+        # *** 5. ESTADÍSTICAS ADICIONALES ***
+        # Total de cámaras (activas + inactivas)
+        query_total_camaras = select(func.count(Camara.id))
+        resultado_total_camaras = await deps.db.execute(query_total_camaras)
+        total_camaras = resultado_total_camaras.scalar() or 0
+        
+        logger.info(f"Dashboard - Incidentes hoy: {total_incidentes_hoy}, Cámaras activas: {total_camaras_activas}")
+        print(f"📊 Dashboard stats - Incidentes hoy: {total_incidentes_hoy}, Cámaras activas: {total_camaras_activas}")
+        
+        return {
+            "estadisticas_generales": {
+                "total_incidentes": total_incidentes_hoy,
+                "total_camaras": total_camaras,
+                "camaras_activas": total_camaras_activas,
+                "incidentes_resueltos": incidentes_resueltos_hoy
+            },
+            "resumen_hoy": {
+                "total_incidentes": total_incidentes_hoy,
+                "incidentes_resueltos": incidentes_resueltos_hoy,
+                "tasa_resolucion": (
+                    (incidentes_resueltos_hoy / total_incidentes_hoy * 100) 
+                    if total_incidentes_hoy > 0 else 0
+                )
+            },
+            "tendencia_semanal": {
+                "tendencia": informe_semanal.get("tendencia", "estable"),
+                "promedio_diario": informe_semanal.get("promedio_diario", 0),
+                "grafico_datos": informe_semanal.get("incidentes_por_dia", {})
+            },
+            "sistema": {
+                "timestamp": datetime.now().isoformat(),
+                "estado": "operativo"
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error obteniendo datos del dashboard: {e}")
+        print(f"❌ Error obteniendo datos del dashboard: {e}")
+        
+        # Retornar datos por defecto en caso de error
+        return {
+            "estadisticas_generales": {
+                "total_incidentes": 0,
+                "total_camaras": 0,
+                "camaras_activas": 0,
+                "incidentes_resueltos": 0
+            },
+            "resumen_hoy": {
+                "total_incidentes": 0,
+                "incidentes_resueltos": 0,
+                "tasa_resolucion": 0
+            },
+            "tendencia_semanal": {
+                "tendencia": "sin_datos",
+                "promedio_diario": 0,
+                "grafico_datos": {}
+            },
+            "sistema": {
+                "timestamp": datetime.now().isoformat(),
+                "estado": "error"
+            }
+        }

@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select  # Import select function
 from app.core.database import obtener_db
 from app.core.dependencies import DependenciasComunes
 from app.schemas.incident import (
@@ -22,6 +23,7 @@ router = APIRouter(prefix="/incidents", tags=["incidentes"])
 @router.get("/", response_model=List[Incidente])
 async def listar_incidentes(
     estado: Optional[EstadoIncidente] = Query(None, description="Filtrar por estado"),
+    severidad: Optional[SeveridadIncidente] = Query(None, description="Filtrar por severidad"),  # NUEVO
     camara_id: Optional[int] = Query(None, description="Filtrar por cámara"),
     fecha_inicio: Optional[datetime] = Query(None, description="Fecha inicio"),
     fecha_fin: Optional[datetime] = Query(None, description="Fecha fin"),
@@ -29,12 +31,13 @@ async def listar_incidentes(
     offset: int = Query(0, ge=0),
     deps: DependenciasComunes = Depends()
 ):
-    """Lista incidentes con filtros opcionales"""
+    """Lista incidentes con filtros opcionales - MEJORADO"""
     servicio = ServicioIncidentes(deps.db)
     return await servicio.listar_incidentes(
         limite=limite,
         offset=offset,
         estado=estado,
+        severidad=severidad,  # NUEVO PARÁMETRO
         camara_id=camara_id,
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin
@@ -47,9 +50,116 @@ async def obtener_estadisticas(
     fecha_fin: Optional[datetime] = Query(None),
     deps: DependenciasComunes = Depends()
 ):
-    """Obtiene estadísticas de incidentes"""
-    servicio = ServicioIncidentes(deps.db)
-    return await servicio.obtener_estadisticas(fecha_inicio, fecha_fin)
+    """*** CORREGIDO: Obtiene estadísticas REALES de incidentes ***"""
+    try:
+        # Si no se especifican fechas, usar el día actual
+        if not fecha_fin:
+            fecha_fin = datetime.now()
+        if not fecha_inicio:
+            # Si no hay fecha_inicio, usar el inicio del día actual
+            fecha_inicio = datetime.combine(fecha_fin.date(), datetime.min.time())
+        
+        from app.models.incident import Incidente
+        from sqlalchemy import and_, func
+        
+        # Query base para el rango de fechas
+        query_base = select(Incidente).where(
+            and_(
+                Incidente.fecha_hora_inicio >= fecha_inicio,
+                Incidente.fecha_hora_inicio <= fecha_fin
+            )
+        )
+        
+        # *** 1. CONTAR TOTAL DE INCIDENTES ***
+        query_total = select(func.count(Incidente.id)).where(
+            and_(
+                Incidente.fecha_hora_inicio >= fecha_inicio,
+                Incidente.fecha_hora_inicio <= fecha_fin
+            )
+        )
+        resultado_total = await deps.db.execute(query_total)
+        total_incidentes = resultado_total.scalar() or 0
+        
+        # *** 2. CONTAR INCIDENTES POR ESTADO ***
+        estados_count = {}
+        for estado in EstadoIncidente:
+            query_estado = select(func.count(Incidente.id)).where(
+                and_(
+                    Incidente.fecha_hora_inicio >= fecha_inicio,
+                    Incidente.fecha_hora_inicio <= fecha_fin,
+                    Incidente.estado == estado
+                )
+            )
+            resultado_estado = await deps.db.execute(query_estado)
+            estados_count[estado.value] = resultado_estado.scalar() or 0
+        
+        # *** 3. CALCULAR TIEMPO PROMEDIO DE RESPUESTA ***
+        # Solo para incidentes resueltos
+        query_resueltos = select(Incidente).where(
+            and_(
+                Incidente.fecha_hora_inicio >= fecha_inicio,
+                Incidente.fecha_hora_inicio <= fecha_fin,
+                Incidente.estado == EstadoIncidente.RESUELTO,
+                Incidente.fecha_resolucion.isnot(None)
+            )
+        )
+        resultado_resueltos = await deps.db.execute(query_resueltos)
+        incidentes_resueltos = resultado_resueltos.scalars().all()
+        
+        tiempos_respuesta = []
+        for incidente in incidentes_resueltos:
+            if incidente.fecha_resolucion:
+                tiempo_respuesta = (incidente.fecha_resolucion - incidente.fecha_hora_inicio).total_seconds()
+                tiempos_respuesta.append(tiempo_respuesta)
+        
+        tiempo_respuesta_promedio = (
+            sum(tiempos_respuesta) / len(tiempos_respuesta) if tiempos_respuesta else 0
+        )
+        
+        estadisticas = {
+            'total_incidentes': total_incidentes,
+            'incidentes_por_estado': estados_count,
+            'tiempo_respuesta_promedio_segundos': tiempo_respuesta_promedio,
+            'tiempo_respuesta_promedio_minutos': tiempo_respuesta_promedio / 60,
+            'periodo': {
+                'inicio': fecha_inicio.isoformat(),
+                'fin': fecha_fin.isoformat()
+            },
+            'resumen': {
+                'activos': estados_count.get('nuevo', 0) + estados_count.get('en_revision', 0),
+                'resueltos': estados_count.get('resuelto', 0),
+                'tasa_resolucion': (
+                    (estados_count.get('resuelto', 0) / total_incidentes * 100) 
+                    if total_incidentes > 0 else 0
+                )
+            }
+        }
+        
+        logger.info(f"Estadísticas calculadas: {total_incidentes} incidentes en período")
+        print(f"📈 Estadísticas - Total: {total_incidentes}, Resueltos: {estados_count.get('resuelto', 0)}")
+        
+        return estadisticas
+        
+    except Exception as e:
+        logger.error(f"Error al obtener estadísticas: {e}")
+        print(f"❌ Error al obtener estadísticas: {e}")
+        
+        # Retornar estructura vacía en caso de error
+        return {
+            'total_incidentes': 0,
+            'incidentes_por_estado': {estado.value: 0 for estado in EstadoIncidente},
+            'tiempo_respuesta_promedio_segundos': 0,
+            'tiempo_respuesta_promedio_minutos': 0,
+            'periodo': {
+                'inicio': fecha_inicio.isoformat() if fecha_inicio else None,
+                'fin': fecha_fin.isoformat() if fecha_fin else None
+            },
+            'resumen': {
+                'activos': 0,
+                'resueltos': 0,
+                'tasa_resolucion': 0
+            }
+        }
 
 
 @router.get("/{incidente_id}", response_model=IncidenteConVideoBase64)

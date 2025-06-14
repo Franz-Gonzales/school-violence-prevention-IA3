@@ -57,6 +57,7 @@ class ServicioIncidentes:
         limite: int = 100,
         offset: int = 0,
         estado: Optional[EstadoIncidente] = None,
+        severidad: Optional[SeveridadIncidente] = None,  # NUEVO PARÁMETRO
         camara_id: Optional[int] = None,
         fecha_inicio: Optional[datetime] = None,
         fecha_fin: Optional[datetime] = None
@@ -67,6 +68,8 @@ class ServicioIncidentes:
             condiciones = []
             if estado:
                 condiciones.append(Incidente.estado == estado)
+            if severidad:  # NUEVA CONDICIÓN
+                condiciones.append(Incidente.severidad == severidad)
             if camara_id:
                 condiciones.append(Incidente.camara_id == camara_id)
             if fecha_inicio:
@@ -81,7 +84,11 @@ class ServicioIncidentes:
             query = query.limit(limite).offset(offset)
             
             resultado = await self.db.execute(query)
-            return resultado.scalars().all()
+            incidentes = resultado.scalars().all()
+            
+            logger.info(f"📋 Listando {len(incidentes)} incidentes con filtros: severidad={severidad}, estado={estado}, camara_id={camara_id}")
+            return incidentes
+            
         except Exception as e:
             logger.error(f"Error al listar incidentes: {e}")
             print(f"Error al listar incidentes: {e}")

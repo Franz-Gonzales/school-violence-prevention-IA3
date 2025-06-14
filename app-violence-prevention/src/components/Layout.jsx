@@ -281,9 +281,9 @@ const Layout = ({ children }) => {
                             )}
                         </button>
                         
-                        {/* User Menu Dropdown */}
+                        {/* User Menu Dropdown - CAMBIADO: ahora se abre hacia ABAJO */}
                         {showUserMenu && (
-                            <div className={`absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden transform transition-all duration-300 ${
+                            <div className={`absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden transform transition-all duration-300 ${
                                 isCollapsed ? 'left-20 right-auto w-48' : ''
                             }`}>
                                 <button className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 transition-colors text-gray-700 hover:text-gray-900">
