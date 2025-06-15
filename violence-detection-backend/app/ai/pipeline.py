@@ -361,12 +361,17 @@ class PipelineDeteccion:
         
         # AGREGAR: Servicio de alertas de voz
         self.servicio_alertas_voz = servicio_alertas_voz
+        
+        evidence_recorder.set_camera_id(1)
 
     async def procesar_frame(self, frame: np.ndarray, camara_id: int, ubicacion: str) -> Dict[str, Any]:
         try:
             self.camara_id = camara_id
             self.ubicacion = ubicacion
             self.frames_procesados += 1
+            
+            # AGREGAR CERCA DEL INICIO:
+            evidence_recorder.set_camera_id(camara_id)
             
             timestamp_actual = datetime.now()
             frame_original = frame.copy()

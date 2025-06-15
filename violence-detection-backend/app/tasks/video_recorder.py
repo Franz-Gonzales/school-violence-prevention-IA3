@@ -118,45 +118,49 @@ class ViolenceEvidenceRecorder:
         print("🛑 Procesamiento de evidencias detenido")
     
     def add_frame(self, frame: np.ndarray, detections: List[Dict], violence_info: Optional[Dict] = None):
-        """VERSIÓN CORREGIDA: Captura MASIVA de frames con violencia"""
+        """CORREGIDO: Captura TODOS los frames de la secuencia de violencia sin errores"""
         current_time = time.time()
         time_since_last = current_time - self.last_frame_time
         
         # DETECTAR ESTADO DE VIOLENCIA
         violence_detected = violence_info and violence_info.get('detectada', False)
+        violence_probability = violence_info.get('probabilidad', 0.0) if violence_info else 0.0
+        
+        # *** NUEVO: Capturar TODA la secuencia de detección de violencia ***
+        is_violence_sequence = violence_detected or (
+            violence_info and 
+            violence_info.get('frames_analizados', 0) >= 6  # Si hay al menos 6 frames en análisis
+        )
         
         # CONTROL MEJORADO DE TRANSICIONES DE ESTADO
         if violence_detected and not self.last_violence_state:
-            self.violence_active = True
-            self.violence_start_time = datetime.now()
-            self.last_violence_state = True
+            self._start_recording(datetime.now())
             self.violence_sequence_count += 1
+            print(f"🚨 VIOLENCIA DETECTADA - Iniciando captura intensiva")
             
-            print(f"🔥 VIOLENCIA ACTIVA INICIADA en Evidence Recorder (Secuencia #{self.violence_sequence_count})")
-            
-            # NUEVO: Iniciar grabación inmediatamente al detectar violencia
-            if not self.is_recording:
-                self._start_recording(self.violence_start_time)
-                
         elif not violence_detected and self.last_violence_state:
-            # Solo finalizar estado de violencia después de un periodo de enfriamiento
-            if not hasattr(self, 'violence_cooldown_time') or current_time - getattr(self, 'violence_cooldown_time', 0) > 2.0:
-                self.violence_active = False
-                self.violence_end_time = datetime.now()
-                self.last_violence_state = False
-                self.violence_cooldown_time = current_time
-                print(f"🔄 VIOLENCIA FINALIZADA en Evidence Recorder")
+            # Continuar grabando por 2 segundos más después de que termine la violencia
+            if not hasattr(self, 'violence_end_grace_period'):
+                self.violence_end_grace_period = current_time + 2.0  # 2 segundos de gracia
+                print(f"⏰ Violencia terminó - Continuando captura por 2s más")
+            
+            # *** CORREGIDO: Verificar si el atributo existe antes de eliminar ***
+            if hasattr(self, 'violence_end_grace_period') and current_time > self.violence_end_grace_period:
+                self._finish_recording()
+                # Solo eliminar si existe
+                if hasattr(self, 'violence_end_grace_period'):
+                    delattr(self, 'violence_end_grace_period')
         
-        # Control de frecuencia de captura
+        # *** MODIFICADO: Control de frecuencia más permisivo durante violencia ***
         should_accept = True
-        if violence_detected:
-            should_accept = True
-            if not hasattr(self, 'violence_cooldown_time'):
-                self.violence_cooldown_time = current_time
-            else:
-                self.violence_cooldown_time = current_time
+        if is_violence_sequence or violence_detected:
+            # Durante violencia: capturar TODOS los frames (sin límite de tiempo)
+            capture_interval = 1.0 / 40  # 40 FPS durante violencia/análisis
+            should_accept = True  # SIEMPRE aceptar durante violencia
         else:
-            should_accept = time_since_last >= self.capture_interval
+            # Normal: mantener frecuencia estándar
+            capture_interval = 1.0 / self.capture_fps
+            should_accept = time_since_last >= capture_interval
         
         if not should_accept:
             return
@@ -166,12 +170,17 @@ class ViolenceEvidenceRecorder:
         
         # Dibujar detecciones de personas
         for detection in detections:
-            bbox = detection.get('bbox', [0, 0, 0, 0])
-            self._draw_detection(frame_copy, detection)
+            bbox = detection.get('bbox', [])
+            if len(bbox) == 4:
+                x, y, w, h = map(int, bbox)
+                cv2.rectangle(frame_copy, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                conf = detection.get('confianza', 0)
+                cv2.putText(frame_copy, f'Persona {conf:.2f}', (x, y-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         
-        # MEJORADO: Overlay de violencia más intenso y visible
-        if violence_info and violence_info.get('detectada'):
-            frame_copy = self._draw_violence_overlay_intenso(frame_copy, violence_info)
+        # *** MEJORADO: Overlay de violencia con información de secuencia ***
+        if violence_info and (violence_detected or is_violence_sequence):
+            frame_copy = self._draw_violence_overlay_mejorado(frame_copy, violence_info)
         
         frame_data = {
             'frame': frame_copy,
@@ -182,40 +191,53 @@ class ViolenceEvidenceRecorder:
             'frame_id': self.frame_counter,
             'time_since_last': time_since_last,
             'is_violence_frame': violence_detected,
+            'is_violence_sequence': is_violence_sequence,  # NUEVO
             'violence_active': self.violence_active,
             'sequence_id': self.violence_sequence_count,
-            'probability': violence_info.get('probabilidad', 0.0) if violence_info else 0.0
+            'probability': violence_probability,
+            'frames_analizados': violence_info.get('frames_analizados', 0) if violence_info else 0  # NUEVO
         }
         
         # 1) Siempre alimentar el buffer principal
         with self.buffer_lock:
             self.frame_buffer.append(frame_data)
-            self.stats['frames_added'] += 1
 
-        # 2) MÁXIMA DUPLICACIÓN: Capturar TODOS los fotogramas de violencia y multiplicarlos
-        if violence_detected:
+        # 2) *** MODIFICADO: Captura más inteligente para violencia ***
+        if is_violence_sequence or violence_detected:
             with self.violence_buffer_lock:
-                # Agregar frame original
+                # Frame original
                 self.violence_sequence_buffer.append(frame_data)
                 
-                # DUPLICACIÓN MASIVA para garantizar presencia en video
-                for i in range(self.violence_duplication_multiplier):
-                    duplicate_frame = frame_data.copy()
-                    duplicate_frame['duplicate_id'] = i + 1
-                    duplicate_frame['frame_type'] = 'duplicated'
-                    self.violence_sequence_buffer.append(duplicate_frame)
+                # *** NUEVO: Duplicación SOLO para frames con probabilidad alta ***
+                if violence_detected and violence_probability > 0.7:
+                    # Duplicación masiva solo para frames con alta probabilidad
+                    for i in range(self.violence_duplication_multiplier):
+                        duplicate = frame_data.copy()
+                        duplicate['frame'] = frame_copy.copy()
+                        duplicate['frame_type'] = 'duplicate'
+                        duplicate['duplicate_id'] = i + 1
+                        self.violence_sequence_buffer.append(duplicate)
+                    
+                    self.stats['violence_duplications'] += self.violence_duplication_multiplier
+                    print(f"🔥 Frame violencia P={violence_probability:.3f} - {self.violence_duplication_multiplier+1} copias guardadas")
+                
+                elif is_violence_sequence and not violence_detected:
+                    # Para frames de secuencia sin violencia confirmada, menos duplicación
+                    for i in range(3):  # Solo 3 duplicaciones
+                        duplicate = frame_data.copy()
+                        duplicate['frame'] = frame_copy.copy()
+                        duplicate['frame_type'] = 'sequence'
+                        duplicate['duplicate_id'] = i + 1
+                        self.violence_sequence_buffer.append(duplicate)
                 
                 self.stats['violence_frames_captured'] += 1
-                self.stats['violence_duplications'] += self.violence_duplication_multiplier
         
         # 3) Actualizar estadísticas y contadores
         self.frame_counter += 1
         self.last_frame_time = current_time
-        
-        # Log de estadísticas cada 50 frames
-        if self.frame_counter % 50 == 0:
-            self._log_buffer_stats()
-    
+        self.last_violence_state = violence_detected
+        self.stats['frames_added'] += 1
+
     def _save_evidence_video(self, save_data: Dict):
         """*** MÉTODO PRINCIPAL ACTUALIZADO PARA BASE64 ***"""
         try:
@@ -446,287 +468,203 @@ class ViolenceEvidenceRecorder:
         print(f"📊 Conversión a Base64: HABILITADA")
     
     def _extract_evidence_frames(self) -> List[Dict]:
-        """MÁXIMA EXTRACCIÓN: Prioriza frames de violencia con mayor peso"""
-        # 1) Tomamos ambos buffers
+        """MEJORADO: Extracción que MAXIMIZA secuencias completas de violencia"""
+        # 1) Obtener frames de ambos buffers
         with self.buffer_lock:
             main_frames = list(self.frame_buffer)
         
         with self.violence_buffer_lock:
-            violence_frames = [f for f in self.violence_sequence_buffer if f.get('is_violence_frame', False)]
+            violence_frames = list(self.violence_sequence_buffer)
         
-        # Conteos para logs
-        print(f"📹 Frames de VIOLENCIA extraídos: {len(violence_frames)}")
-        print(f"📹 Frames de CONTEXTO extraídos: {len(main_frames)}")
+        # *** NUEVO: Análisis detallado de secuencias de violencia ***
+        violence_sequences = {}
+        for frame in violence_frames:
+            seq_id = frame.get('sequence_id', 0)
+            if seq_id not in violence_sequences:
+                violence_sequences[seq_id] = []
+            violence_sequences[seq_id].append(frame)
         
-        # 2) MULTIPLICACIÓN ADICIONAL si hay muy pocos frames de violencia
-        target_violence_frames = int(self.fps * 8)  # AUMENTADO: Al menos 8 segundos de violencia
-        if len(violence_frames) > 0 and len(violence_frames) < target_violence_frames:
-            print(f"⚠️ Agregando MASIVAMENTE más frames de violencia para garantizar contenido robusto...")
-            
-            # TRIPLICAR frames existentes hasta alcanzar el objetivo
-            original_vf = len(violence_frames)
-            rounds = 0
-            max_rounds = 5  # AUMENTADO: hasta 5 rondas de duplicación
-            
-            while len(violence_frames) < target_violence_frames and rounds < max_rounds and original_vf > 0:
-                rounds += 1
-                duplicate_frames = []
-                
-                # Duplicar los primeros frames originales
-                source_frames = violence_frames[:min(20, original_vf)]  # AUMENTADO: primeros 20 frames
-                
-                for vf in source_frames:
-                    # Crear 3 copias por frame original
-                    for copy_num in range(3):
-                        dup = vf.copy()
-                        dup['frame'] = vf['frame'].copy()  # Copia independiente del frame
-                        dup['frame_id'] = f"{vf['frame_id']}_extra_r{rounds}_c{copy_num}"
-                        dup['timestamp'] = dup['timestamp'] + timedelta(microseconds=len(duplicate_frames)*25)
-                        dup['duplicated'] = True
-                        dup['extra_round'] = rounds
-                        dup['copy_number'] = copy_num
-                        duplicate_frames.append(dup)
-                
-                # Añadir duplicados a la lista
-                violence_frames.extend(duplicate_frames)
-                
-                # Imprimir progreso
-                print(f"📹 Ronda {rounds}: {len(duplicate_frames)} frames adicionales de violencia")
-                
-                # Verificar si hemos alcanzado el objetivo
-                if len(violence_frames) >= target_violence_frames:
-                    break
-            
-            print(f"📹 TOTAL frames de violencia después de duplicación: {len(violence_frames)}")
+        print(f"📹 Análisis de secuencias de violencia:")
+        total_violence_frames = 0
+        for seq_id, frames in violence_sequences.items():
+            confirmed_violence = len([f for f in frames if f.get('is_violence_frame', False)])
+            sequence_frames = len([f for f in frames if f.get('is_violence_sequence', False)])
+            total_violence_frames += confirmed_violence
+            print(f"   Secuencia {seq_id}: {len(frames)} frames total, {confirmed_violence} violencia confirmada, {sequence_frames} en análisis")
         
-        # 3) MEJORADO: Combinar dando MÁXIMA PRIORIDAD a frames de violencia
-        # Crear diccionario con timestamps únicos
+        # *** MODIFICADO: Priorización ABSOLUTA de violencia ***
         combined_frames = {}
         
-        # Primero agregar frames de contexto
+        # Primero: Solo agregar frames normales como base mínima
+        context_count = 0
         for frame in sorted(main_frames, key=lambda x: x['timestamp']):
-            timestamp_key = frame['timestamp'].isoformat()
-            combined_frames[timestamp_key] = frame
+            if not frame.get('is_violence_frame', False):  # Solo contexto sin violencia
+                timestamp_key = frame['timestamp'].isoformat()
+                combined_frames[timestamp_key] = frame
+                context_count += 1
         
-        # SOBREESCRIBIR y AGREGAR frames de violencia con prioridad absoluta
-        violence_timestamps = set()
-        for vf in sorted(violence_frames, key=lambda x: x['timestamp']):
-            timestamp_key = vf['timestamp'].isoformat()
-            combined_frames[timestamp_key] = vf  # Sobreescribir cualquier frame de contexto
-            violence_timestamps.add(timestamp_key)
+        # Segundo: SOBRESCRIBIR COMPLETAMENTE con frames de violencia
+        violence_added = 0
+        for seq_id, seq_frames in violence_sequences.items():
+            # Ordenar por timestamp para mantener secuencia temporal
+            seq_frames_sorted = sorted(seq_frames, key=lambda x: x['timestamp'])
+            
+            for frame in seq_frames_sorted:
+                timestamp_key = frame['timestamp'].isoformat()
+                # SIEMPRE sobrescribir con frames de violencia (prioridad absoluta)
+                combined_frames[timestamp_key] = frame
+                violence_added += 1
         
-        # Convertir de vuelta a lista y ordenar por timestamp
+        # 3) Convertir a lista ordenada
         frames = sorted(combined_frames.values(), key=lambda x: x['timestamp'])
         
-        violence_effective = len([f for f in frames if f.get('is_violence_frame', False)])
-        print(f"🔄 Frames combinados: {len(frames)} (Violencia efectiva: {violence_effective}, Contexto: {len(main_frames)})")
+        # *** ESTADÍSTICAS DETALLADAS ***
+        final_violence_count = len([f for f in frames if f.get('is_violence_frame', False)])
+        final_sequence_count = len([f for f in frames if f.get('is_violence_sequence', False)])
+        final_context_count = len(frames) - final_violence_count - final_sequence_count
         
-        # 4) GARANTIZAR duración mínima ROBUSTA
-        if len(frames) > 0:
-            start_time = frames[0]['timestamp'] - timedelta(seconds=self.min_duration_seconds/3)
-            end_time = frames[-1]['timestamp'] + timedelta(seconds=self.min_duration_seconds/3)
+        print(f"📹 Frames combinados: {len(frames)} total")
+        print(f"📹 Frames de violencia confirmada: {final_violence_count}")
+        print(f"📹 Frames de secuencia de análisis: {final_sequence_count}")
+        print(f"📹 Frames de contexto: {final_context_count}")
+        print(f"📹 Porcentaje de violencia: {(final_violence_count/len(frames)*100):.1f}%")
+        
+        # 4) *** VERIFICAR CONTENIDO MÍNIMO DE VIOLENCIA ***
+        min_violence_frames = 30  # Mínimo 2 segundos de violencia a 15 FPS
+        if final_violence_count < min_violence_frames:
+            print(f"⚠️ Insuficientes frames de violencia ({final_violence_count}/{min_violence_frames})")
+            print(f"🔄 Expandiendo frames de violencia...")
             
-            # Seleccionar frames dentro del rango de tiempo
-            selected = [f for f in frames if start_time <= f['timestamp'] <= end_time]
-        else:
-            selected = frames
+            # Expandir específicamente frames de violencia
+            frames = self._expand_violence_content(frames, min_violence_frames)
         
-        # 5) EXPANSIÓN FINAL si es necesario
-        min_frames_needed = int(self.fps * 8)  # AUMENTADO: Al menos 8 segundos de video
-        if len(selected) < min_frames_needed:
-            selected = self._expandir_frames_para_duracion_masiva(selected, min_frames_needed)
+        # 5) *** GARANTIZAR DURACIÓN MÍNIMA ***
+        min_frames_needed = int(self.fps * 6)  # 6 segundos mínimos
         
-        print(f"📹 TOTAL frames para evidencia: {len(selected)}")
-        print(f"📹 Duración estimada del clip: {len(selected)/self.fps:.2f} segundos")
+        if len(frames) < min_frames_needed:
+            print(f"⚠️ Expandiendo video de {len(frames)} a {min_frames_needed} frames mínimos")
+            frames = self._expandir_frames_para_duracion_masiva(frames, min_frames_needed)
         
-        return selected
+        # *** ESTADÍSTICAS FINALES ***
+        final_violence_after_expansion = len([f for f in frames if f.get('is_violence_frame', False)])
+        print(f"📹 FINAL: {len(frames)} frames para video de evidencia")
+        print(f"📹 Duración estimada: {len(frames)/self.fps:.2f} segundos a {self.fps} FPS")
+        print(f"📹 Contenido de violencia final: {final_violence_after_expansion} frames ({(final_violence_after_expansion/len(frames)*100):.1f}%)")
+        
+        return frames
     
-    def _finish_recording(self):
-        """CORREGIDO: Finaliza la grabación y envía datos para guardar"""
-        if not self.is_recording:
-            return
-        
-        self.is_recording = False
-        
-        # **IMPORTANTE: Extraer frames antes de que se pierdan**
-        frames_data = self._extract_evidence_frames()
-        
-        if not frames_data:
-            print("⚠️ No hay frames de evidencia para guardar")
-            return
-        
-        # **CORREGIR: Asegurar que violence_start_time sea datetime**
-        if not isinstance(self.violence_start_time, datetime):
-            if isinstance(self.violence_start_time, (int, float)):
-                violence_start_time = datetime.fromtimestamp(self.violence_start_time)
-            else:
-                violence_start_time = datetime.now()
-        else:
-            violence_start_time = self.violence_start_time
-        
-        # Preparar datos para guardado
-        save_data = {
-            'frames': frames_data,
-            'camara_id': 1,  # Hardcoded por ahora
-            'violence_start_time': violence_start_time,  # Ahora es datetime garantizado
-            'incidente_id': getattr(self, 'current_incident_id', None)
-        }
-        
-        print(f"📹 Frames de VIOLENCIA extraídos: {len([f for f in frames_data if f.get('is_violence_frame', False)])}")
-        print(f"📹 Frames de CONTEXTO extraídos: {len([f for f in frames_data if not f.get('is_violence_frame', False)])}")
-        print(f"🔄 CONVERSIÓN A BASE64: PROGRAMADA")
-        
-        # **DEBUG: Verificar tipo de violence_start_time**
-        print(f"🕒 Tipo de violence_start_time: {type(violence_start_time)} - Valor: {violence_start_time}")
-        
-        # Enviar a cola de guardado
-        try:
-            self.save_queue.put(save_data, timeout=5)
-            print(f"📹 Video de evidencia enviado a cola de guardado CON BASE64")
-        except queue.Full:
-            print("❌ Error: Cola de guardado llena, descartando video")
-        
-        # Limpiar estado
-        self.violence_start_time = None
-        with self.violence_buffer_lock:
-            self.violence_sequence_buffer.clear()
-    
-    def _expandir_frames_para_duracion_masiva(self, frames_data: List[Dict], frames_objetivo: int) -> List[Dict]:
-        """EXPANSIÓN MASIVA priorizando frames de violencia"""
-        if len(frames_data) >= frames_objetivo:
-            return frames_data
-        
-        frames_expandidos = list(frames_data)  # Copiar lista original
+    def _optimizar_frames_para_video(self, frames: List[Dict], max_frames: int) -> List[Dict]:
+        """NUEVO: Optimiza los frames para un video de duración adecuada"""
+        if len(frames) <= max_frames:
+            return frames
         
         # Separar frames por tipo
-        frames_violencia = [f for f in frames_data if f.get('is_violence_frame', False)]
-        frames_normales = [f for f in frames_data if not f.get('is_violence_frame', False)]
+        violence_frames = [f for f in frames if f.get('is_violence_frame', False)]
+        sequence_frames = [f for f in frames if f.get('is_violence_sequence', False) and not f.get('is_violence_frame', False)]
+        normal_frames = [f for f in frames if not f.get('is_violence_sequence', False) and not f.get('is_violence_frame', False)]
         
-        expansion_round = 0
-        max_expansion_rounds = 10  # AUMENTADO: hasta 10 rondas de expansión
+        print(f"🎬 Optimizando video: {len(violence_frames)} violencia, {len(sequence_frames)} secuencia, {len(normal_frames)} normales")
         
-        # Expandir hasta alcanzar el objetivo
-        while len(frames_expandidos) < frames_objetivo and expansion_round < max_expansion_rounds:
-            expansion_round += 1
-            frames_added_this_round = 0
-            
-            # PRIORIDAD MÁXIMA: Duplicar frames de violencia
-            if frames_violencia:
-                for frame_v in frames_violencia:
-                    if len(frames_expandidos) >= frames_objetivo:
-                        break
-                    
-                    # Crear múltiples copias del frame de violencia
-                    copies_to_create = min(3, frames_objetivo - len(frames_expandidos))
-                    for i in range(copies_to_create):
-                        frame_copia = frame_v.copy()
-                        frame_copia['frame'] = frame_v['frame'].copy()
-                        frame_copia['timestamp'] = frame_copia['timestamp'] + timedelta(
-                            microseconds=(expansion_round * 1000) + (i * 100)
-                        )
-                        frame_copia['expanded'] = True
-                        frame_copia['expansion_round'] = expansion_round
-                        frame_copia['expansion_copy'] = i
-                        frames_expandidos.append(frame_copia)
-                        frames_added_this_round += 1
-                        
-                        if len(frames_expandidos) >= frames_objetivo:
-                            break
-            
-            # Si aún necesitamos más frames, duplicar frames normales
-            if len(frames_expandidos) < frames_objetivo and frames_normales:
-                for frame_n in frames_normales:
-                    if len(frames_expandidos) >= frames_objetivo:
-                        break
-                    
-                    frame_copia = frame_n.copy()
-                    frame_copia['frame'] = frame_n['frame'].copy()
-                    frame_copia['timestamp'] = frame_copia['timestamp'] + timedelta(
-                        microseconds=(expansion_round * 1000) + frames_added_this_round * 100
-                    )
-                    frame_copia['expanded'] = True
-                    frame_copia['expansion_round'] = expansion_round
-                    frames_expandidos.append(frame_copia)
-                    frames_added_this_round += 1
-            
-            # Evitar bucle infinito si no se agregaron frames
-            if frames_added_this_round == 0:
-                print(f"⚠️ No se pudieron agregar más frames en la ronda {expansion_round}")
-                break
-            
-            print(f"📹 Ronda expansión {expansion_round}: +{frames_added_this_round} frames (total: {len(frames_expandidos)})")
+        # Prioridad: mantener TODOS los frames de violencia
+        selected = list(violence_frames)
+        remaining_slots = max_frames - len(selected)
         
-        return frames_expandidos[:frames_objetivo]
-    
-    def _log_buffer_stats(self):
-        """Log de estadísticas del buffer cada cierto tiempo"""
-        with self.buffer_lock:
-            buffer_size = len(self.frame_buffer)
+        # Agregar frames de secuencia (análisis)
+        if remaining_slots > 0 and sequence_frames:
+            sequence_to_add = min(len(sequence_frames), remaining_slots // 2)
+            selected.extend(sequence_frames[:sequence_to_add])
+            remaining_slots -= sequence_to_add
         
-        with self.violence_buffer_lock:
-            violence_size = len(self.violence_sequence_buffer)
+        # Rellenar con frames normales si es necesario
+        if remaining_slots > 0 and normal_frames:
+            normal_to_add = min(len(normal_frames), remaining_slots)
+            selected.extend(normal_frames[:normal_to_add])
         
-        # Calcular densidad del buffer
-        if self.frame_buffer.maxlen > 0:
-            buffer_density = (buffer_size / self.frame_buffer.maxlen) * 100
-        else:
-            buffer_density = 0
+        # Ordenar por timestamp para mantener secuencia temporal
+        selected.sort(key=lambda x: x['timestamp'])
         
-        self.stats['buffer_density'] = buffer_density
-        
-        # Log cada 100 frames para no saturar
-        if self.frame_counter % 100 == 0:
-            print(f"📊 Buffer Stats - Principal: {buffer_size}, Violencia: {violence_size}, Densidad: {buffer_density:.1f}%")
+        print(f"🎬 Video optimizado: {len(selected)} frames seleccionados")
+        return selected
 
-    def _draw_violence_overlay_intenso(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
-        """Overlay de violencia con tamaño más moderado y mejor legibilidad"""
+    def _draw_violence_overlay_mejorado(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
+        """MEJORADO: Overlay con información de secuencia de análisis"""
         height, width = frame.shape[:2]
         probability = violence_info.get('probabilidad', 0.0)
+        frames_analizados = violence_info.get('frames_analizados', 0)
+        is_confirmed = violence_info.get('detectada', False)
         
-        # *** REDUCIR ALTURA DEL OVERLAY ***
-        overlay_height = 80  # Reducido de 150 a 80
+        # Color del overlay según estado
+        if is_confirmed:
+            color = (0, 0, 255)  # Rojo para violencia confirmada
+            estado_texto = "VIOLENCIA DETECTADA"
+        else:
+            color = (0, 165, 255)  # Naranja para análisis en curso
+            estado_texto = "ANALIZANDO SECUENCIA"
+        
+        # *** Overlay más discreto ***
+        overlay_height = 85
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (width, overlay_height), (0, 0, 255), -1)
-        frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)  # Menos intensidad
+        cv2.rectangle(overlay, (0, 0), (width, overlay_height), color, -1)
+        frame = cv2.addWeighted(frame, 0.75, overlay, 0.25, 0)
         
-        # *** TEXTO PRINCIPAL MÁS PEQUEÑO ***
-        cv2.putText(
-            frame, 
-            "VIOLENCIA DETECTADA", 
-            (15, 25), 
-            cv2.FONT_HERSHEY_SIMPLEX, 
-            0.8,  # Reducido de 1.8 a 0.8
-            (255, 255, 255), 
-            2,    # Reducido de 6 a 2
-            cv2.LINE_AA
-        )
+        # *** Texto principal ***
+        cv2.putText(frame, estado_texto, (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
         
-        # *** PROBABILIDAD MÁS PEQUEÑA ***
-        cv2.putText(
-            frame, 
-            f"Probabilidad: {probability:.1%}", 
-            (15, 50), 
-            cv2.FONT_HERSHEY_SIMPLEX, 
-            0.6,  # Reducido de 1.4 a 0.6
-            (0, 255, 255), 
-            2,    # Reducido de 5 a 2
-            cv2.LINE_AA
-        )
+        # *** Información de probabilidad ***
+        if is_confirmed:
+            cv2.putText(frame, f"Probabilidad: {probability:.1%}", (15, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1, cv2.LINE_AA)
+        else:
+            cv2.putText(frame, f"Frames analizados: {frames_analizados}/8", (15, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
         
-        # *** TIMESTAMP MÁS PEQUEÑO ***
+        # *** Timestamp ***
         timestamp_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        cv2.putText(
-            frame, 
-            f"{timestamp_str}", 
-            (15, 70), 
-            cv2.FONT_HERSHEY_SIMPLEX, 
-            0.5,  # Reducido de 0.9 a 0.5
-            (255, 255, 255), 
-            1,    # Reducido de 3 a 1
-            cv2.LINE_AA
-        )
+        cv2.putText(frame, timestamp_str, (15, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 255, 255), 1, cv2.LINE_AA)
         
         return frame
+    
+    
+    def _expand_violence_content(self, frames: List[Dict], min_violence_frames: int) -> List[Dict]:
+        """NUEVO: Expande específicamente el contenido de violencia"""
+        violence_frames = [f for f in frames if f.get('is_violence_frame', False)]
+        non_violence_frames = [f for f in frames if not f.get('is_violence_frame', False)]
+        
+        current_violence_count = len(violence_frames)
+        needed_violence_frames = min_violence_frames - current_violence_count
+        
+        if needed_violence_frames <= 0:
+            return frames
+        
+        print(f"🔄 Expandiendo contenido de violencia: {current_violence_count} → {min_violence_frames}")
+        
+        # Expandir frames de violencia existentes
+        expanded_violence = list(violence_frames)
+        
+        # Duplicar frames de violencia para alcanzar el mínimo
+        duplication_rounds = (needed_violence_frames // len(violence_frames)) + 1
+        
+        for round_num in range(duplication_rounds):
+            if len(expanded_violence) >= min_violence_frames:
+                break
+                
+            for original_frame in violence_frames:
+                if len(expanded_violence) >= min_violence_frames:
+                    break
+                    
+                # Crear duplicado con timestamp ligeramente diferente
+                duplicate = original_frame.copy()
+                duplicate['frame'] = original_frame['frame'].copy()
+                duplicate['timestamp'] = original_frame['timestamp'] + timedelta(microseconds=round_num*100)
+                duplicate['expanded_violence'] = True
+                duplicate['expansion_round'] = round_num
+                expanded_violence.append(duplicate)
+        
+        # Combinar con frames no violentos
+        all_frames = expanded_violence + non_violence_frames
+        
+        # Ordenar por timestamp
+        all_frames.sort(key=lambda x: x['timestamp'])
+        
+        return all_frames[:len(frames) + needed_violence_frames]
     
     def set_current_incident_id(self, incidente_id: int):
         """Establece el ID del incidente actual para el video"""
@@ -811,6 +749,163 @@ class ViolenceEvidenceRecorder:
             'interpolation_enabled': self.interpolation_enabled if hasattr(self, 'interpolation_enabled') else False,
             'base64_enabled': True  # NUEVO INDICADOR
         }
+        
+    def _finish_recording(self):
+        """CORREGIDO: Finaliza la grabación y guarda el video de evidencia"""
+        if not self.is_recording:
+            print("⚠️ No hay grabación activa para finalizar")
+            return
+        
+        try:
+            print("📹 Finalizando grabación de evidencia...")
+            
+            # Marcar fin de grabación
+            self.is_recording = False
+            self.violence_active = False
+            
+            # Extraer frames para el video
+            frames_evidencia = self._extract_evidence_frames()
+            
+            if not frames_evidencia:
+                print("❌ No hay frames para crear video de evidencia")
+                return
+            
+            # Preparar datos para guardar
+            save_data = {
+                'frames': frames_evidencia,
+                'camara_id': getattr(self, 'current_camera_id', 1),
+                'violence_start_time': self.violence_start_time,
+                'incidente_id': getattr(self, 'current_incident_id', None),
+                'timestamp': datetime.now()
+            }
+            
+            # Agregar a la cola de guardado
+            try:
+                self.save_queue.put_nowait(save_data)
+                print(f"✅ Video de evidencia agregado a cola de guardado")
+                print(f"📊 Frames en video: {len(frames_evidencia)}")
+                
+                # Estadísticas de contenido
+                violence_frames = len([f for f in frames_evidencia if f.get('is_violence_frame', False)])
+                sequence_frames = len([f for f in frames_evidencia if f.get('is_violence_sequence', False)])
+                print(f"📊 Frames de violencia: {violence_frames}")
+                print(f"📊 Frames de secuencia: {sequence_frames}")
+                
+            except queue.Full:
+                print("❌ Cola de guardado llena, descartando video")
+                
+        except Exception as e:
+            print(f"❌ Error finalizando grabación: {e}")
+            import traceback
+            print(traceback.format_exc())
+        finally:
+            # *** CORREGIDO: Reset de variables con verificación de existencia ***
+            self.violence_start_time = None
+            self.violence_end_time = None
+            
+            # Solo eliminar si existe
+            if hasattr(self, 'violence_end_grace_period'):
+                delattr(self, 'violence_end_grace_period')
+                
+            # *** NUEVO: Limpiar otros estados relacionados ***
+            self.last_violence_state = False
+            self.violence_active = False
+
+    def _expandir_frames_para_duracion_masiva(self, frames_originales: List[Dict], frames_objetivo: int) -> List[Dict]:
+        """MEJORADO: Expande frames para alcanzar duración objetivo priorizando violencia"""
+        if not frames_originales:
+            return []
+        
+        frames_expandidos = frames_originales.copy()
+        
+        # Si ya tenemos suficientes frames, devolver
+        if len(frames_expandidos) >= frames_objetivo:
+            return frames_expandidos[:frames_objetivo]
+        
+        print(f"📹 Expandiendo frames de {len(frames_originales)} a {frames_objetivo}")
+        
+        # Separar frames por tipo para duplicación inteligente
+        violence_frames = [f for f in frames_originales if f.get('is_violence_frame', False)]
+        sequence_frames = [f for f in frames_originales if f.get('is_violence_sequence', False) and not f.get('is_violence_frame', False)]
+        normal_frames = [f for f in frames_originales if not f.get('is_violence_sequence', False) and not f.get('is_violence_frame', False)]
+        
+        frames_faltantes = frames_objetivo - len(frames_expandidos)
+        
+        # PRIORIDAD 1: Duplicar frames de violencia confirmada masivamente
+        if violence_frames and frames_faltantes > 0:
+            duplicaciones_violencia = min(frames_faltantes, len(violence_frames) * 8)
+            for i in range(duplicaciones_violencia):
+                idx = i % len(violence_frames)
+                frame_duplicado = violence_frames[idx].copy()
+                frame_duplicado['frame'] = violence_frames[idx]['frame'].copy()
+                frame_duplicado['timestamp'] = violence_frames[idx]['timestamp'] + timedelta(microseconds=100 + i*10)
+                frame_duplicado['duplicated'] = True
+                frame_duplicado['duplicate_round'] = 'violence_expansion'
+                frames_expandidos.append(frame_duplicado)
+            
+            frames_faltantes = frames_objetivo - len(frames_expandidos)
+            print(f"📹 Duplicación violencia: +{duplicaciones_violencia} frames")
+        
+        # PRIORIDAD 2: Duplicar frames de secuencia de análisis
+        if sequence_frames and frames_faltantes > 0:
+            duplicaciones_secuencia = min(frames_faltantes, len(sequence_frames) * 4)
+            for i in range(duplicaciones_secuencia):
+                idx = i % len(sequence_frames)
+                frame_duplicado = sequence_frames[idx].copy()
+                frame_duplicado['frame'] = sequence_frames[idx]['frame'].copy()
+                frame_duplicado['timestamp'] = sequence_frames[idx]['timestamp'] + timedelta(microseconds=200 + i*20)
+                frame_duplicado['duplicated'] = True
+                frame_duplicado['duplicate_round'] = 'sequence_expansion'
+                frames_expandidos.append(frame_duplicado)
+            
+            frames_faltantes = frames_objetivo - len(frames_expandidos)
+            print(f"📹 Duplicación secuencia: +{duplicaciones_secuencia} frames")
+        
+        # PRIORIDAD 3: Duplicar frames normales si es necesario
+        if normal_frames and frames_faltantes > 0:
+            duplicaciones_normales = min(frames_faltantes, len(normal_frames) * 2)
+            for i in range(duplicaciones_normales):
+                idx = i % len(normal_frames)
+                frame_duplicado = normal_frames[idx].copy()
+                frame_duplicado['frame'] = normal_frames[idx]['frame'].copy()
+                frame_duplicado['timestamp'] = normal_frames[idx]['timestamp'] + timedelta(microseconds=300 + i*30)
+                frame_duplicado['duplicated'] = True
+                frame_duplicado['duplicate_round'] = 'normal_expansion'
+                frames_expandidos.append(frame_duplicado)
+            
+            print(f"📹 Duplicación normal: +{duplicaciones_normales} frames")
+        
+        # PRIORIDAD 4: Si aún faltan frames, repetir todo el ciclo
+        while len(frames_expandidos) < frames_objetivo:
+            frames_faltantes = frames_objetivo - len(frames_expandidos)
+            if frames_faltantes <= 0:
+                break
+            
+            # Repetir todo el conjunto de frames originales
+            for frame in frames_originales[:min(frames_faltantes, len(frames_originales))]:
+                frame_repetido = frame.copy()
+                frame_repetido['frame'] = frame['frame'].copy()
+                frame_repetido['timestamp'] = frame['timestamp'] + timedelta(microseconds=500 + len(frames_expandidos)*5)
+                frame_repetido['repeated'] = True
+                frames_expandidos.append(frame_repetido)
+            
+            # Evitar bucle infinito
+            if len(frames_expandidos) >= frames_objetivo * 2:
+                break
+        
+        # Limitar al objetivo exacto
+        frames_expandidos = frames_expandidos[:frames_objetivo]
+        
+        # Ordenar por timestamp para mantener secuencia temporal
+        frames_expandidos.sort(key=lambda x: x['timestamp'])
+        
+        print(f"📹 Expansión completada: {len(frames_expandidos)} frames finales")
+        return frames_expandidos
+
+    def set_camera_id(self, camera_id: int):
+        """Establece el ID de la cámara actual"""
+        self.current_camera_id = camera_id
+        print(f"📹 Camera ID {camera_id} asignado al evidence_recorder")
 
 # Instancia global
 evidence_recorder = ViolenceEvidenceRecorder()

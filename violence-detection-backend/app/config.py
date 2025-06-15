@@ -74,7 +74,7 @@ class Configuracion(BaseSettings):
     # ========== CONFIGURACIÓN DE VIDEO EVIDENCIA ==========
     
     # FPS para videos de evidencia (CRÍTICO para reproducción correcta)
-    EVIDENCE_TARGET_FPS: int = 20  # FPS fijo para todos los videos de evidencia
+    EVIDENCE_TARGET_FPS: int = 15  # FPS fijo para todos los videos de evidencia
     EVIDENCE_QUALITY: str = "alta"  # alta, media, baja
     
     # Duración de clips de evidencia
