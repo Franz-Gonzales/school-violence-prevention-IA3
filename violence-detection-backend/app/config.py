@@ -98,27 +98,27 @@ class Configuracion(BaseSettings):
     EVIDENCE_SMOOTH_TRANSITIONS: bool = True
     EVIDENCE_TEMPORAL_SMOOTHING: bool = True
     
-    # CONFIGURACIÓN DE COMPRESIÓN OPTIMIZADA
+    # Configuración de video evidencia
     VIDEO_QUALITY_SETTINGS: Dict[str, Dict[str, Any]] = {
         "alta": {
-            "bitrate": "3000k",  # Bitrate más alto
-            "crf": 16,           # Calidad muy alta
+            "bitrate": "2500k",  # *** REDUCIDO para evitar problemas de reproducción ***
+            "crf": 18,           # *** MEJORADO para mejor calidad ***
             "scale": 1.0,
-            "fps": 15,
+            "fps": 12,           # *** CONSISTENTE con EVIDENCE_TARGET_FPS ***
             "codec": "H264"
         },
         "media": {
-            "bitrate": "2000k", 
-            "crf": 20,           # Calidad alta
+            "bitrate": "1800k", 
+            "crf": 22,           
             "scale": 1.0,
-            "fps": 15,
+            "fps": 12,           # *** CONSISTENTE ***
             "codec": "H264"
         },
         "baja": {
             "bitrate": "1200k",
-            "crf": 24,
-            "scale": 1.0,        # Mantener escala completa
-            "fps": 15,
+            "crf": 26,
+            "scale": 1.0,        
+            "fps": 12,           # *** CONSISTENTE ***
             "codec": "H264"
         }
     }

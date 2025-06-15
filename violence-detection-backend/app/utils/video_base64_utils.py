@@ -15,10 +15,7 @@ logger = obtener_logger(__name__)
 
 
 def convert_video_to_web_format(input_path: str, output_path: str) -> bool:
-    """
-    Convierte video a formato web-compatible H.264/MP4
-    Basado en el ejemplo funcional de Prueba_video_base64
-    """
+    """CORREGIDO: Conversión con FPS consistente y sin reproducción rápida"""
     try:
         print(f"🔄 Convirtiendo {input_path} a formato web...")
         
@@ -29,21 +26,12 @@ def convert_video_to_web_format(input_path: str, output_path: str) -> bool:
             print("❌ FFmpeg no está instalado o no está en PATH")
             return False
         
-        # OBTENER FPS ORIGINAL DEL VIDEO
-        try:
-            cap = cv2.VideoCapture(input_path)
-            original_fps = cap.get(cv2.CAP_PROP_FPS)
-            cap.release()
-            
-            # Usar FPS original o 15 como fallback
-            output_fps = str(int(original_fps)) if original_fps > 0 else "15"
-            print(f"📊 FPS original detectado: {original_fps}, usando: {output_fps}")
-            
-        except Exception as e:
-            print(f"⚠️ No se pudo detectar FPS original: {e}, usando 15 FPS")
-            output_fps = "15"
+        # *** CORRECCIÓN: FPS fijo y consistente ***
+        target_fps = "12"  # *** FPS fijo para evitar reproducción rápida ***
         
-        # COMANDO FFMPEG OPTIMIZADO PARA WEB (igual que en tu ejemplo)
+        print(f"📊 Usando FPS fijo: {target_fps} para conversión web")
+        
+        # *** COMANDO FFMPEG CORREGIDO ***
         command = [
             'ffmpeg',
             '-i', input_path,                    # Input file
@@ -51,17 +39,21 @@ def convert_video_to_web_format(input_path: str, output_path: str) -> bool:
             '-profile:v', 'baseline',            # Profile compatible con web
             '-level', '3.0',                     # Level compatible
             '-pix_fmt', 'yuv420p',              # Pixel format compatible
-            '-r', output_fps,                   # USAR FPS ORIGINAL
+            '-r', target_fps,                   # *** FPS FIJO ***
+            '-g', '24',                         # *** NUEVO: GOP size para estabilidad ***
+            '-keyint_min', '12',                # *** NUEVO: Keyframe interval mínimo ***
             '-movflags', '+faststart',           # Optimización para web
-            '-preset', 'fast',                   # Preset de velocidad
-            '-crf', '23',                       # MEJOR CALIDAD
-            '-maxrate', '1M',                   # Límite de bitrate para web
-            '-bufsize', '2M',                   # Buffer size
+            '-preset', 'medium',                 # *** CAMBIADO: preset más estable ***
+            '-crf', '20',                       # *** MEJORADO: mejor calidad ***
+            '-maxrate', '2M',                   # *** AUMENTADO: mejor bitrate ***
+            '-bufsize', '4M',                   # *** AUMENTADO: buffer más grande ***
+            '-vsync', 'cfr',                    # *** NUEVO: Constant frame rate ***
+            '-force_fps',                       # *** NUEVO: Forzar FPS consistente ***
             '-y',                               # Sobrescribir output
             output_path
         ]
         
-        print(f"🔧 Comando FFmpeg: {' '.join(command)}")
+        print(f"🔧 Comando FFmpeg CORREGIDO: {' '.join(command)}")
         
         # Ejecutar conversión
         result = subprocess.run(command, capture_output=True, text=True)
@@ -69,20 +61,34 @@ def convert_video_to_web_format(input_path: str, output_path: str) -> bool:
         if result.returncode == 0:
             print(f"✅ Video convertido exitosamente: {output_path}")
             
-            # Verificar FPS del archivo convertido
+            # *** VERIFICACIÓN CORREGIDA de FPS ***
             try:
                 cap = cv2.VideoCapture(output_path)
                 converted_fps = cap.get(cv2.CAP_PROP_FPS)
+                frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                duration = frame_count / converted_fps if converted_fps > 0 else 0
                 cap.release()
+                
                 print(f"📊 FPS del archivo convertido: {converted_fps}")
-            except:
-                pass
+                print(f"📊 Frames totales: {frame_count}")
+                print(f"📊 Duración: {duration:.2f} segundos")
+                
+                # *** VERIFICAR QUE EL FPS ES CORRECTO ***
+                if abs(converted_fps - float(target_fps)) > 1.0:
+                    print(f"⚠️ Advertencia: FPS convertido ({converted_fps}) difiere del objetivo ({target_fps})")
+                else:
+                    print(f"✅ FPS convertido correctamente: {converted_fps}")
+                    
+            except Exception as fps_error:
+                print(f"⚠️ No se pudo verificar FPS del video convertido: {fps_error}")
             
-            # Verificar que el archivo se creó
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            # Verificar que el archivo se creó correctamente
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:  # Al menos 1KB
+                file_size = os.path.getsize(output_path)
+                print(f"📏 Tamaño del archivo convertido: {file_size} bytes")
                 return True
             else:
-                print("❌ El archivo convertido está vacío o no existe")
+                print("❌ El archivo convertido está vacío o es muy pequeño")
                 return False
         else:
             print(f"❌ Error en FFmpeg: {result.stderr}")
@@ -91,7 +97,6 @@ def convert_video_to_web_format(input_path: str, output_path: str) -> bool:
     except Exception as e:
         print(f"❌ Error convirtiendo video: {e}")
         return False
-
 
 def video_to_base64(video_path: str) -> Optional[str]:
     """

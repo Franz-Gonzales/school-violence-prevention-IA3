@@ -55,7 +55,7 @@ class DetectorViolencia:
             self.buffer_frames.pop(0)
     
     def detectar(self) -> Dict[str, Any]:
-        """Realiza la detección de violencia en los frames del buffer"""
+        """Realiza la detección de violencia en los frames del buffer - CORREGIDO"""
         try:
             if len(self.buffer_frames) < self.config["num_frames"]:
                 print(f"Buffer incompleto: {len(self.buffer_frames)}/{self.config['num_frames']} frames")
@@ -96,12 +96,19 @@ class DetectorViolencia:
             self.violencia_detectada = es_violencia
             self.probabilidad_violencia = prob_violencia
             
-            return {
+            # *** NUEVA INFORMACIÓN: Marcar todos los frames analizados ***
+            resultado = {
                 'violencia_detectada': es_violencia,
                 'probabilidad': prob_violencia,
+                'probabilidad_violencia': prob_violencia,  # Campo adicional para consistencia
                 'clase': self.config["labels"][1] if es_violencia else self.config["labels"][0],
-                'mensaje': 'ALERTA: Violencia detectada' if es_violencia else 'No se detectó violencia'
+                'mensaje': 'ALERTA: Violencia detectada' if es_violencia else 'No se detectó violencia',
+                'frames_analizados': len(self.buffer_frames),  # *** NUEVO ***
+                'frames_en_secuencia': self.buffer_frames.copy() if es_violencia else [],  # *** NUEVO ***
+                'batch_completo': True  # *** NUEVO ***
             }
+            
+            return resultado
                 
         except Exception as e:
             print(f"Error en detección de violencia: {str(e)}")
@@ -110,7 +117,10 @@ class DetectorViolencia:
             return {
                 'violencia_detectada': False,
                 'probabilidad': 0.0,
-                'mensaje': f'Error: {str(e)}'
+                'mensaje': f'Error: {str(e)}',
+                'frames_analizados': 0,
+                'frames_en_secuencia': [],
+                'batch_completo': False
             }
     
     def reiniciar(self):

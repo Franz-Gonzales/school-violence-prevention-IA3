@@ -176,16 +176,19 @@ class VideoTrackProcesado(VideoStreamTrack):
             return f"Cámara {camara_id}"
 
     async def process_frames(self):
-        """Procesa frames con PRIORIDAD para violencia - CORREGIDO CON DATOS REALES"""
+        """CORREGIDO: Procesamiento que preserva TODA la secuencia de violencia"""
         try:
-            print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
+            print(f"Iniciando procesamiento MEJORADO de frames para cliente {self.cliente_id}")
             last_process_time = time.time()
             frames_sin_violencia = 0
-            limpieza_programada = False  # Nueva variable para controlar limpieza
+            limpieza_programada = False
+            
+            # *** NUEVO: Control de secuencia activa ***
+            secuencia_violencia_activa = False
+            frames_secuencia_procesados = 0
             
             while self.deteccion_activada and self.running:
                 try:
-                    # Obtener frame de la cola de procesamiento
                     frame_data = await asyncio.wait_for(
                         self.processing_queue.get(), 
                         timeout=0.1
@@ -195,17 +198,16 @@ class VideoTrackProcesado(VideoStreamTrack):
                     frame_id = frame_data['frame_id']
                     current_time = time.time()
                     
-                    # PROCESAMIENTO ADAPTATIVO
+                    # *** CORRECCIÓN: Procesamiento adaptativo MEJORADO ***
                     should_process = False
                     
-                    if self.violence_mode:
-                        should_process = (frame_id % 2 == 0)  # Cada 2 frames
+                    if self.violence_mode or secuencia_violencia_activa:
+                        should_process = (frame_id % 1 == 0)  # *** CADA frame durante violencia ***
                     else:
                         should_process = (frame_id % configuracion.PROCESS_EVERY_N_FRAMES == 0)
                     
-                    if should_process and (current_time - last_process_time >= 0.08):
+                    if should_process and (current_time - last_process_time >= 0.05):  # *** REDUCIDO tiempo mínimo ***
                         try:
-                            # Redimensionar para procesamiento
                             frame_proc = await asyncio.get_event_loop().run_in_executor(
                                 None, 
                                 lambda: cv2.resize(
@@ -216,10 +218,9 @@ class VideoTrackProcesado(VideoStreamTrack):
                             
                             print(f"Procesando frame {frame_id} para cliente {self.cliente_id}")
                             
-                            # *** OBTENER UBICACIÓN DE LA CÁMARA ANTES DEL PROCESAMIENTO ***
                             ubicacion_camara = await self._obtener_ubicacion_camara(self.camara_id)
                             
-                            # Procesar frame
+                            # *** PROCESAR FRAME CON PIPELINE CORREGIDO ***
                             resultado = await self.pipeline.procesar_frame(
                                 frame_proc,
                                 camara_id=self.camara_id,
@@ -229,13 +230,14 @@ class VideoTrackProcesado(VideoStreamTrack):
                             if resultado and resultado.get("violencia_detectada"):
                                 print(f"✅ Violencia detectada para cliente {self.cliente_id}")
                                 
-                                # ACTIVAR MODO VIOLENCIA
+                                # *** ACTIVAR MODO VIOLENCIA Y SECUENCIA ***
                                 self.violence_mode = True
+                                secuencia_violencia_activa = True
                                 self.last_violence_detection = current_time
                                 frames_sin_violencia = 0
-                                limpieza_programada = False  # Cancelar limpieza si había una programada
+                                frames_secuencia_procesados = 0
+                                limpieza_programada = False
                                 
-                                # *** VERIFICAR TODOS LOS CAMPOS DE PROBABILIDAD ***
                                 probabilidad_real = (
                                     resultado.get("probabilidad_violencia") or
                                     resultado.get("probabilidad") or 
@@ -244,7 +246,7 @@ class VideoTrackProcesado(VideoStreamTrack):
                                 
                                 personas_detectadas = len(resultado.get("personas_detectadas", []))
                                 
-                                # *** ENVIAR NOTIFICACIÓN CON VERIFICACIÓN EXTRA ***
+                                # *** MENSAJE CORREGIDO con información de secuencia ***
                                 mensaje_notificacion = {
                                     "tipo": "deteccion_violencia",
                                     "probabilidad": float(probabilidad_real),
@@ -257,27 +259,57 @@ class VideoTrackProcesado(VideoStreamTrack):
                                     "location": str(ubicacion_camara),
                                     "timestamp": datetime.now().isoformat(),
                                     "camara_id": self.camara_id,
-                                    "violencia_detectada": True
+                                    "violencia_detectada": True,
+                                    "frames_analizados": resultado.get("frames_analizados", 8),  # *** NUEVO ***
+                                    "secuencia_activa": True  # *** NUEVO ***
                                 }
                                 
-                                print(f"📤 ENVIANDO MENSAJE: {mensaje_notificacion}")
+                                print(f"📤 ENVIANDO MENSAJE CORREGIDO: {mensaje_notificacion}")
                                 
                                 await self.manejador_webrtc.enviar_a_cliente(
                                     self.cliente_id,
                                     mensaje_notificacion
                                 )
-                            else:
-                                # NO hay violencia
-                                frames_sin_violencia += 1
                                 
-                                # NUEVA LÓGICA: Programar limpieza después de 5 segundos sin violencia
-                                if self.violence_mode and frames_sin_violencia > 15 and not limpieza_programada:  # ~1 segundo sin violencia
+                            else:
+                                # *** CORRECCIÓN: Manejo de frames de secuencia sin violencia confirmada ***
+                                frames_sin_violencia += 1
+                                frames_secuencia_procesados += 1
+                                
+                                # *** ENVIAR ACTUALIZACIÓN DE SECUENCIA EN ANÁLISIS ***
+                                if secuencia_violencia_activa and frames_secuencia_procesados < 15:  # Mantener secuencia por más tiempo
+                                    mensaje_secuencia = {
+                                        "tipo": "secuencia_analisis",
+                                        "probabilidad": resultado.get("probabilidad_violencia", 0.0),
+                                        "probability": resultado.get("probabilidad_violencia", 0.0),
+                                        "mensaje": f"Analizando secuencia... ({frames_secuencia_procesados}/15)",
+                                        "personas_detectadas": len(resultado.get("personas_detectadas", [])),
+                                        "ubicacion": str(ubicacion_camara),
+                                        "timestamp": datetime.now().isoformat(),
+                                        "camara_id": self.camara_id,
+                                        "violencia_detectada": False,
+                                        "secuencia_activa": True,
+                                        "frames_procesados": frames_secuencia_procesados
+                                    }
+                                    
+                                    await self.manejador_webrtc.enviar_a_cliente(
+                                        self.cliente_id,
+                                        mensaje_secuencia
+                                    )
+                                
+                                # *** FINALIZAR SECUENCIA después de más frames ***
+                                if secuencia_violencia_activa and frames_secuencia_procesados >= 15:
+                                    secuencia_violencia_activa = False
+                                    print(f"🔄 Secuencia de análisis finalizada para cliente {self.cliente_id}")
+                                
+                                # *** PROGRAMAR LIMPIEZA después de suficiente tiempo ***
+                                if self.violence_mode and frames_sin_violencia > 25 and not limpieza_programada:  # *** AUMENTADO: ~2 segundos ***
                                     print(f"⏰ Programando limpieza de alerta para cliente {self.cliente_id}")
-                                    asyncio.create_task(self._limpiar_alerta_violencia(5))  # Limpiar en 5 segundos
+                                    asyncio.create_task(self._limpiar_alerta_violencia(6))  # *** AUMENTADO: 6 segundos ***
                                     limpieza_programada = True
                                 
-                                # DESACTIVAR MODO VIOLENCIA después de más tiempo sin detecciones
-                                if self.violence_mode and frames_sin_violencia > 45:  # ~3 segundos sin violencia
+                                # *** DESACTIVAR MODO VIOLENCIA después de más tiempo ***
+                                if self.violence_mode and frames_sin_violencia > 60:  # *** AUMENTADO: ~4 segundos ***
                                     self.violence_mode = False
                                     print(f"🔄 Modo violencia desactivado para cliente {self.cliente_id}")
                             
@@ -288,11 +320,11 @@ class VideoTrackProcesado(VideoStreamTrack):
                             import traceback
                             print(traceback.format_exc())
                     
-                    # Pausa adaptativa
-                    if self.violence_mode:
-                        await asyncio.sleep(0.001)
+                    # *** PAUSA ADAPTATIVA CORREGIDA ***
+                    if self.violence_mode or secuencia_violencia_activa:
+                        await asyncio.sleep(0.001)  # Procesamiento muy rápido durante análisis
                     else:
-                        await asyncio.sleep(0.005)
+                        await asyncio.sleep(0.008)  # Procesamiento normal
                     
                 except asyncio.TimeoutError:
                     continue
@@ -305,7 +337,7 @@ class VideoTrackProcesado(VideoStreamTrack):
             import traceback
             print(traceback.format_exc())
         finally:
-            print(f"Tarea de procesamiento finalizada para cliente {self.cliente_id}")
+            print(f"Tarea de procesamiento MEJORADO finalizada para cliente {self.cliente_id}")
 
     # *** NUEVO MÉTODO PARA OBTENER UBICACIÓN DE LA CÁMARA ***
     async def _obtener_ubicacion_camara(self, camara_id: int) -> str:

@@ -370,7 +370,6 @@ class PipelineDeteccion:
             self.ubicacion = ubicacion
             self.frames_procesados += 1
             
-            # AGREGAR CERCA DEL INICIO:
             evidence_recorder.set_camera_id(camara_id)
             
             timestamp_actual = datetime.now()
@@ -399,8 +398,8 @@ class PipelineDeteccion:
                 'frame_procesado': frame_procesado,
                 'personas_detectadas': detecciones,
                 'violencia_detectada': False,
-                'probabilidad_violencia': 0.0,  # *** INICIALIZAR EXPLÍCITAMENTE ***
-                'probabilidad': 0.0,            # *** CAMPO ALTERNATIVO ***
+                'probabilidad_violencia': 0.0,
+                'probabilidad': 0.0,
                 'timestamp': timestamp_actual
             }
 
@@ -409,10 +408,10 @@ class PipelineDeteccion:
 
             # Solo procesar con TimesFormer si hay personas detectadas
             if detecciones:
-                # Agregar frame para detección de violencia
+                # *** CORRECCIÓN: Agregar frame SIEMPRE para mantener secuencia ***
                 self.detector_violencia.agregar_frame(frame_original.copy())
                 
-                # Procesar cada N frames
+                # *** CORRECCIÓN: Procesar cada N frames PERO preservar contexto ***
                 if self.frames_procesados % configuracion.TIMESFORMER_CONFIG["num_frames"] == 0:
                     # Detección de violencia
                     deteccion = await asyncio.get_event_loop().run_in_executor(
@@ -422,14 +421,15 @@ class PipelineDeteccion:
                     
                     print(f"🔍 DETECCIÓN RAW: {deteccion}")
                     
-                    # *** ACTUALIZAR RESULTADO CON TODOS LOS CAMPOS ***
                     if deteccion:
                         probabilidad_detectada = deteccion.get('probabilidad_violencia', deteccion.get('probabilidad', 0.0))
                         
                         resultado.update({
                             'violencia_detectada': deteccion.get('violencia_detectada', False),
-                            'probabilidad_violencia': float(probabilidad_detectada),  # *** ASEGURAR FLOAT ***
-                            'probabilidad': float(probabilidad_detectada),           # *** CAMPO DUPLICADO ***
+                            'probabilidad_violencia': float(probabilidad_detectada),
+                            'probabilidad': float(probabilidad_detectada),
+                            'frames_analizados': deteccion.get('frames_analizados', 8),  # *** NUEVO ***
+                            'batch_completo': deteccion.get('batch_completo', False)  # *** NUEVO ***
                         })
                         
                         print(f"🔍 RESULTADO ACTUALIZADO: probabilidad = {probabilidad_detectada}")
@@ -438,17 +438,18 @@ class PipelineDeteccion:
 
                     if violencia_detectada_ahora:
                         current_time = timestamp_actual.timestamp()
-                        
-                        # *** OBTENER PROBABILIDAD REAL CON VERIFICACIONES ***
                         probabilidad_real = resultado.get('probabilidad_violencia', resultado.get('probabilidad', 0.0))
                         
                         print(f"🚨 PIPELINE - Probabilidad final: {probabilidad_real} ({probabilidad_real*100:.1f}%)")
                         
-                        # Preparar información de violencia para el frame
+                        # *** CORRECCIÓN: Preparar información COMPLETA de violencia ***
                         violencia_info = {
                             'detectada': True,
-                            'probabilidad': float(probabilidad_real),  # *** ASEGURAR TIPO ***
-                            'timestamp': timestamp_actual
+                            'probabilidad': float(probabilidad_real),
+                            'timestamp': timestamp_actual,
+                            'frames_analizados': deteccion.get('frames_analizados', 8),  # *** NUEVO ***
+                            'batch_completo': True,  # *** NUEVO ***
+                            'secuencia_frames': deteccion.get('frames_en_secuencia', [])  # *** NUEVO ***
                         }
                         
                         # CONTROL MEJORADO: Solo actuar si es una nueva detección
@@ -470,12 +471,11 @@ class PipelineDeteccion:
                                 # Activar alarma SOLO una vez
                                 asyncio.create_task(self._activar_alarma())
                                 
-                                # *** EMITIR ALERTA DE VOZ CON DATOS REALES ***
+                                # Emitir alerta de voz
                                 personas_count = len(detecciones) if detecciones else 0
-                                
                                 asyncio.create_task(self._emitir_alerta_voz(
                                     ubicacion=ubicacion,
-                                    probabilidad=float(probabilidad_real),  # *** ASEGURAR TIPO ***
+                                    probabilidad=float(probabilidad_real),
                                     personas_detectadas=personas_count
                                 ))
                                 
@@ -483,7 +483,7 @@ class PipelineDeteccion:
                                 if current_time - self.ultimo_incidente > self.cooldown_incidente:
                                     asyncio.create_task(self._crear_incidente(
                                         detecciones, 
-                                        float(probabilidad_real)  # *** ASEGURAR TIPO ***
+                                        float(probabilidad_real)
                                     ))
                                     self.ultimo_incidente = current_time
                         
@@ -500,13 +500,16 @@ class PipelineDeteccion:
                         
                         resultado['frame_procesado'] = frame_procesado
                         
-                        # AGREGAR frames de violencia al buffer especializado
+                        # *** CORRECCIÓN: AGREGAR TODOS LOS FRAMES DE LA SECUENCIA ***
                         self.violence_buffer.add_violence_frame(
                             frame_original, 
                             timestamp_actual, 
                             detecciones, 
                             violencia_info
                         )
+                        
+                        # *** NUEVO: Marcar también frames anteriores del batch como parte de la secuencia ***
+                        self._marcar_frames_secuencia_violencia(violencia_info)
                         
                         # Actualizar tiempo de fin de violencia
                         self.tiempo_fin_violencia = timestamp_actual
@@ -530,24 +533,37 @@ class PipelineDeteccion:
                                     self.secuencia_violencia_activa = False
                                     self.violencia_estado_anterior = False
 
-            # Agregar frame al buffer NORMAL
+            # *** CORRECCIÓN: Agregar frame al buffer SIEMPRE con información de contexto ***
             current_time = time.time()
             if current_time - self.last_evidence_feed >= self.frame_feed_interval:
-                self.buffer_evidencia.add_frame(
-                    frame_procesado, 
-                    timestamp_actual, 
-                    detecciones,
-                    violencia_info
-                )
+                # *** CORRECCIÓN: Información de contexto SEGURA para frames no violentos ***
+                if not violencia_info and self.secuencia_violencia_activa:
+                    violencia_info = {
+                        'detectada': False,
+                        'probabilidad': 0.0,
+                        'timestamp': timestamp_actual,
+                        'es_contexto_secuencia': True,
+                        'frames_desde_violencia': self.frames_procesados - self.ultimo_frame_violencia
+                    }
                 
-                evidence_recorder.add_frame(
-                    frame_original, 
-                    detecciones, 
-                    violencia_info
-                )
-                self.last_evidence_feed = current_time
+                # *** VERIFICACIÓN ANTES DE LLAMAR add_frame ***
+                if frame_procesado is not None and detecciones is not None:
+                    self.buffer_evidencia.add_frame(
+                        frame_procesado, 
+                        timestamp_actual, 
+                        detecciones,
+                        violencia_info
+                    )
+                    
+                    evidence_recorder.add_frame(
+                        frame_original, 
+                        detecciones, 
+                        violencia_info
+                    )
+                    self.last_evidence_feed = current_time
+                else:
+                    print("⚠️ Frame o detecciones None, saltando add_frame")
             
-            # *** VERIFICACIÓN FINAL DEL RESULTADO ***
             print(f"🔍 RESULTADO FINAL: {resultado.get('probabilidad_violencia', 'NO_FOUND')}")
             
             return resultado
@@ -564,6 +580,46 @@ class PipelineDeteccion:
                 'probabilidad': 0.0,
                 'timestamp': datetime.now()
             }
+
+    def _marcar_frames_secuencia_violencia(self, violencia_info: Dict):
+        """CORREGIDO: Marca frames anteriores del batch como parte de la secuencia de violencia"""
+        try:
+            frames_analizados = violencia_info.get('frames_analizados', 8)
+            
+            # *** CORRECCIÓN: Acceder al deque correctamente ***
+            with self.buffer_evidencia.frames:  # ❌ ESTO ESTÁ MAL
+                recent_frames = list(self.buffer_evidencia.frames)[-frames_analizados:]
+            
+            # *** CAMBIAR POR: ***
+            recent_frames = list(self.buffer_evidencia.frames)[-frames_analizados:]
+            
+            # Marcar todos estos frames como parte de la secuencia de violencia
+            for frame_data in recent_frames:
+                if frame_data is None:  # *** AÑADIR VERIFICACIÓN ***
+                    continue
+                    
+                if frame_data.get('violencia_info'):
+                    frame_data['violencia_info']['es_secuencia_violencia'] = True
+                else:
+                    frame_data['violencia_info'] = {
+                        'detectada': False,
+                        'probabilidad': 0.0,
+                        'es_secuencia_violencia': True,
+                        'timestamp': frame_data['timestamp']
+                    }
+                
+                # Agregar también al buffer de violencia para preservar la secuencia
+                self.violence_buffer.add_violence_frame(
+                    frame_data['frame'],
+                    frame_data['timestamp'],
+                    frame_data.get('detecciones', []),
+                    frame_data['violencia_info']
+                )
+            
+            print(f"📝 {len(recent_frames)} frames marcados como secuencia de violencia")
+            
+        except Exception as e:
+            print(f"❌ Error marcando frames de secuencia: {e}")
 
 
     async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int):
