@@ -117,6 +117,132 @@ const CameraDetail = () => {
         );
     }, []);
 
+    // *** IMPORTANTE: Definir handleDetectionEnd PRIMERO ***
+    const handleDetectionEnd = useCallback((data) => {
+        console.log('🧹 Finalizando detección de violencia:', data);
+
+        // Limpiar estado de violencia
+        setDetectionData(prev => ({
+            ...prev,
+            violenceAlert: null,
+            peopleCount: 0,
+            confidence: 0
+        }));
+
+        // Remover efectos visuales de alerta del video
+        if (videoRef.current) {
+            videoRef.current.style.border = 'none';
+            videoRef.current.style.boxShadow = 'none';
+        }
+
+        // Notificación de finalización
+        addNotification(
+            'info',
+            '✅ Alerta de violencia finalizada - Área segura',
+            {
+                timestamp: new Date(),
+                location: data.ubicacion || data.location
+            }
+        );
+
+        console.log('✅ Estado de alerta limpiado correctamente');
+    }, [addNotification]);
+
+    // *** AHORA DEFINIR handleDetection (que usa handleDetectionEnd) ***
+    const handleDetection = useCallback((data) => {
+        console.log('🔍 Datos de detección recibidos RAW:', data);
+
+        // *** NUEVO: Manejar fin de detección de violencia ***
+        if (data.tipo === 'deteccion_violencia_fin' || data.limpiar_alerta) {
+            handleDetectionEnd(data);
+            return;
+        }
+
+        // *** VERIFICAR TODOS LOS CAMPOS POSIBLES DE PROBABILIDAD ***
+        let probabilidadReal = 0;
+
+        // Intentar obtener probabilidad de múltiples campos
+        if (data.probabilidad !== undefined && data.probabilidad !== null) {
+            probabilidadReal = data.probabilidad;
+        } else if (data.probability !== undefined && data.probability !== null) {
+            probabilidadReal = data.probability;
+        } else if (data.probabilidad_violencia !== undefined && data.probabilidad_violencia !== null) {
+            probabilidadReal = data.probabilidad_violencia;
+        }
+
+        // *** VERIFICAR Y EXTRAER OTROS DATOS ***
+        const personasDetectadas = data.personas_detectadas || data.peopleCount || 0;
+        const ubicacionReal = data.ubicacion || data.location || cameraDetail?.ubicacion || 'Ubicación no disponible';
+
+        console.log('📊 Datos procesados para notificación:', {
+            probabilidad_raw: data.probabilidad,
+            probability_raw: data.probability,
+            probabilidad_violencia_raw: data.probabilidad_violencia,
+            probabilidad_final: probabilidadReal,
+            personas: personasDetectadas,
+            ubicacion: ubicacionReal
+        });
+
+        setDetectionData(prev => ({
+            ...prev,
+            lastDetection: new Date(),
+            peopleCount: personasDetectadas,
+            confidence: probabilidadReal
+        }));
+
+        if (data.violencia_detectada) {
+            const alertData = {
+                probabilidad: probabilidadReal,
+                probability: probabilidadReal,
+                probabilidad_violencia: probabilidadReal,
+                personas_detectadas: personasDetectadas,
+                peopleCount: personasDetectadas,
+                ubicacion: ubicacionReal,
+                location: ubicacionReal,
+                timestamp: new Date(),
+                cameraId: cameraId
+            };
+
+            setDetectionData(prev => ({
+                ...prev,
+                violenceAlert: alertData
+            }));
+
+            // *** NOTIFICACIÓN CON DATOS REALES ***
+            const probabilidadPorcentaje = (probabilidadReal * 100).toFixed(1);
+
+            console.log('🚨 Creando notificación con:', {
+                mensaje: `VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
+                alertData: alertData,
+                probabilidad_verificada: probabilidadReal
+            });
+
+            addNotification(
+                'violence',
+                `🚨 VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
+                alertData
+            );
+
+            console.log('✅ Notificación creada exitosamente');
+
+            // Efecto visual de alerta
+            if (videoRef.current) {
+                videoRef.current.style.border = '4px solid #ff0000';
+                videoRef.current.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.7)';
+
+                // NUEVO: Auto-remover el efecto visual después de 8 segundos
+                setTimeout(() => {
+                    if (videoRef.current) {
+                        videoRef.current.style.border = 'none';
+                        videoRef.current.style.boxShadow = 'none';
+                    }
+                }, 8000);
+            }
+
+            setStats(prev => ({ ...prev, totalAlerts: prev.totalAlerts + 1 }));
+        }
+    }, [cameraId, cameraDetail?.ubicacion, addNotification, handleDetectionEnd]);
+
     useEffect(() => {
         const fetchCamera = async () => {
             try {
@@ -194,94 +320,6 @@ const CameraDetail = () => {
             video.addEventListener('error', () => handleVideoEvent('error'));
         }
     }, [addNotification]);
-
-    // Manejo de detección mejorado CORREGIDO
-    const handleDetection = useCallback((data) => {
-        console.log('🔍 Datos de detección recibidos RAW:', data);
-
-        // *** VERIFICAR TODOS LOS CAMPOS POSIBLES DE PROBABILIDAD ***
-        let probabilidadReal = 0;
-
-        // Intentar obtener probabilidad de múltiples campos
-        if (data.probabilidad !== undefined && data.probabilidad !== null) {
-            probabilidadReal = data.probabilidad;
-        } else if (data.probability !== undefined && data.probability !== null) {
-            probabilidadReal = data.probability;
-        } else if (data.probabilidad_violencia !== undefined && data.probabilidad_violencia !== null) {
-            probabilidadReal = data.probabilidad_violencia;
-        }
-
-        // *** VERIFICAR Y EXTRAER OTROS DATOS ***
-        const personasDetectadas = data.personas_detectadas || data.peopleCount || 0;
-        const ubicacionReal = data.ubicacion || data.location || cameraDetail?.ubicacion || 'Ubicación no disponible';
-
-        console.log('📊 Datos procesados para notificación:', {
-            probabilidad_raw: data.probabilidad,
-            probability_raw: data.probability,
-            probabilidad_violencia_raw: data.probabilidad_violencia,
-            probabilidad_final: probabilidadReal,
-            personas: personasDetectadas,
-            ubicacion: ubicacionReal
-        });
-
-        setDetectionData(prev => ({
-            ...prev,
-            lastDetection: new Date(),
-            peopleCount: personasDetectadas,
-            confidence: probabilidadReal
-        }));
-
-        if (data.violencia_detectada) {
-            const alertData = {
-                probabilidad: probabilidadReal,           // *** CAMPO PRINCIPAL ***
-                probability: probabilidadReal,            // *** COMPATIBILIDAD ***
-                probabilidad_violencia: probabilidadReal, // *** CAMPO ADICIONAL ***
-                personas_detectadas: personasDetectadas,
-                peopleCount: personasDetectadas,
-                ubicacion: ubicacionReal,
-                location: ubicacionReal,
-                timestamp: new Date(),
-                cameraId: cameraId
-            };
-
-            setDetectionData(prev => ({
-                ...prev,
-                violenceAlert: alertData
-            }));
-
-            // *** NOTIFICACIÓN CON DATOS REALES ***
-            const probabilidadPorcentaje = (probabilidadReal * 100).toFixed(1);
-
-            console.log('🚨 Creando notificación con:', {
-                mensaje: `VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
-                alertData: alertData,
-                probabilidad_verificada: probabilidadReal
-            });
-
-            addNotification(
-                'violence',
-                `🚨 VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
-                alertData  // *** PASAR TODOS LOS DATOS REALES ***
-            );
-
-            console.log('✅ Notificación creada exitosamente');
-
-            // Efecto visual de alerta
-            if (videoRef.current) {
-                videoRef.current.style.border = '4px solid #ff0000';
-                videoRef.current.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.7)';
-
-                setTimeout(() => {
-                    if (videoRef.current) {
-                        videoRef.current.style.border = 'none';
-                        videoRef.current.style.boxShadow = 'none';
-                    }
-                }, 3000);
-            }
-
-            setStats(prev => ({ ...prev, totalAlerts: prev.totalAlerts + 1 }));
-        }
-    }, [cameraId, cameraDetail?.ubicacion, addNotification]);
 
     const handleToggleStream = async () => {
         try {

@@ -3,7 +3,7 @@ export class WebRTCClient {
         this.cameraId = cameraId;
         this.videoElement = videoElement;
         this.onDetection = onDetection;
-        this.onStatusChange = onStatusChange || (() => {}); // Callback para cambios de estado
+        this.onStatusChange = onStatusChange || (() => { }); // Callback para cambios de estado
         this.clientId = this.generateClientId();
         this.pc = null;
         this.ws = null;
@@ -11,7 +11,7 @@ export class WebRTCClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 3;
         this.connectionState = 'disconnected';
-        
+
         // Métricas de rendimiento
         this.stats = {
             frameRate: 0,
@@ -21,11 +21,11 @@ export class WebRTCClient {
             totalFrames: 0,
             droppedFrames: 0
         };
-        
+
         // Monitoreo de calidad
         this.qualityMonitor = null;
         this.lastStatsTime = 0;
-        
+
         // Estados detallados
         this.states = {
             websocket: 'disconnected',    // disconnected, connecting, connected, error
@@ -33,10 +33,10 @@ export class WebRTCClient {
             video: 'loading',             // loading, playing, stalled, error
             detection: 'inactive'         // inactive, starting, active, stopping
         };
-        
+
         // Configurar video element
         this.setupVideoElement();
-        
+
         // Iniciar monitoreo de estadísticas
         this.startStatsMonitoring();
     }
@@ -52,7 +52,7 @@ export class WebRTCClient {
     notifyStateChange(type, newState, details = {}) {
         this.states[type] = newState;
         console.log(`🔄 Estado ${type}: ${newState}`, details);
-        
+
         this.onStatusChange({
             type,
             state: newState,
@@ -63,19 +63,19 @@ export class WebRTCClient {
     }
 
     setupVideoElement() {
-        if (!this.videoElement) {return;}
+        if (!this.videoElement) { return; }
 
         // Configurar propiedades del video para mejor rendimiento
         this.videoElement.playsInline = true;
         this.videoElement.muted = true;
         this.videoElement.autoplay = true;
         this.videoElement.controls = false;
-        
+
         // Configurar estilo para mantener aspect ratio
         this.videoElement.style.objectFit = 'cover';
         this.videoElement.style.width = '100%';
         this.videoElement.style.height = '100%';
-        
+
         // Event listeners mejorados para monitoreo
         this.videoElement.addEventListener('loadstart', () => {
             this.notifyStateChange('video', 'loading', { message: 'Iniciando carga de video' });
@@ -83,7 +83,7 @@ export class WebRTCClient {
 
         this.videoElement.addEventListener('loadedmetadata', () => {
             const { videoWidth, videoHeight } = this.videoElement;
-            this.notifyStateChange('video', 'loaded', { 
+            this.notifyStateChange('video', 'loaded', {
                 resolution: `${videoWidth}x${videoHeight}`,
                 message: `Video cargado: ${videoWidth}x${videoHeight}`
             });
@@ -104,21 +104,21 @@ export class WebRTCClient {
         });
 
         this.videoElement.addEventListener('stalled', () => {
-            this.notifyStateChange('video', 'stalled', { 
+            this.notifyStateChange('video', 'stalled', {
                 message: 'Video pausado - problemas de red',
                 severity: 'warning'
             });
         });
 
         this.videoElement.addEventListener('waiting', () => {
-            this.notifyStateChange('video', 'buffering', { 
+            this.notifyStateChange('video', 'buffering', {
                 message: 'Video esperando datos',
                 severity: 'warning'
             });
         });
 
         this.videoElement.addEventListener('error', (e) => {
-            this.notifyStateChange('video', 'error', { 
+            this.notifyStateChange('video', 'error', {
                 message: 'Error en la reproducción del video',
                 error: e.target.error,
                 severity: 'error'
@@ -131,7 +131,7 @@ export class WebRTCClient {
                 const buffered = this.videoElement.buffered.end(0);
                 const current = this.videoElement.currentTime;
                 const bufferHealth = Math.max(0, buffered - current);
-                
+
                 if (bufferHealth < 1) { // Menos de 1 segundo en buffer
                     this.notifyStateChange('video', 'low_buffer', {
                         bufferHealth,
@@ -157,7 +157,7 @@ export class WebRTCClient {
     }
 
     updateVideoStats() {
-        if (!this.videoElement || !this.pc) {return;}
+        if (!this.videoElement || !this.pc) { return; }
 
         // Obtener estadísticas de WebRTC
         this.pc.getStats().then(stats => {
@@ -175,21 +175,21 @@ export class WebRTCClient {
             if (inboundRtp) {
                 const now = Date.now();
                 const timeDiff = (now - this.lastStatsTime) / 1000;
-                
+
                 if (this.lastStatsTime > 0 && timeDiff > 0) {
                     // Calcular FPS
                     const framesDiff = inboundRtp.framesReceived - (this.stats.lastFramesReceived || 0);
                     this.stats.frameRate = Math.round(framesDiff / timeDiff);
-                    
+
                     // Calcular bandwidth
                     const bytesDiff = inboundRtp.bytesReceived - (this.stats.lastBytesReceived || 0);
                     this.stats.bandwidth = Math.round((bytesDiff * 8) / (timeDiff * 1024)); // kbps
-                    
+
                     // Frames perdidos
                     this.stats.packetsLost = inboundRtp.packetsLost || 0;
                     this.stats.totalFrames = inboundRtp.framesReceived || 0;
                 }
-                
+
                 this.stats.lastFramesReceived = inboundRtp.framesReceived;
                 this.stats.lastBytesReceived = inboundRtp.bytesReceived;
                 this.lastStatsTime = now;
@@ -211,7 +211,7 @@ export class WebRTCClient {
             const quality = this.videoElement.getVideoPlaybackQuality();
             const currentDropped = quality.droppedVideoFrames;
             const currentTotal = quality.totalVideoFrames;
-            
+
             if (currentDropped > this.stats.droppedFrames) {
                 const newDropped = currentDropped - this.stats.droppedFrames;
                 this.notifyStateChange('video', 'frames_dropped', {
@@ -222,7 +222,7 @@ export class WebRTCClient {
                     severity: 'warning'
                 });
             }
-            
+
             this.stats.droppedFrames = currentDropped;
             this.stats.totalFrames = currentTotal;
         }
@@ -249,15 +249,15 @@ export class WebRTCClient {
         try {
             this.connectionState = 'connecting';
             this.notifyStateChange('websocket', 'connecting', { message: 'Conectando WebSocket...' });
-            
+
             const wsUrl = `ws://localhost:8000/ws/rtc/${this.clientId}/${this.cameraId}`;
             console.log(`🔌 Conectando a WebSocket: ${wsUrl}`);
-            
+
             this.ws = new WebSocket(wsUrl);
 
             return new Promise((resolve, reject) => {
                 const timeout = setTimeout(() => {
-                    this.notifyStateChange('websocket', 'error', { 
+                    this.notifyStateChange('websocket', 'error', {
                         message: 'Timeout en conexión WebSocket',
                         severity: 'error'
                     });
@@ -269,8 +269,8 @@ export class WebRTCClient {
                     console.log('✅ WebSocket conectado exitosamente');
                     this.connectionState = 'connected';
                     this.reconnectAttempts = 0;
-                    this.notifyStateChange('websocket', 'connected', { 
-                        message: 'WebSocket conectado exitosamente' 
+                    this.notifyStateChange('websocket', 'connected', {
+                        message: 'WebSocket conectado exitosamente'
                     });
                     this.startWebRTC(detectionActive);
                     resolve();
@@ -300,19 +300,19 @@ export class WebRTCClient {
                         wasClean: event.wasClean,
                         message: `Conexión cerrada: ${event.reason}`
                     });
-                    
+
                     // Auto-reconnect logic
                     if (!event.wasClean && this.reconnectAttempts < this.maxReconnectAttempts) {
                         this.reconnectAttempts++;
                         const delay = 2000 * this.reconnectAttempts;
-                        
+
                         this.notifyStateChange('websocket', 'reconnecting', {
                             attempt: this.reconnectAttempts,
                             maxAttempts: this.maxReconnectAttempts,
                             delay: delay / 1000,
-                            message: `Reintentando conexión ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay/1000}s`
+                            message: `Reintentando conexión ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay / 1000}s`
                         });
-                        
+
                         setTimeout(() => {
                             this.connect(this.detectionActive);
                         }, delay);
@@ -351,8 +351,8 @@ export class WebRTCClient {
 
     async startWebRTC(detectionActive = false) {
         try {
-            this.notifyStateChange('webrtc', 'connecting', { 
-                message: 'Estableciendo conexión WebRTC...' 
+            this.notifyStateChange('webrtc', 'connecting', {
+                message: 'Estableciendo conexión WebRTC...'
             });
 
             this.pc = new RTCPeerConnection({
@@ -370,13 +370,13 @@ export class WebRTCClient {
                 if (event.track.kind === 'video' && event.streams[0]) {
                     console.log('📹 Configurando video source');
                     this.videoElement.srcObject = event.streams[0];
-                    
+
                     this.notifyStateChange('webrtc', 'track_received', {
                         trackKind: event.track.kind,
                         streamId: event.streams[0].id,
                         message: 'Stream de video recibido'
                     });
-                    
+
                     // Forzar reproducción
                     this.videoElement.play().catch(error => {
                         console.error('❌ Error playing video:', error);
@@ -403,7 +403,7 @@ export class WebRTCClient {
                 const state = this.pc.connectionState;
                 console.log('🔗 RTC Connection state:', state);
                 this.connectionState = state;
-                
+
                 const stateMessages = {
                     'connecting': 'Estableciendo conexión WebRTC...',
                     'connected': 'Conexión WebRTC establecida exitosamente',
@@ -411,11 +411,11 @@ export class WebRTCClient {
                     'failed': 'Falló la conexión WebRTC',
                     'closed': 'Conexión WebRTC cerrada'
                 };
-                
+
                 this.notifyStateChange('webrtc', state, {
                     message: stateMessages[state] || `Estado WebRTC: ${state}`
                 });
-                
+
                 if (state === 'connected') {
                     this.reconnectAttempts = 0;
                 } else if (state === 'failed') {
@@ -426,7 +426,7 @@ export class WebRTCClient {
             this.pc.oniceconnectionstatechange = () => {
                 const state = this.pc.iceConnectionState;
                 console.log('🧊 ICE connection state:', state);
-                
+
                 if (state === 'failed') {
                     this.notifyStateChange('webrtc', 'ice_failed', {
                         message: 'Falló la conexión ICE',
@@ -487,13 +487,13 @@ export class WebRTCClient {
                         });
                         return;
                     }
-                    
+
                     console.log('📥 Procesando SDP answer');
                     await this.pc.setRemoteDescription(new RTCSessionDescription({
                         type: 'answer',
                         sdp: message.sdp
                     }));
-                    
+
                     this.notifyStateChange('webrtc', 'answer_processed', {
                         message: 'Respuesta SDP procesada exitosamente'
                     });
@@ -514,13 +514,35 @@ export class WebRTCClient {
                         message: `Violencia detectada: ${(message.probabilidad * 100).toFixed(1)}%`,
                         severity: 'critical'
                     });
-                    
+
                     if (this.onDetection) {
                         this.onDetection({
                             violencia_detectada: true,
                             probabilidad: message.probabilidad || 0,
                             personas_detectadas: message.personas_detectadas || 0,
                             mensaje: message.mensaje || 'Violencia detectada',
+                            timestamp: new Date()
+                        });
+                    }
+                    break;
+
+                // *** NUEVO CASO: Manejo de fin de detección de violencia ***
+                case 'deteccion_violencia_fin':
+                    console.log('🧹 Fin de detección de violencia:', message);
+                    this.notifyStateChange('detection', 'violence_ended', {
+                        message: 'Alerta de violencia finalizada - Área segura',
+                        severity: 'info'
+                    });
+
+                    if (this.onDetection) {
+                        this.onDetection({
+                            tipo: 'deteccion_violencia_fin',
+                            violencia_detectada: false,
+                            probabilidad: 0,
+                            personas_detectadas: 0,
+                            mensaje: 'Alerta de violencia finalizada',
+                            limpiar_alerta: true,
+                            ubicacion: message.ubicacion || message.location,
                             timestamp: new Date()
                         });
                     }
@@ -566,14 +588,14 @@ export class WebRTCClient {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = 3000 * this.reconnectAttempts;
-            
+
             this.notifyStateChange('webrtc', 'reconnecting', {
                 attempt: this.reconnectAttempts,
                 maxAttempts: this.maxReconnectAttempts,
                 delay: delay / 1000,
-                message: `Reintentando conexión WebRTC ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay/1000}s`
+                message: `Reintentando conexión WebRTC ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay / 1000}s`
             });
-            
+
             setTimeout(async () => {
                 try {
                     this.cleanup();
@@ -626,7 +648,7 @@ export class WebRTCClient {
         const previousState = this.detectionActive;
         this.detectionActive = enable;
         const messageType = enable ? 'iniciar_deteccion' : 'detener_deteccion';
-        
+
         this.notifyStateChange('detection', enable ? 'starting' : 'stopping', {
             message: `${enable ? 'Iniciando' : 'Deteniendo'} detección...`
         });
@@ -665,28 +687,28 @@ export class WebRTCClient {
 
     cleanup() {
         console.log('🧹 Limpiando recursos WebRTC...');
-        
+
         // Stop quality monitoring
         this.stopQualityMonitoring();
-        
+
         // Stop stats monitoring
         if (this.statsInterval) {
             clearInterval(this.statsInterval);
             this.statsInterval = null;
         }
-        
+
         // Close peer connection
         if (this.pc) {
             this.pc.close();
             this.pc = null;
         }
-        
+
         // Close WebSocket
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
-        
+
         // Clear video
         if (this.videoElement) {
             if (this.videoElement.srcObject) {
@@ -695,21 +717,21 @@ export class WebRTCClient {
             }
             this.videoElement.srcObject = null;
         }
-        
+
         // Reset state
         this.connectionState = 'disconnected';
         this.detectionActive = false;
         this.reconnectAttempts = 0;
-        
+
         // Reset all states
         Object.keys(this.states).forEach(key => {
             this.states[key] = key === 'video' ? 'loading' : 'disconnected';
         });
-        
+
         this.notifyStateChange('system', 'cleanup_complete', {
             message: 'Recursos WebRTC liberados completamente'
         });
-        
+
         console.log('✅ Cleanup completado');
     }
 
@@ -718,10 +740,10 @@ export class WebRTCClient {
         this.notifyStateChange('system', 'stopping', {
             message: 'Deteniendo cliente WebRTC...'
         });
-        
+
         this.toggleDetection(false);
         this.cleanup();
-        
+
         this.notifyStateChange('system', 'stopped', {
             message: 'Cliente WebRTC detenido completamente'
         });

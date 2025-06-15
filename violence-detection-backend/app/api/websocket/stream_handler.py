@@ -181,6 +181,7 @@ class VideoTrackProcesado(VideoStreamTrack):
             print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
             last_process_time = time.time()
             frames_sin_violencia = 0
+            limpieza_programada = False  # Nueva variable para controlar limpieza
             
             while self.deteccion_activada and self.running:
                 try:
@@ -232,6 +233,7 @@ class VideoTrackProcesado(VideoStreamTrack):
                                 self.violence_mode = True
                                 self.last_violence_detection = current_time
                                 frames_sin_violencia = 0
+                                limpieza_programada = False  # Cancelar limpieza si había una programada
                                 
                                 # *** VERIFICAR TODOS LOS CAMPOS DE PROBABILIDAD ***
                                 probabilidad_real = (
@@ -242,24 +244,17 @@ class VideoTrackProcesado(VideoStreamTrack):
                                 
                                 personas_detectadas = len(resultado.get("personas_detectadas", []))
                                 
-                                # *** DEBUG: VERIFICAR QUE LA PROBABILIDAD ES CORRECTA ***
-                                print(f"🔍 DEBUG - Resultado completo: {resultado}")
-                                print(f"🚨 DATOS FINALES PARA ENVIAR:")
-                                print(f"   - Probabilidad: {probabilidad_real} ({probabilidad_real*100:.1f}%)")
-                                print(f"   - Personas: {personas_detectadas}")
-                                print(f"   - Ubicación: {ubicacion_camara}")
-                                
                                 # *** ENVIAR NOTIFICACIÓN CON VERIFICACIÓN EXTRA ***
                                 mensaje_notificacion = {
                                     "tipo": "deteccion_violencia",
-                                    "probabilidad": float(probabilidad_real),  # *** ASEGURAR QUE ES FLOAT ***
-                                    "probability": float(probabilidad_real),   # *** CAMPO ALTERNATIVO ***
-                                    "probabilidad_violencia": float(probabilidad_real),  # *** CAMPO ADICIONAL ***
+                                    "probabilidad": float(probabilidad_real),
+                                    "probability": float(probabilidad_real),
+                                    "probabilidad_violencia": float(probabilidad_real),
                                     "mensaje": f"¡ALERTA! Violencia detectada - {probabilidad_real:.1%}",
                                     "personas_detectadas": int(personas_detectadas),
-                                    "peopleCount": int(personas_detectadas),  # *** CAMPO ALTERNATIVO ***
+                                    "peopleCount": int(personas_detectadas),
                                     "ubicacion": str(ubicacion_camara),
-                                    "location": str(ubicacion_camara),  # *** CAMPO ALTERNATIVO ***
+                                    "location": str(ubicacion_camara),
                                     "timestamp": datetime.now().isoformat(),
                                     "camara_id": self.camara_id,
                                     "violencia_detectada": True
@@ -275,8 +270,14 @@ class VideoTrackProcesado(VideoStreamTrack):
                                 # NO hay violencia
                                 frames_sin_violencia += 1
                                 
-                                # DESACTIVAR MODO VIOLENCIA después de tiempo sin detecciones
-                                if self.violence_mode and frames_sin_violencia > 30:
+                                # NUEVA LÓGICA: Programar limpieza después de 5 segundos sin violencia
+                                if self.violence_mode and frames_sin_violencia > 15 and not limpieza_programada:  # ~1 segundo sin violencia
+                                    print(f"⏰ Programando limpieza de alerta para cliente {self.cliente_id}")
+                                    asyncio.create_task(self._limpiar_alerta_violencia(5))  # Limpiar en 5 segundos
+                                    limpieza_programada = True
+                                
+                                # DESACTIVAR MODO VIOLENCIA después de más tiempo sin detecciones
+                                if self.violence_mode and frames_sin_violencia > 45:  # ~3 segundos sin violencia
                                     self.violence_mode = False
                                     print(f"🔄 Modo violencia desactivado para cliente {self.cliente_id}")
                             
@@ -386,6 +387,40 @@ class VideoTrackProcesado(VideoStreamTrack):
         except Exception as e:
             print(f"Error en recv: {e}")
             return None
+    
+    async def _limpiar_alerta_violencia(self, delay_seconds: int = 5):
+        """Limpia la alerta de violencia después de un delay"""
+        await asyncio.sleep(delay_seconds)
+        
+        # Verificar si aún no hay violencia después del delay
+        current_time = time.time()
+        if not self.violence_mode or (current_time - self.last_violence_detection) > delay_seconds:
+            try:
+                # Enviar mensaje de limpieza de violencia
+                mensaje_limpieza = {
+                    "tipo": "deteccion_violencia_fin",
+                    "violencia_detectada": False,
+                    "probabilidad": 0.0,
+                    "probability": 0.0,
+                    "probabilidad_violencia": 0.0,
+                    "mensaje": "Alerta de violencia finalizada",
+                    "personas_detectadas": 0,
+                    "peopleCount": 0,
+                    "ubicacion": await self._obtener_ubicacion_camara(self.camara_id),
+                    "location": await self._obtener_ubicacion_camara(self.camara_id),
+                    "timestamp": datetime.now().isoformat(),
+                    "camara_id": self.camara_id,
+                    "limpiar_alerta": True
+                }
+                
+                print(f"🧹 Limpiando alerta de violencia para cliente {self.cliente_id}")
+                await self.manejador_webrtc.enviar_a_cliente(
+                    self.cliente_id,
+                    mensaje_limpieza
+                )
+                
+            except Exception as e:
+                print(f"❌ Error limpiando alerta de violencia: {e}")
 
     def stop(self):
         """Detiene todos los procesos"""

@@ -4,19 +4,46 @@ import React, { useState, useEffect, useRef } from 'react';
 const NotificationItem = ({ notification, onClose, onAction }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(15); // Para mostrar countdown
 
     useEffect(() => {
         setIsVisible(true);
 
-        // Auto-close después del tiempo especificado
-        const autoCloseTime = notification.type === 'violence' ? 15000 :
-            notification.type === 'error' ? 8000 : 5000;
+        // *** TIEMPOS ESPECÍFICOS PARA CADA TIPO ***
+        let autoCloseTime;
+        if (notification.type === 'violence') {
+            autoCloseTime = 8000; // 8 segundos para violencia
+        } else if (notification.type === 'error') {
+            autoCloseTime = 10000; // 10 segundos para errores
+        } else {
+            autoCloseTime = 6000; // 6 segundos para otras
+        }
+
+        // *** COUNTDOWN TIMER (solo para violencia) ***
+        let countdownInterval;
+        if (notification.type === 'violence') {
+            const startTime = Date.now();
+            countdownInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, Math.ceil((autoCloseTime - elapsed) / 1000));
+                setTimeLeft(remaining);
+                
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 100);
+        }
 
         const timer = setTimeout(() => {
             handleClose();
         }, autoCloseTime);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+        };
     }, []);
 
     const handleClose = () => {
@@ -26,45 +53,8 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
         }, 300);
     };
 
-    const getNotificationStyles = () => {
-        const baseStyles = "transform transition-all duration-300 ease-in-out";
-        const typeStyles = {
-            violence: "bg-red-50 border-l-4 border-red-500 shadow-lg",
-            error: "bg-red-50 border-l-4 border-red-400 shadow-md",
-            warning: "bg-yellow-50 border-l-4 border-yellow-400 shadow-md",
-            info: "bg-blue-50 border-l-4 border-blue-400 shadow-md",
-            success: "bg-green-50 border-l-4 border-green-400 shadow-md"
-        };
-
-        const visibilityStyles = isVisible && !isClosing
-            ? "translate-x-0 opacity-100"
-            : "translate-x-full opacity-0";
-
-        return `${baseStyles} ${typeStyles[notification.type] || typeStyles.info} ${visibilityStyles}`;
-    };
-
-    const getIcon = () => {
-        const icons = {
-            violence: "🚨",
-            error: "❌",
-            warning: "⚠️",
-            info: "ℹ️",
-            success: "✅"
-        };
-        return icons[notification.type] || "📢";
-    };
-
-    const getTextColor = () => {
-        const colors = {
-            violence: "text-red-800",
-            error: "text-red-700",
-            warning: "text-yellow-700",
-            info: "text-blue-700",
-            success: "text-green-700"
-        };
-        return colors[notification.type] || "text-gray-700";
-    };
-
+    // RESTO DEL COMPONENTE PERMANECE IGUAL, PERO AGREGAR countdown para violencia:
+    
     return (
         <div className={`p-4 rounded-lg mb-3 ${getNotificationStyles()}`}>
             <div className="flex items-start justify-between">
@@ -79,8 +69,14 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
                                 {notification.details}
                             </div>
                         )}
-                        <div className="text-xs text-gray-500 mt-2">
-                            {notification.timestamp.toLocaleTimeString()}
+                        <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
+                            <span>{notification.timestamp.toLocaleTimeString()}</span>
+                            {/* *** NUEVO: Mostrar countdown para violencia *** */}
+                            {notification.type === 'violence' && timeLeft > 0 && (
+                                <span className="text-red-600 font-bold">
+                                    Auto-cierre en {timeLeft}s
+                                </span>
+                            )}
                         </div>
 
                         {/* *** DATOS ESPECÍFICOS PARA ALERTAS DE VIOLENCIA CON VERIFICACIÓN MÚLTIPLE *** */}
@@ -99,13 +95,6 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
                                             } else if (notification.data.probabilidad_violencia !== undefined && notification.data.probabilidad_violencia !== null) {
                                                 prob = notification.data.probabilidad_violencia;
                                             }
-
-                                            // Debug en consola
-                                            console.log('🔍 Renderizando probabilidad:', {
-                                                data: notification.data,
-                                                probabilidad_final: prob,
-                                                porcentaje: (prob * 100).toFixed(1)
-                                            });
 
                                             return `${(prob * 100).toFixed(1)}%`;
                                         })()}
@@ -129,9 +118,6 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
                                 )}
                             </div>
                         )}
-
-                        {/* *** ELIMINAR BOTONES DE ACCIÓN - Solo mostrar información *** */}
-                        {/* Los botones Ver Evidencia, Notificar Autoridades, etc. han sido eliminados */}
                     </div>
                 </div>
 
@@ -145,18 +131,21 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
                 </button>
             </div>
 
-            {/* Barra de progreso para auto-close */}
+            {/* *** MODIFICAR: Barra de progreso con tiempo específico *** */}
             <div className="mt-3 h-1 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                    className={`h-full transition-all duration-300 ease-linear ${notification.type === 'violence' ? 'bg-red-500' :
-                            notification.type === 'error' ? 'bg-red-400' :
-                                notification.type === 'warning' ? 'bg-yellow-400' :
-                                    'bg-blue-400'
-                        }`}
+                    className={`h-full transition-all duration-300 ease-linear ${
+                        notification.type === 'violence' ? 'bg-red-500' :
+                        notification.type === 'error' ? 'bg-red-400' :
+                        notification.type === 'warning' ? 'bg-yellow-400' :
+                        'bg-blue-400'
+                    }`}
                     style={{
                         width: '100%',
-                        animation: `shrink ${notification.type === 'violence' ? '15s' :
-                            notification.type === 'error' ? '8s' : '5s'} linear forwards`
+                        animation: `shrink ${
+                            notification.type === 'violence' ? '8s' :
+                            notification.type === 'error' ? '10s' : '6s'
+                        } linear forwards`
                     }}
                 />
             </div>
@@ -293,10 +282,17 @@ export const useNotifications = () => {
 
         setNotifications(prev => [notification, ...prev]);
 
-        // Auto-remove si no es persistente
+        // *** NUEVA LÓGICA: Auto-remove con tiempos específicos para violencia ***
         if (!notification.persistent) {
-            const autoRemoveTime = type === 'violence' ? 20000 :
-                type === 'error' ? 10000 : 6000;
+            let autoRemoveTime;
+            
+            if (type === 'violence') {
+                autoRemoveTime = 8000; // 8 segundos para violencia (más tiempo para que se note)
+            } else if (type === 'error') {
+                autoRemoveTime = 10000; // 10 segundos para errores
+            } else {
+                autoRemoveTime = 6000; // 6 segundos para otras notificaciones
+            }
 
             setTimeout(() => {
                 removeNotification(notification.id);
@@ -304,6 +300,12 @@ export const useNotifications = () => {
         }
 
         return notification.id;
+    };
+
+    // *** NUEVA FUNCIÓN: Limpiar notificaciones de violencia específicamente ***
+    const clearViolenceNotifications = () => {
+        setNotifications(prev => prev.filter(n => n.type !== 'violence'));
+        console.log('🧹 Notificaciones de violencia limpiadas');
     };
 
     const removeNotification = (id) => {
@@ -333,6 +335,7 @@ export const useNotifications = () => {
         addNotification,
         removeNotification,
         clearAllNotifications,
+        clearViolenceNotifications, // *** NUEVA FUNCIÓN ***
         markAsRead,
         getUnreadCount,
         getNotificationsByType
