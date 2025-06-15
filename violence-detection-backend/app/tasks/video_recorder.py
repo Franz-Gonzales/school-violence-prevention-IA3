@@ -679,49 +679,50 @@ class ViolenceEvidenceRecorder:
             print(f"📊 Buffer Stats - Principal: {buffer_size}, Violencia: {violence_size}, Densidad: {buffer_density:.1f}%")
 
     def _draw_violence_overlay_intenso(self, frame: np.ndarray, violence_info: Dict) -> np.ndarray:
-        """Overlay MUY INTENSO para frames de violencia"""
+        """Overlay de violencia con tamaño más moderado y mejor legibilidad"""
         height, width = frame.shape[:2]
         probability = violence_info.get('probabilidad', 0.0)
         
-        # Overlay rojo MUY INTENSO
+        # *** REDUCIR ALTURA DEL OVERLAY ***
+        overlay_height = 80  # Reducido de 150 a 80
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (width, 150), (0, 0, 255), -1)
-        frame = cv2.addWeighted(frame, 0.4, overlay, 0.6, 0)  # Más overlay
+        cv2.rectangle(overlay, (0, 0), (width, overlay_height), (0, 0, 255), -1)
+        frame = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)  # Menos intensidad
         
-        # Texto SÚPER GRANDE y VISIBLE
+        # *** TEXTO PRINCIPAL MÁS PEQUEÑO ***
         cv2.putText(
             frame, 
-            "*** VIOLENCIA DETECTADA ***", 
-            (20, 50), 
+            "VIOLENCIA DETECTADA", 
+            (15, 25), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            1.8, 
+            0.8,  # Reducido de 1.8 a 0.8
             (255, 255, 255), 
-            6,
+            2,    # Reducido de 6 a 2
             cv2.LINE_AA
         )
         
-        # Probabilidad MUY DESTACADA
+        # *** PROBABILIDAD MÁS PEQUEÑA ***
         cv2.putText(
             frame, 
-            f"PROBABILIDAD: {probability:.1%}", 
-            (20, 100), 
+            f"Probabilidad: {probability:.1%}", 
+            (15, 50), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            1.4, 
+            0.6,  # Reducido de 1.4 a 0.6
             (0, 255, 255), 
-            5,
+            2,    # Reducido de 5 a 2
             cv2.LINE_AA
         )
         
-        # Timestamp con milisegundos
+        # *** TIMESTAMP MÁS PEQUEÑO ***
         timestamp_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         cv2.putText(
             frame, 
-            f"TIEMPO: {timestamp_str}", 
-            (20, 135), 
+            f"{timestamp_str}", 
+            (15, 70), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            0.9, 
+            0.5,  # Reducido de 0.9 a 0.5
             (255, 255, 255), 
-            3,
+            1,    # Reducido de 3 a 1
             cv2.LINE_AA
         )
         
@@ -733,20 +734,42 @@ class ViolenceEvidenceRecorder:
         print(f"📋 Incident ID {incidente_id} asignado al evidence_recorder CON BASE64")
 
     def _draw_detection(self, frame: np.ndarray, detection: Dict):
-        """Dibuja bounding box de persona detectada"""
+        """Dibuja bounding box de persona detectada con tamaño moderado"""
         bbox = detection['bbox']
         confidence = detection['confianza']
         
         x, y, w, h = map(int, bbox)
         
-        # Bounding box verde más visible
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+        # *** BOUNDING BOX VERDE MÁS DISCRETO ***
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Reducido de 3 a 2
         
-        # Etiqueta con fondo más prominente
+        # *** ETIQUETA MÁS PEQUEÑA ***
         label = f"Persona: {confidence:.2f}"
-        (text_width, text_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-        cv2.rectangle(frame, (x, y - text_height - 10), (x + text_width, y), (0, 255, 0), -1)
-        cv2.putText(frame, label, (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+        (text_width, text_height), _ = cv2.getTextSize(
+            label, 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            0.5,  # Reducido de 0.7 a 0.5
+            1     # Reducido de 2 a 1
+        )
+        
+        # Fondo más pequeño
+        cv2.rectangle(
+            frame, 
+            (x, y - text_height - 8), 
+            (x + text_width, y), 
+            (0, 255, 0), 
+            -1
+        )
+        
+        cv2.putText(
+            frame, 
+            label, 
+            (x, y - 4), 
+            cv2.FONT_HERSHEY_SIMPLEX, 
+            0.5,  # Reducido de 0.7 a 0.5
+            (0, 0, 0), 
+            1     # Reducido de 2 a 1
+        )
     
     def _process_save_queue(self):
         """Procesa la cola de guardado en hilo separado"""

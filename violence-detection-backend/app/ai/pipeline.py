@@ -204,66 +204,72 @@ class ViolenceFrameBuffer:
         return self.get_violence_frames_in_range(start_time, latest_time)
     
     def _add_violence_overlay(self, frame, violencia_info, detecciones):
-        """Agrega overlay rojo intenso para frames de violencia"""
+        """Agrega overlay rojo con tamaño moderado para frames de violencia"""
         height, width = frame.shape[:2]
         probability = violencia_info.get('probabilidad', 0.0)
         
-        # Overlay rojo semitransparente MÁS INTENSO
+        # *** OVERLAY ROJO MODERADO ***
+        overlay_height = 70  # Reducido significativamente
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (width, 120), (0, 0, 255), -1)
-        frame = cv2.addWeighted(frame, 0.6, overlay, 0.4, 0)
+        cv2.rectangle(overlay, (0, 0), (width, overlay_height), (0, 0, 255), -1)
+        frame = cv2.addWeighted(frame, 0.75, overlay, 0.25, 0)  # Menos intenso
         
-        # Texto principal GRANDE Y VISIBLE
+        # *** TEXTO PRINCIPAL MODERADO ***
         cv2.putText(
             frame, 
             "VIOLENCIA DETECTADA", 
-            (20, 40), 
+            (10, 22), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            1.2, 
+            0.7,  # Tamaño moderado
             (255, 255, 255), 
-            4,
+            2,    # Grosor moderado
             cv2.LINE_AA
         )
         
-        # Probabilidad en ROJO BRILLANTE
+        # *** PROBABILIDAD COMPACTA ***
         cv2.putText(
             frame, 
-            f"PROBABILIDAD: {probability:.1%}", 
-            (20, 80), 
+            f"Prob: {probability:.1%}", 
+            (10, 45), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            1.0, 
+            0.5,  # Más pequeño
             (0, 255, 255), 
-            3,
+            1,    # Más delgado
             cv2.LINE_AA
         )
         
-        # Timestamp
-        timestamp_str = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        # *** TIMESTAMP COMPACTO ***
+        timestamp_str = datetime.now().strftime("%H:%M:%S")
         cv2.putText(
             frame, 
-            f"TIEMPO: {timestamp_str}", 
-            (20, 110), 
+            timestamp_str, 
+            (10, 62), 
             cv2.FONT_HERSHEY_SIMPLEX, 
-            0.6, 
+            0.45, # Muy pequeño
             (255, 255, 255), 
-            2,
+            1,
             cv2.LINE_AA
         )
         
-        # Dibujar detecciones de personas CON BORDE ROJO
+        # *** BOUNDING BOXES DE PERSONAS MÁS DISCRETOS ***
         for detection in detecciones:
             bbox = detection.get('bbox', [])
             if len(bbox) >= 4:
-                x, y, w, h = map(int, bbox)
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                x1, y1, x2, y2 = map(int, bbox[:4])
+                # Borde rojo más delgado
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                
+                # Etiqueta más pequeña
+                label = "PERSONA"
                 cv2.putText(
                     frame, 
-                    f"PERSONA EN VIOLENCIA", 
-                    (x, y - 10), 
+                    label, 
+                    (x1, y1 - 5), 
                     cv2.FONT_HERSHEY_SIMPLEX, 
-                    0.6, 
-                    (0, 0, 255), 
-                    2
+                    0.4,  # Muy pequeño
+                    (255, 255, 255), 
+                    1,
+                    cv2.LINE_AA
                 )
         
         return frame
