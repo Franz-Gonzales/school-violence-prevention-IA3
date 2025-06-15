@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }) => {
 
     // Verificar la validez del token
     const isTokenValid = (token) => {
-        if (!token) return false;
+        if (!token){ return false; }
         
         try {
             // Decodificar el payload del JWT (sin verificar la firma)

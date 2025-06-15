@@ -9,12 +9,12 @@ const IncidentDetail = () => {
     const { isAuthenticated } = useAuth();
     const videoRef = useRef(null);
     const playerContainerRef = useRef(null);
-    
+
     const [incident, setIncident] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [videoError, setVideoError] = useState(null);
-    
+
     // Estados del reproductor de video
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -30,7 +30,7 @@ const IncidentDetail = () => {
     const [videoBase64, setVideoBase64] = useState(null);
     const [videoInfo, setVideoInfo] = useState(null);
     const [base64Loading, setBase64Loading] = useState(false);
-    
+
     // Estados para animaciones
     const [fadeIn, setFadeIn] = useState(false);
     const [slideIn, setSlideIn] = useState(false);
@@ -71,17 +71,17 @@ const IncidentDetail = () => {
         try {
             setLoading(true);
             setError(null);
-            
+
             console.log(`🔍 Obteniendo incidente ${incidentId} con Base64...`);
-            
+
             const data = await getIncident(incidentId);
             console.log('📊 Datos del incidente recibidos:', data);
-            
+
             setIncident(data);
-            
+
             if (data.video_base64) {
                 console.log(`🎥 Base64 encontrado: ${data.video_base64.length} caracteres`);
-                
+
                 const videoInfoData = {
                     duration: parseFloat(data.video_duration) || 0,
                     fps: parseInt(data.video_fps) || 15,
@@ -89,14 +89,14 @@ const IncidentDetail = () => {
                     resolution: data.video_resolution || '640x480',
                     file_size: parseInt(data.video_file_size) || 0
                 };
-                
+
                 setVideoInfo(videoInfoData);
                 await processVideoBase64(data.video_base64, data.video_codec || 'mp4v');
             } else {
                 console.log('⚠️ No hay video Base64 disponible para este incidente');
                 setVideoError('No hay video disponible para este incidente');
             }
-            
+
         } catch (err) {
             console.error('❌ Error obteniendo incidente:', err);
             setError(err.message);
@@ -109,24 +109,24 @@ const IncidentDetail = () => {
         try {
             setBase64Loading(true);
             console.log(`🔄 Procesando Base64: ${base64Data.length} caracteres`);
-            
+
             if (!base64Data || base64Data.length < 100) {
                 throw new Error('Datos de video Base64 inválidos');
             }
-            
+
             let mimeType = 'video/mp4';
-            
+
             if (codec) {
                 console.log(`🎥 MIME Type: ${mimeType}`);
                 console.log(`🎥 Codec reportado: ${codec}`);
             }
-            
+
             const dataUrl = `data:${mimeType};base64,${base64Data}`;
             console.log(`🔗 Data URL creado: data:${mimeType};base64,[${base64Data.length} chars]`);
-            
+
             setVideoBase64(dataUrl);
             setVideoError(null);
-            
+
         } catch (err) {
             console.error('❌ Error procesando video Base64:', err);
             setVideoError(`Error procesando video: ${err.message}`);
@@ -136,8 +136,9 @@ const IncidentDetail = () => {
     };
 
     const togglePlay = () => {
-        if (!videoRef.current) return;
-        
+        if (!videoRef.current) {
+            return;
+        }
         if (isPlaying) {
             videoRef.current.pause();
         } else {
@@ -167,8 +168,9 @@ const IncidentDetail = () => {
     };
 
     const handleSeek = (e) => {
-        if (!videoRef.current) return;
-        
+        if (!videoRef.current) {
+            return;
+        }
         const rect = e.currentTarget.getBoundingClientRect();
         const pos = (e.clientX - rect.left) / rect.width;
         const newTime = pos * duration;
@@ -186,12 +188,13 @@ const IncidentDetail = () => {
     };
 
     const toggleMute = () => {
-        if (!videoRef.current) return;
-        
+        if (!videoRef.current) {
+            return;
+        }
         const newMuted = !isMuted;
         videoRef.current.muted = newMuted;
         setIsMuted(newMuted);
-        
+
         if (newMuted) {
             setVolume(0);
         } else {
@@ -200,8 +203,9 @@ const IncidentDetail = () => {
     };
 
     const toggleFullscreen = async () => {
-        if (!playerContainerRef.current) return;
-        
+        if (!playerContainerRef.current) {
+            return;
+        }
         try {
             if (!isFullscreen) {
                 if (playerContainerRef.current.requestFullscreen) {
@@ -218,8 +222,8 @@ const IncidentDetail = () => {
     };
 
     const formatTime = (time) => {
-        if (!time || isNaN(time)) return '0:00';
-        
+        if (!time || isNaN(time)) { return '0:00'; }
+
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60);
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -238,7 +242,7 @@ const IncidentDetail = () => {
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
+
             console.log('📥 Descarga de video iniciada');
         } catch (err) {
             console.error('❌ Error descargando video:', err);
@@ -269,8 +273,8 @@ const IncidentDetail = () => {
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'No disponible';
-        
+        if (!dateString) { return 'No disponible'; }
+
         try {
             return new Date(dateString).toLocaleString('es-ES', {
                 year: 'numeric',
@@ -338,7 +342,7 @@ const IncidentDetail = () => {
                                 </div>
                                 <span className="font-medium">Volver a incidentes</span>
                             </button>
-                            
+
                             <div className="flex items-center space-x-3">
                                 <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-full shadow-lg">
                                     <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,7 +359,7 @@ const IncidentDetail = () => {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="flex space-x-3">
                             <span className={`px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r ${getSeverityColor(incident.severidad)} shadow-lg transform hover:scale-105 transition-all`}>
                                 {incident.severidad?.toUpperCase()}
@@ -381,7 +385,7 @@ const IncidentDetail = () => {
                                     Video de Evidencia
                                 </h2>
                             </div>
-                            
+
                             <div className="p-6">
                                 {base64Loading && (
                                     <div className="flex items-center justify-center h-96 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl">
@@ -397,7 +401,7 @@ const IncidentDetail = () => {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {videoError && (
                                     <div className="flex items-center justify-center h-96 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border-2 border-red-200">
                                         <div className="text-center">
@@ -407,11 +411,11 @@ const IncidentDetail = () => {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {videoBase64 && !base64Loading && !videoError && (
                                     <div className="space-y-6">
                                         {/* Video Player Container - MÁS GRANDE */}
-                                        <div 
+                                        <div
                                             ref={playerContainerRef}
                                             className="relative bg-black rounded-xl overflow-hidden shadow-2xl group"
                                             style={{ aspectRatio: isFullscreen ? 'auto' : '16/10' }} // Aspect ratio más alto
@@ -439,7 +443,7 @@ const IncidentDetail = () => {
                                                 }}
                                                 preload="metadata"
                                             />
-                                            
+
                                             {/* Loading Overlay */}
                                             {isBuffering && (
                                                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -449,71 +453,70 @@ const IncidentDetail = () => {
                                                     </div>
                                                 </div>
                                             )}
-                                            
+
                                             {/* Play Button Overlay */}
                                             {!isPlaying && !isBuffering && (
-                                                <div 
+                                                <div
                                                     className="absolute inset-0 flex items-center justify-center bg-black/30 cursor-pointer group-hover:bg-black/20 transition-all"
                                                     onClick={togglePlay}
                                                 >
                                                     <div className="p-4 bg-white/90 rounded-full shadow-lg transform hover:scale-110 transition-all">
                                                         <svg className="w-12 h-12 text-red-600" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M8 5v14l11-7z"/>
+                                                            <path d="M8 5v14l11-7z" />
                                                         </svg>
                                                     </div>
                                                 </div>
                                             )}
-                                            
+
                                             {/* Controls Overlay */}
-                                            <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 transform transition-all duration-300 ${
-                                                showControls ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
-                                            }`}>
+                                            <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 transform transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
+                                                }`}>
                                                 {/* Progress Bar */}
-                                                <div 
+                                                <div
                                                     className="w-full h-2 bg-white/20 rounded-full cursor-pointer mb-4 group hover:h-3 transition-all"
                                                     onClick={handleSeek}
                                                 >
-                                                    <div 
+                                                    <div
                                                         className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full relative group-hover:shadow-lg transition-all"
                                                         style={{ width: `${(currentTime / duration) * 100}%` }}
                                                     >
                                                         <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all"></div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Controls */}
                                                 <div className="flex items-center justify-between text-white">
                                                     <div className="flex items-center space-x-4">
-                                                        <button 
+                                                        <button
                                                             onClick={togglePlay}
                                                             className="p-2 hover:bg-white/20 rounded-full transition-all transform hover:scale-110"
                                                         >
                                                             {isPlaying ? (
                                                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                                                                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                                                                 </svg>
                                                             ) : (
                                                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M8 5v14l11-7z"/>
+                                                                    <path d="M8 5v14l11-7z" />
                                                                 </svg>
                                                             )}
                                                         </button>
-                                                        
-                                                        <button 
+
+                                                        <button
                                                             onClick={toggleMute}
                                                             className="p-2 hover:bg-white/20 rounded-full transition-all transform hover:scale-110"
                                                         >
                                                             {isMuted ? (
                                                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                                                                    <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
                                                                 </svg>
                                                             ) : (
                                                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                                                                    <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
                                                                 </svg>
                                                             )}
                                                         </button>
-                                                        
+
                                                         <div className="flex items-center space-x-2">
                                                             <input
                                                                 type="range"
@@ -525,12 +528,12 @@ const IncidentDetail = () => {
                                                                 className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
                                                             />
                                                         </div>
-                                                        
+
                                                         <span className="text-sm font-mono bg-black/30 px-2 py-1 rounded">
                                                             {formatTime(currentTime)} / {formatTime(duration)}
                                                         </span>
                                                     </div>
-                                                    
+
                                                     <div className="flex items-center space-x-2">
                                                         <button
                                                             onClick={handleDownloadVideo}
@@ -541,8 +544,8 @@ const IncidentDetail = () => {
                                                             </svg>
                                                             Descargar
                                                         </button>
-                                                        
-                                                        <button 
+
+                                                        <button
                                                             onClick={toggleFullscreen}
                                                             className="p-2 hover:bg-white/20 rounded-full transition-all transform hover:scale-110"
                                                         >
@@ -560,7 +563,7 @@ const IncidentDetail = () => {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         {/* Video Stats */}
                                         {videoInfo && (
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -590,7 +593,7 @@ const IncidentDetail = () => {
                                                         color: 'from-orange-500 to-orange-600'
                                                     }
                                                 ].map((stat, index) => (
-                                                    <div 
+                                                    <div
                                                         key={index}
                                                         className={`bg-gradient-to-br ${stat.color} p-4 rounded-xl shadow-lg text-white transform hover:scale-105 transition-all duration-300 hover:shadow-xl`}
                                                     >
@@ -621,7 +624,7 @@ const IncidentDetail = () => {
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900">Detalles del Incidente</h3>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 {[
                                     {
@@ -659,7 +662,7 @@ const IncidentDetail = () => {
                                 ))}
                             </div>
                         </div>
-                        
+
                         {/* Información temporal */}
                         <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
                             <div className="flex items-center mb-4">
@@ -670,7 +673,7 @@ const IncidentDetail = () => {
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900">Información Temporal</h3>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
                                     <label className="block text-sm font-medium text-blue-800 mb-1">📅 Fecha y Hora de Inicio</label>
@@ -678,7 +681,7 @@ const IncidentDetail = () => {
                                         {formatDate(incident.fecha_hora_inicio)}
                                     </div>
                                 </div>
-                                
+
                                 {incident.fecha_hora_fin && (
                                     <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
                                         <label className="block text-sm font-medium text-green-800 mb-1">✅ Finalizado</label>
@@ -687,7 +690,7 @@ const IncidentDetail = () => {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {incident.duracion_segundos && (
                                     <div className="p-3 bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg border border-purple-200">
                                         <label className="block text-sm font-medium text-purple-800 mb-1">⏱️ Duración Total</label>
@@ -698,7 +701,7 @@ const IncidentDetail = () => {
                                 )}
                             </div>
                         </div>
-                        
+
                         {/* Descripción */}
                         {incident.descripcion && (
                             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">
@@ -715,7 +718,7 @@ const IncidentDetail = () => {
                                 </p>
                             </div>
                         )}
-                        
+
                         {/* Metadata */}
                         {incident.metadata_json && (
                             <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-200">

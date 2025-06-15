@@ -470,17 +470,17 @@ const CameraDetail = () => {
     };
 
     const getLocationIcon = (ubicacion) => {
-        if (!ubicacion) return '🏫';
+        if (!ubicacion) { return '🏫'; }
         const location = ubicacion.toLowerCase();
-        if (location.includes('patio') || location.includes('recreo')) return '🏃‍♂️';
-        if (location.includes('aula') || location.includes('salon')) return '📚';
-        if (location.includes('pasillo') || location.includes('corredor')) return '🚶‍♂️';
-        if (location.includes('entrada') || location.includes('acceso')) return '🚪';
-        if (location.includes('biblioteca')) return '📖';
-        if (location.includes('laboratorio')) return '🔬';
-        if (location.includes('gimnasio') || location.includes('deportes')) return '🏃‍♀️';
-        if (location.includes('cafeteria') || location.includes('comedor')) return '🍽️';
-        return '🏫';
+        if (location.includes('patio') || location.includes('recreo')) { return '🏃‍♂️'; }
+        if (location.includes('aula') || location.includes('salon')) { return '📚'; }
+        if (location.includes('pasillo') || location.includes('corredor')) { return '🚶‍♂️'; }
+        if (location.includes('entrada') || location.includes('acceso')) { return '🚪'; }
+        if (location.includes('biblioteca')) { return '📖'; }
+        if (location.includes('laboratorio')) { return '🔬'; }
+        if (location.includes('gimnasio') || location.includes('deportes')) { return '🏃‍♀️'; }
+        if (location.includes('cafeteria') || location.includes('comedor')) { return '🍽️'; }
+        { return '🏫'; }
     };
 
     if (loading) {
@@ -538,11 +538,11 @@ const CameraDetail = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             <div className="p-6">
-                
+
                 {/* Header educativo mejorado */}
                 <div className="bg-white rounded-2xl shadow-xl border border-blue-100 p-6 mb-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full -translate-y-16 translate-x-16 opacity-50"></div>
-                    
+
                     <div className="relative z-10 flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <button
@@ -556,7 +556,7 @@ const CameraDetail = () => {
                                 </div>
                                 <span className="font-semibold">Volver al Sistema</span>
                             </button>
-                            
+
                             <div className="flex items-center space-x-4">
                                 <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
                                     <span className="text-2xl">{getLocationIcon(cameraDetail.ubicacion)}</span>
@@ -580,14 +580,13 @@ const CameraDetail = () => {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div className="text-right">
                             <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 border border-green-200">
                                 <div className="text-sm text-gray-600 mb-1">Estado del Sistema</div>
-                                <div className={`text-lg font-bold ${
-                                    systemState.camera === 'active' ? 'text-green-600' : 
-                                    systemState.camera === 'inactive' ? 'text-red-600' : 'text-yellow-600'
-                                }`}>
+                                <div className={`text-lg font-bold ${systemState.camera === 'active' ? 'text-green-600' :
+                                        systemState.camera === 'inactive' ? 'text-red-600' : 'text-yellow-600'
+                                    }`}>
                                     {getStatusText('camera', systemState.camera)}
                                 </div>
                             </div>
@@ -610,7 +609,7 @@ const CameraDetail = () => {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-4 gap-6">
                         {[
                             { label: 'Cámara', type: 'camera', status: systemState.camera, icon: '📹' },
@@ -632,7 +631,7 @@ const CameraDetail = () => {
 
                 {/* Contenedor de video principal - CORREGIDO: VOLVER A 16:9 */}
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6">
-                    
+
                     {/* Header del video */}
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
                         <div className="flex items-center justify-between">
@@ -647,7 +646,7 @@ const CameraDetail = () => {
                                     <p className="text-blue-100 text-sm">Área: {cameraDetail.ubicacion}</p>
                                 </div>
                             </div>
-                            
+
                             <div className="flex items-center space-x-2">
                                 {systemState.stream === 'connected' && (
                                     <div className="bg-red-500 px-3 py-1 rounded-full text-white text-xs font-bold flex items-center space-x-1 animate-pulse">
@@ -655,17 +654,16 @@ const CameraDetail = () => {
                                         <span>EN VIVO</span>
                                     </div>
                                 )}
-                                <div className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
-                                    systemState.connection === 'streaming' ? 'bg-green-500' :
-                                    systemState.connection === 'connecting' ? 'bg-yellow-500' :
-                                    'bg-gray-500'
-                                }`}>
+                                <div className={`px-3 py-1 rounded-full text-xs font-bold text-white ${systemState.connection === 'streaming' ? 'bg-green-500' :
+                                        systemState.connection === 'connecting' ? 'bg-yellow-500' :
+                                            'bg-gray-500'
+                                    }`}>
                                     {getStatusText('connection', systemState.connection)}
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     {/* Área de video - CORREGIDO: VOLVER A 16:9 COMO EL ORIGINAL */}
                     <div className="relative bg-gradient-to-br from-gray-800 to-gray-900" style={{ aspectRatio: '16/9' }}>
                         <video
@@ -728,13 +726,12 @@ const CameraDetail = () => {
                         <div className="flex flex-wrap justify-center gap-4">
                             <button
                                 onClick={handleToggleStream}
-                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${
-                                    systemState.stream === 'disconnected'
+                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${systemState.stream === 'disconnected'
                                         ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
                                         : systemState.stream === 'connecting'
                                             ? "bg-gradient-to-r from-yellow-500 to-orange-500 cursor-not-allowed"
                                             : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
-                                }`}
+                                    }`}
                                 disabled={systemState.stream === 'connecting' || detectionData.isActive}
                             >
                                 <span className="text-xl">
@@ -749,13 +746,12 @@ const CameraDetail = () => {
 
                             <button
                                 onClick={handleToggleDetection}
-                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${
-                                    detectionData.isActive
+                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${detectionData.isActive
                                         ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
                                         : systemState.detection === 'starting'
                                             ? "bg-gradient-to-r from-yellow-500 to-orange-500 cursor-not-allowed"
                                             : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                                }`}
+                                    }`}
                                 disabled={systemState.stream === 'disconnected' || systemState.detection.includes('ing')}
                             >
                                 <span className="text-xl">
@@ -797,7 +793,7 @@ const CameraDetail = () => {
                                 <p className="text-red-700 font-medium">Situación detectada en {cameraDetail.ubicacion}</p>
                             </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-white rounded-xl p-4 border-2 border-red-200">
                                 <div className="text-center">
@@ -818,7 +814,7 @@ const CameraDetail = () => {
                                     <div className="text-sm font-semibold text-red-800">Probabilidad</div>
                                 </div>
                             </div>
-                            
+
                             <div className="bg-white rounded-xl p-4 border-2 border-orange-200">
                                 <div className="text-center">
                                     <div className="text-3xl font-bold text-orange-600 mb-1">
@@ -827,7 +823,7 @@ const CameraDetail = () => {
                                     <div className="text-sm font-semibold text-orange-800">Personas</div>
                                 </div>
                             </div>
-                            
+
                             <div className="bg-white rounded-xl p-4 border-2 border-blue-200">
                                 <div className="text-center">
                                     <div className="text-lg font-bold text-blue-600 mb-1">
@@ -842,7 +838,7 @@ const CameraDetail = () => {
 
                 {/* Información detallada - DEBAJO DEL VIDEO, NO EN CARDS */}
                 <div className="space-y-6">
-                    
+
                     {/* Información técnica - Layout horizontal limpio */}
                     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
                         <div className="flex items-center space-x-4 mb-6">
@@ -856,7 +852,7 @@ const CameraDetail = () => {
                                 <p className="text-gray-600">Especificaciones y detalles técnicos del dispositivo de monitoreo</p>
                             </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                             {[
                                 { label: 'Ubicación', value: cameraDetail.ubicacion, icon: '📍', color: 'text-blue-600' },
@@ -879,7 +875,7 @@ const CameraDetail = () => {
 
                     {/* Configuraciones y controles - Layout horizontal */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        
+
                         {/* Configuración de seguridad */}
                         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                             <div className="flex items-center space-x-3 mb-4">
@@ -891,7 +887,7 @@ const CameraDetail = () => {
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900">Configuración de Seguridad</h3>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                                     <div className="flex items-center space-x-3">
@@ -905,7 +901,7 @@ const CameraDetail = () => {
                                         className="form-checkbox h-5 w-5 text-green-600 rounded focus:ring-green-500"
                                     />
                                 </div>
-                                
+
                                 <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                                     <div className="flex items-center space-x-3">
                                         <span className="text-blue-600 text-xl">🔊</span>
@@ -918,7 +914,7 @@ const CameraDetail = () => {
                                         className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
                                     />
                                 </div>
-                                
+
                                 <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                                     <div className="flex items-center space-x-3 mb-2">
                                         <span className="text-purple-600 text-xl">🎯</span>
@@ -947,7 +943,7 @@ const CameraDetail = () => {
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900">Rendimiento del Sistema</h3>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
@@ -959,7 +955,7 @@ const CameraDetail = () => {
                                         <div className="text-xs text-blue-700 font-semibold">Alertas</div>
                                     </div>
                                 </div>
-                                
+
                                 {detectionData.confidence > 0 && (
                                     <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
                                         <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
@@ -967,7 +963,7 @@ const CameraDetail = () => {
                                             Nivel de Confianza IA
                                         </div>
                                         <div className="w-full bg-gray-200 rounded-full h-4">
-                                            <div 
+                                            <div
                                                 className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all duration-300"
                                                 style={{ width: `${(detectionData.confidence * 100)}%` }}
                                             ></div>
@@ -977,7 +973,7 @@ const CameraDetail = () => {
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200">
                                     <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                         <span className="mr-2">⚡</span>
@@ -1003,32 +999,30 @@ const CameraDetail = () => {
                                 </div>
                                 <h3 className="text-lg font-bold text-gray-900">Registro de Eventos Recientes</h3>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {notifications.slice(0, 6).map((notification) => (
                                     <div
                                         key={notification.id}
-                                        className={`p-3 rounded-lg border-l-4 transition-all hover:shadow-md ${
-                                            notification.type === 'violence' ? 'bg-red-50 border-red-500' :
-                                            notification.type === 'error' ? 'bg-red-50 border-red-400' :
-                                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                                            'bg-blue-50 border-blue-400'
-                                        }`}
+                                        className={`p-3 rounded-lg border-l-4 transition-all hover:shadow-md ${notification.type === 'violence' ? 'bg-red-50 border-red-500' :
+                                                notification.type === 'error' ? 'bg-red-50 border-red-400' :
+                                                    notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                                                        'bg-blue-50 border-blue-400'
+                                            }`}
                                     >
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <span className="text-lg">
                                                         {notification.type === 'violence' ? '🚨' :
-                                                         notification.type === 'error' ? '❌' :
-                                                         notification.type === 'warning' ? '⚠️' : 'ℹ️'}
+                                                            notification.type === 'error' ? '❌' :
+                                                                notification.type === 'warning' ? '⚠️' : 'ℹ️'}
                                                     </span>
-                                                    <span className={`text-sm font-semibold ${
-                                                        notification.type === 'violence' ? 'text-red-800' :
-                                                        notification.type === 'error' ? 'text-red-700' :
-                                                        notification.type === 'warning' ? 'text-yellow-700' :
-                                                        'text-blue-700'
-                                                    }`}>
+                                                    <span className={`text-sm font-semibold ${notification.type === 'violence' ? 'text-red-800' :
+                                                            notification.type === 'error' ? 'text-red-700' :
+                                                                notification.type === 'warning' ? 'text-yellow-700' :
+                                                                    'text-blue-700'
+                                                        }`}>
                                                         {notification.message}
                                                     </span>
                                                 </div>

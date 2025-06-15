@@ -9,7 +9,7 @@ const Incidents = () => {
     const [incidents, setIncidents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    
+
     // Estados para filtros y búsqueda
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedSeverity, setSelectedSeverity] = useState('');
@@ -35,7 +35,7 @@ const Incidents = () => {
     const fetchIncidents = async () => {
         try {
             setLoading(true);
-            
+
             // Cargar incidentes y cámaras en paralelo
             const [incidentsData, camerasData] = await Promise.all([
                 getIncidents({ limite: 100 }),
@@ -61,7 +61,7 @@ const Incidents = () => {
     const applyFilters = async () => {
         try {
             setLoading(true);
-            
+
             // Construir parámetros de búsqueda
             const searchParams = {
                 limite: 100,
@@ -78,20 +78,20 @@ const Incidents = () => {
                         fecha_inicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
                         fecha_fin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
                         break;
-                    
+
                     case 'week':
                         const inicioSemana = new Date(now);
                         inicioSemana.setDate(now.getDate() - now.getDay());
                         inicioSemana.setHours(0, 0, 0, 0);
-                        
+
                         const finSemana = new Date(inicioSemana);
                         finSemana.setDate(inicioSemana.getDate() + 6);
                         finSemana.setHours(23, 59, 59, 999);
-                        
+
                         fecha_inicio = inicioSemana;
                         fecha_fin = finSemana;
                         break;
-                    
+
                     case 'month':
                         fecha_inicio = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
                         fecha_fin = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -111,10 +111,10 @@ const Incidents = () => {
 
             // *** FILTRO POR UBICACIÓN (usando cámara) ***
             if (selectedLocation) {
-                const camerasEnUbicacion = cameras.filter(camera => 
+                const camerasEnUbicacion = cameras.filter(camera =>
                     camera.ubicacion === selectedLocation
                 );
-                
+
                 if (camerasEnUbicacion.length > 0) {
                     searchParams.camara_id = camerasEnUbicacion[0].id;
                 }
@@ -136,9 +136,9 @@ const Incidents = () => {
     // *** MEJORADA: Función para filtrar incidentes localmente ***
     const filteredIncidents = incidents.filter(incident => {
         const matchesSearch = incident.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             incident.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                             incident.tipo_incidente?.toLowerCase().includes(searchTerm.toLowerCase());
-        
+            incident.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            incident.tipo_incidente?.toLowerCase().includes(searchTerm.toLowerCase());
+
         // Los filtros de severidad, ubicación y fecha se aplican en el backend
         // Solo aplicamos filtro de búsqueda de texto local
         return matchesSearch;
@@ -236,7 +236,7 @@ const Incidents = () => {
                 <div className="max-w-7xl mx-auto">
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
                         <p className="text-red-600">{error}</p>
-                        <button 
+                        <button
                             onClick={fetchIncidents}
                             className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
                         >
@@ -263,7 +263,7 @@ const Incidents = () => {
                                 <div className="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
                                 {incidents.filter(inc => inc.estado === 'nuevo').length}
                             </span>
-                            <button 
+                            <button
                                 onClick={fetchIncidents}
                                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                             >
@@ -377,8 +377,8 @@ const Incidents = () => {
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center">
                                                     <div className="text-red-500 text-lg mr-3">
-                                                        {incident.severidad === 'critica' ? '🚨' : 
-                                                         incident.severidad === 'alta' ? '⚠️' : '⚡'}
+                                                        {incident.severidad === 'critica' ? '🚨' :
+                                                            incident.severidad === 'alta' ? '⚠️' : '⚡'}
                                                     </div>
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-900">
@@ -418,7 +418,7 @@ const Incidents = () => {
                                                         </svg>
                                                         Ver Detalles
                                                     </button>
-                                                    
+
                                                     {incident.video_evidencia_path && (
                                                         <button
                                                             onClick={() => handleViewIncident(incident.id)}
@@ -464,21 +464,20 @@ const Incidents = () => {
                                 >
                                     Anterior
                                 </button>
-                                
+
                                 {[...Array(totalPages)].map((_, index) => (
                                     <button
                                         key={index + 1}
                                         onClick={() => setCurrentPage(index + 1)}
-                                        className={`px-3 py-1 border rounded-md text-sm ${
-                                            currentPage === index + 1
+                                        className={`px-3 py-1 border rounded-md text-sm ${currentPage === index + 1
                                                 ? 'bg-red-600 text-white border-red-600'
                                                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                                        }`}
+                                            }`}
                                     >
                                         {index + 1}
                                     </button>
                                 ))}
-                                
+
                                 <button
                                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                     disabled={currentPage === totalPages}
