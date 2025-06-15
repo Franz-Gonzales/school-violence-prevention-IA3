@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Función para verificar si el token es válido
 const isTokenValid = (token) => {
-    if (!token) return false;
+    if (!token){ return false;}
     
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
