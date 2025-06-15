@@ -586,16 +586,17 @@ class PipelineDeteccion:
         try:
             frames_analizados = violencia_info.get('frames_analizados', 8)
             
-            # *** CORRECCIÓN: Acceder al deque correctamente ***
-            with self.buffer_evidencia.frames:  # ❌ ESTO ESTÁ MAL
-                recent_frames = list(self.buffer_evidencia.frames)[-frames_analizados:]
+            # *** CORRECCIÓN: Acceder al deque SIN context manager ***
+            # ANTES (INCORRECTO):
+            # with self.buffer_evidencia.frames:  # ❌ ESTO CAUSABA EL ERROR
+            #     recent_frames = list(self.buffer_evidencia.frames)[-frames_analizados:]
             
-            # *** CAMBIAR POR: ***
+            # DESPUÉS (CORRECTO):
             recent_frames = list(self.buffer_evidencia.frames)[-frames_analizados:]
             
             # Marcar todos estos frames como parte de la secuencia de violencia
             for frame_data in recent_frames:
-                if frame_data is None:  # *** AÑADIR VERIFICACIÓN ***
+                if frame_data is None:  # Verificación de seguridad
                     continue
                     
                 if frame_data.get('violencia_info'):
@@ -620,6 +621,7 @@ class PipelineDeteccion:
             
         except Exception as e:
             print(f"❌ Error marcando frames de secuencia: {e}")
+            # No propagar el error para no afectar el flujo principal
 
 
     async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int):
