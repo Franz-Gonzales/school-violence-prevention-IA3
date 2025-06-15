@@ -6,7 +6,7 @@ from scipy.io import wavfile
 import sys
 
 # Inicializar el cliente con tu API key
-client = ElevenLabs(api_key="sk_7ac4d4b69e9d413253c1e27ef8e6999072452aab561b7bd7")
+client = ElevenLabs(api_key="sk_59dd5eeff1a5ee283c21e3923954840d0185d48c6dc2cd3d")
 
 # Usar directamente la voz de Daniel
 selected_voice = "onwK4e9ZLuTAKqWW03F9"  # ID de la voz de Daniel

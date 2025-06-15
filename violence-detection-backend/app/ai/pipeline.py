@@ -533,27 +533,22 @@ class PipelineDeteccion:
                 'timestamp': datetime.now()
             }
 
-    async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int = 0):
-        """Emite alerta de voz por violencia detectada"""
+    async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int):
+        """Emite alerta de voz"""
         try:
-            print(f"🎙️ Emitiendo alerta de voz para ubicación: {ubicacion}")
-            
-            # Emitir alerta de voz de forma asíncrona
-            success = await self.servicio_alertas_voz.emitir_alerta_violencia(
-                ubicacion=ubicacion,
-                probabilidad=probabilidad,
-                personas_detectadas=personas_detectadas
-            )
-            
-            if success:
-                print(f"✅ Alerta de voz emitida exitosamente - {ubicacion}")
+            if configuracion.VOICE_ALERTS_ENABLED:
+                # *** USAR EL MÉTODO CORRECTO ***
+                await servicio_alertas_voz.emitir_alerta_violencia(
+                    ubicacion=ubicacion, 
+                    probabilidad=probabilidad, 
+                    personas_detectadas=personas_detectadas
+                )
+                logger.info(f"🔊 Alerta de voz emitida para {ubicacion}")
             else:
-                print(f"⚠️ No se pudo emitir alerta de voz - {ubicacion}")
+                logger.info("🔇 Alertas de voz deshabilitadas")
                 
         except Exception as e:
-            print(f"❌ Error emitiendo alerta de voz: {e}")
-            import traceback
-            print(traceback.format_exc())
+            logger.error(f"❌ Error emitiendo alerta de voz: {e}")
 
     def _dibujar_detecciones(self, frame: np.ndarray, detecciones: List[Dict]) -> np.ndarray:
         """Dibuja las detecciones en el frame"""

@@ -1,7 +1,7 @@
 # scripts/test_voice_alerts.py - Script para probar alertas de voz
 
 """
-Script de prueba para el sistema de alertas de voz
+Script de prueba para el sistema de alertas de voz - ACTUALIZADO SIN VERIFICACIÓN DE CRÉDITOS
 """
 import asyncio
 import os
@@ -21,7 +21,7 @@ from app.config import configuracion
 
 
 async def probar_alertas_voz():
-    """Prueba completa del sistema de alertas de voz"""
+    """Prueba completa del sistema de alertas de voz - SIN VERIFICACIÓN DE CRÉDITOS"""
     print("🎙️ Iniciando pruebas del sistema de alertas de voz...")
     
     # Crear instancia del servicio
@@ -40,8 +40,8 @@ async def probar_alertas_voz():
     
     print(f"\n✅ Servicio habilitado. Iniciando pruebas...")
     
-    # Prueba 1: Alerta básica
-    print(f"\n🧪 Prueba 1: Alerta básica")
+    # Prueba 1: Alerta básica (SIN verificación de créditos)
+    print(f"\n🧪 Prueba 1: Alerta básica (sin verificación de créditos)")
     success = await servicio.emitir_alerta_violencia(
         ubicacion="Patio Principal",
         probabilidad=0.85,
@@ -152,8 +152,8 @@ async def probar_configuracion():
 
 async def main():
     """Función principal"""
-    print("🎯 Sistema de Pruebas - Alertas de Voz para Detección de Violencia")
-    print("=" * 60)
+    print("🎯 Sistema de Pruebas - Alertas de Voz (SIN verificación de créditos)")
+    print("=" * 70)
     
     # *** AGREGAR: Verificar que se cargó el .env ***
     print(f"📁 Archivo .env cargado desde: {root_dir / '.env'}")

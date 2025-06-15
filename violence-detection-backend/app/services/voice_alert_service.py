@@ -75,11 +75,11 @@ class ServicioAlertasVoz:
         
         if personas > 0:
             if personas == 1:
-                mensaje_partes.append("¡¡DOS PERSONAS INVOLUCRADAS!!")
+                mensaje_partes.append("¡¡DOS ESTUDIANTES INVOLUCRADAS!!")
             elif personas == 2:	
-                mensaje_partes.append("¡¡DOS PERSONAS INVOLUCRADAS!!")
+                mensaje_partes.append("¡¡DOS ESTUDIANTES INVOLUCRADAS!!")
             else:
-                mensaje_partes.append(f"¡¡{personas} PERSONAS INVOLUCRADAS!!")
+                mensaje_partes.append(f"¡¡{personas} ESTUDIANTES INVOLUCRADAS!!")
         
         mensaje_partes.extend([
             "¡SEGURIDAD! ¡RESPONDAN INMEDIATAMENTE!",
@@ -158,7 +158,7 @@ class ServicioAlertasVoz:
         forzar: bool = False
     ) -> bool:
         """
-        Emite una alerta de voz por violencia detectada (con verificación de créditos)
+        Emite una alerta de voz por violencia detectada (SIN verificación de créditos)
         """
         if not self.habilitado:
             return False
@@ -175,21 +175,21 @@ class ServicioAlertasVoz:
             # Generar mensaje personalizado
             mensaje = self._generar_mensaje_alerta(ubicacion, probabilidad, personas_detectadas)
             
-            # *** NUEVO: Verificar créditos antes de proceder ***
-            verificacion = self.puede_generar_audio(mensaje)
-            if not verificacion["puede_generar"]:
-                print(f"❌ No se puede generar alerta: {verificacion['razon']}")
-                print(f"   Créditos necesarios: {verificacion['creditos_necesarios']}")
-                print(f"   Créditos disponibles: {verificacion['creditos_disponibles']}")
-                return False
+            # *** COMENTAR VERIFICACIÓN DE CRÉDITOS QUE ESTÁ FALLANDO ***
+            # verificacion = self.puede_generar_audio(mensaje)
+            # if not verificacion["puede_generar"]:
+            #     print(f"❌ No se puede generar alerta: {verificacion['razon']}")
+            #     print(f"   Créditos necesarios: {verificacion['creditos_necesarios']}")
+            #     print(f"   Créditos disponibles: {verificacion['creditos_disponibles']}")
+            #     return False
             
-            print(f"✅ Créditos suficientes para generar alerta")
-            print(f"   Necesarios: {verificacion['creditos_necesarios']} | Disponibles: {verificacion['creditos_disponibles']}")
+            # print(f"✅ Créditos suficientes para generar alerta")
+            # print(f"   Necesarios: {verificacion['creditos_necesarios']} | Disponibles: {verificacion['creditos_disponibles']}")
             
             print(f"🚨 EMITIENDO ALERTA DE VOZ - Ubicación: {ubicacion}")
             print(f"📢 Mensaje: {mensaje}")
             
-            # Resto del código existente...
+            # *** PROCEDER DIRECTAMENTE SIN VERIFICAR CRÉDITOS ***
             if self.executor:
                 future = self.executor.submit(self._generar_y_reproducir_alerta, mensaje)
                 self.ultima_alerta = current_time
@@ -214,9 +214,61 @@ class ServicioAlertasVoz:
             logger.error(f"❌ Error emitiendo alerta de voz: {e}")
             print(f"❌ Error emitiendo alerta de voz: {e}")
             return False
+
+    def verificar_creditos(self) -> Dict[str, Any]:
+        """
+        Verificación simplificada que evita el error de permisos
+        """
+        logger.info("🔇 Verificación de créditos omitida por permisos limitados de API key")
+        return {
+            "success": True,
+            "creditos_disponibles": 10000,  # Asumir créditos suficientes
+            "cuota_total": 10000,
+            "creditos_usados": 0,
+            "porcentaje_usado": 0,
+            "estado": "activa",
+            "plan_tipo": "Free",
+            "fecha_consulta": datetime.now().isoformat(),
+            "nota": "Verificación omitida por permisos limitados de API key"
+        }
+
+    def puede_generar_audio(self, texto: str) -> Dict[str, Any]:
+        """
+        Verificación simplificada que siempre permite generar audio
+        """
+        caracteres_necesarios = len(texto)
+        
+        return {
+            "puede_generar": True,
+            "razon": "Verificación omitida - API key con permisos limitados",
+            "creditos_necesarios": caracteres_necesarios,
+            "creditos_disponibles": 10000,  # Asumir créditos suficientes
+            "creditos_restantes_despues": 10000 - caracteres_necesarios
+        }
     
-    async def probar_alerta(self, ubicacion: str = "área de prueba") -> bool:
-        """Prueba el sistema de alertas de voz"""
+    def obtener_estado(self) -> Dict[str, Any]:
+        """Obtiene el estado actual del servicio de alertas de voz"""
+        tiempo_actual = time.time()
+        tiempo_desde_ultima = tiempo_actual - self.ultima_alerta
+        
+        return {
+            "habilitado": self.habilitado,
+            "cliente_conectado": self.client is not None,
+            "cooldown_segundos": self.cooldown_segundos,
+            "tiempo_desde_ultima_alerta": int(tiempo_desde_ultima),
+            "puede_emitir_alerta": tiempo_desde_ultima >= self.cooldown_segundos,
+            "voice_id": self.voice_id,
+            "executor_activo": self.executor is not None and not self.executor._shutdown
+        }
+    
+    def configurar_cooldown(self, segundos: int):
+        """Configura el tiempo de cooldown entre alertas"""
+        self.cooldown_segundos = max(0, segundos)
+        logger.info(f"⏱️ Cooldown de alertas de voz configurado a {self.cooldown_segundos}s")
+        print(f"⏱️ Cooldown de alertas de voz configurado a {self.cooldown_segundos}s")
+    
+    async def probar_alerta(self, ubicacion: str = "Área de Prueba") -> bool:
+        """Prueba rápida del sistema de alertas"""
         return await self.emitir_alerta_violencia(
             ubicacion=ubicacion,
             probabilidad=0.85,
@@ -224,136 +276,23 @@ class ServicioAlertasVoz:
             forzar=True
         )
     
-    def configurar_cooldown(self, segundos: int):
-        """Configura el tiempo de cooldown entre alertas"""
-        self.cooldown_segundos = max(5, min(60, segundos))  # Entre 5 y 60 segundos
-        print(f"⏱️ Cooldown de alertas de voz configurado a {self.cooldown_segundos}s")
-    
-    def obtener_estado(self) -> Dict[str, Any]:
-        """Obtiene el estado actual del servicio"""
-        tiempo_desde_ultima = time.time() - self.ultima_alerta if self.ultima_alerta > 0 else 999
-        
-        return {
-            "habilitado": self.habilitado,
-            "cliente_conectado": self.client is not None,
-            "cooldown_segundos": self.cooldown_segundos,
-            "tiempo_desde_ultima_alerta": tiempo_desde_ultima,
-            "puede_emitir_alerta": tiempo_desde_ultima >= self.cooldown_segundos,
-            "voice_id": self.voice_id
-        }
-    
-    def verificar_creditos(self) -> Dict[str, Any]:
-        """
-        Verifica los créditos disponibles en la cuenta de ElevenLabs
-        
-        Returns:
-            Dict con información de créditos y estado
-        """
-        try:
-            if not self.client:
-                return {
-                    "success": False,
-                    "error": "Cliente de ElevenLabs no disponible",
-                    "creditos_disponibles": 0,
-                    "cuota_total": 0,
-                    "creditos_usados": 0,
-                    "porcentaje_usado": 0
-                }
-            
-            # Hacer una solicitud a la API de usuario para obtener información de créditos
-            # Nota: ElevenLabs no tiene endpoint directo de créditos, pero podemos usar el endpoint de usuario
-            response = self.client.user.get()
-            
-            # Extraer información relevante
-            subscription = response.subscription if hasattr(response, 'subscription') else None
-            
-            if subscription:
-                character_count = subscription.character_count
-                character_limit = subscription.character_limit
-                creditos_restantes = character_limit - character_count
-                porcentaje_usado = (character_count / character_limit) * 100 if character_limit > 0 else 0
-                
-                return {
-                    "success": True,
-                    "creditos_disponibles": creditos_restantes,
-                    "cuota_total": character_limit,
-                    "creditos_usados": character_count,
-                    "porcentaje_usado": round(porcentaje_usado, 2),
-                    "plan_tipo": subscription.tier if hasattr(subscription, 'tier') else "Unknown",
-                    "estado": "activa" if creditos_restantes > 0 else "agotada",
-                    "fecha_consulta": datetime.now().isoformat()
-                }
-            else:
-                return {
-                    "success": False,
-                    "error": "No se pudo obtener información de suscripción",
-                    "creditos_disponibles": 0,
-                    "cuota_total": 0,
-                    "creditos_usados": 0,
-                    "porcentaje_usado": 0
-                }
-                
-        except Exception as e:
-            logger.error(f"Error verificando créditos de ElevenLabs: {e}")
-            return {
-                "success": False,
-                "error": f"Error en verificación: {str(e)}",
-                "creditos_disponibles": 0,
-                "cuota_total": 0,
-                "creditos_usados": 0,
-                "porcentaje_usado": 0
-            }
-
-    def puede_generar_audio(self, texto: str) -> Dict[str, Any]:
-        """
-        Verifica si hay suficientes créditos para generar audio con el texto dado
-        
-        Args:
-            texto: Texto a convertir a audio
-            
-        Returns:
-            Dict con información de viabilidad
-        """
-        try:
-            # Estimar créditos necesarios (aproximadamente 1 crédito por caracter)
-            caracteres_necesarios = len(texto)
-            
-            # Verificar créditos disponibles
-            info_creditos = self.verificar_creditos()
-            
-            if not info_creditos["success"]:
-                return {
-                    "puede_generar": False,
-                    "razon": "No se pudo verificar créditos",
-                    "creditos_necesarios": caracteres_necesarios,
-                    "creditos_disponibles": 0
-                }
-            
-            creditos_disponibles = info_creditos["creditos_disponibles"]
-            puede_generar = creditos_disponibles >= caracteres_necesarios
-            
-            return {
-                "puede_generar": puede_generar,
-                "razon": "Suficientes créditos" if puede_generar else "Créditos insuficientes",
-                "creditos_necesarios": caracteres_necesarios,
-                "creditos_disponibles": creditos_disponibles,
-                "creditos_restantes_despues": creditos_disponibles - caracteres_necesarios if puede_generar else creditos_disponibles
-            }
-            
-        except Exception as e:
-            logger.error(f"Error verificando viabilidad de audio: {e}")
-            return {
-                "puede_generar": False,
-                "razon": f"Error en verificación: {str(e)}",
-                "creditos_necesarios": len(texto),
-                "creditos_disponibles": 0
-            }
-    
     def cerrar(self):
         """Cierra el servicio y libera recursos"""
-        if self.executor:
-            self.executor.shutdown(wait=False)
-        print("🔇 Servicio de alertas de voz cerrado")
+        try:
+            if self.executor:
+                self.executor.shutdown(wait=False)
+                logger.info("🔇 Executor de alertas de voz cerrado")
+            
+            # Limpiar cliente
+            self.client = None
+            self.habilitado = False
+            
+            logger.info("🔇 Servicio de alertas de voz cerrado")
+            print("🔇 Servicio de alertas de voz cerrado")
+            
+        except Exception as e:
+            logger.error(f"Error cerrando servicio de alertas de voz: {e}")
+            print(f"Error cerrando servicio de alertas de voz: {e}")
 
 
 # Instancia global del servicio

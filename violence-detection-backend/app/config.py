@@ -263,6 +263,8 @@ class Configuracion(BaseSettings):
     # Configuración de threading para alertas de voz
     VOICE_ALERT_MAX_WORKERS: int = 2  # Máximo de alertas simultáneas
     VOICE_ALERT_TIMEOUT_SECONDS: int = 30  # Timeout para generación/reproducción
+    
+    VOICE_SKIP_CREDIT_CHECK: bool = True  # Saltar verificación de créditos para pruebas
 
     # Mensajes personalizables
     VOICE_ALERT_MESSAGES: Dict[str, str] = {

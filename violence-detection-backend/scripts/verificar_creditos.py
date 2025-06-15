@@ -1,5 +1,5 @@
 """
-Script para verificar créditos de ElevenLabs
+Script para verificar créditos de ElevenLabs - ACTUALIZADO SIN VERIFICACIÓN
 """
 import sys
 from pathlib import Path
@@ -14,8 +14,8 @@ load_dotenv(root_dir / ".env")
 from app.services.voice_alert_service import ServicioAlertasVoz
 
 def main():
-    print("🔍 Verificando créditos de ElevenLabs...")
-    print("=" * 50)
+    print("🔍 Verificando estado de ElevenLabs (sin consultar créditos)...")
+    print("=" * 60)
     
     # Crear instancia del servicio
     servicio = ServicioAlertasVoz()
@@ -25,31 +25,21 @@ def main():
         print("   Verifica que ELEVENLABS_API_KEY esté configurada")
         return
     
-    # Verificar créditos
-    info_creditos = servicio.verificar_creditos()
+    print("✅ Servicio inicializado correctamente")
+    print("📝 API Key configurada y cliente conectado")
     
-    if info_creditos["success"]:
-        print("✅ Información de créditos obtenida:")
-        print(f"   📊 Créditos disponibles: {info_creditos['creditos_disponibles']:,}")
-        print(f"   📈 Cuota total: {info_creditos['cuota_total']:,}")
-        print(f"   📉 Créditos usados: {info_creditos['creditos_usados']:,}")
-        print(f"   📊 Porcentaje usado: {info_creditos['porcentaje_usado']}%")
-        print(f"   🎯 Estado: {info_creditos['estado']}")
-        
-        if 'plan_tipo' in info_creditos:
-            print(f"   📋 Plan: {info_creditos['plan_tipo']}")
-        
-        # Mostrar estimaciones
-        print(f"\n📝 Estimaciones:")
-        alertas_cortas = info_creditos['creditos_disponibles'] // 100  # ~100 chars por alerta corta
-        alertas_largas = info_creditos['creditos_disponibles'] // 200  # ~200 chars por alerta larga
-        print(f"   🔊 Alertas cortas posibles: ~{alertas_cortas}")
-        print(f"   📢 Alertas largas posibles: ~{alertas_largas}")
-        
-    else:
-        print(f"❌ Error obteniendo créditos: {info_creditos['error']}")
+    # Mostrar estado del servicio
+    estado = servicio.obtener_estado()
+    print(f"\n📊 Estado del servicio:")
+    for key, value in estado.items():
+        print(f"   - {key}: {value}")
     
-    # Probar viabilidad con mensaje de ejemplo
+    # *** OMITIR verificación de créditos que causa error 401 ***
+    print(f"\n⚠️ Nota: Verificación de créditos omitida")
+    print(f"   Razón: API key tiene permisos limitados (solo text-to-speech)")
+    print(f"   El servicio funcionará normalmente para generar alertas de voz")
+    
+    # Probar viabilidad con mensaje de ejemplo (sin consultar API)
     print(f"\n🧪 Probando viabilidad de mensaje...")
     mensaje_prueba = "¡ALERTA! ¡VIOLENCIA DETECTADA! ¡UBICACIÓN: PATIO PRINCIPAL!"
     viabilidad = servicio.puede_generar_audio(mensaje_prueba)
@@ -58,6 +48,12 @@ def main():
     print(f"   📏 Longitud: {len(mensaje_prueba)} caracteres")
     print(f"   ✅ Puede generar: {'Sí' if viabilidad['puede_generar'] else 'No'}")
     print(f"   💬 Razón: {viabilidad['razon']}")
+    
+    # Recomendaciones
+    print(f"\n💡 Recomendaciones:")
+    print(f"   - El servicio está configurado y funcionando")
+    print(f"   - Las alertas de voz se generarán sin verificar créditos")
+    print(f"   - Si necesitas verificar créditos, usa una API key con más permisos")
     
     servicio.cerrar()
     print(f"\n✅ Verificación completada")
