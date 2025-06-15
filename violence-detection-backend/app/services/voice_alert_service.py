@@ -69,8 +69,8 @@ class ServicioAlertasVoz:
         # Construir mensaje completo
         mensaje_partes = [
             base,
-            f"¡¡UBICACIÓN INMEDIATA: {ubicacion.upper()}!!",
-            f"¡¡PROBABILIDAD: {probabilidad_pct} POR CIENTO!!",
+            f"¡¡UBICACIÓN INMEDIATA {ubicacion.upper()}!!",
+            f"¡¡PROBABILIDAD DE {probabilidad_pct} POR CIENTO!!",
         ]
         
         if personas > 0:

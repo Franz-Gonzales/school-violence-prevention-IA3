@@ -916,7 +916,7 @@ class PipelineDeteccion:
         try:
             datos_incidente = {
                 'camara_id': self.camara_id,
-                'tipo_incidente': TipoIncidente.VIOLENCIA_FISICA,
+                'tipo_incidente': TipoIncidente.PELEA,
                 'severidad': self._calcular_severidad(probabilidad),
                 'probabilidad_violencia': probabilidad,
                 'fecha_hora_inicio': datetime.now(),
@@ -967,11 +967,11 @@ class PipelineDeteccion:
         if probabilidad >= 0.9:
             return SeveridadIncidente.CRITICA
         elif probabilidad >= 0.8:
-            return SeveridadIncidente.ALTA
+            return SeveridadIncidente.CRITICA
         elif probabilidad >= 0.6:
-            return SeveridadIncidente.MEDIA
+            return SeveridadIncidente.ALTA
         else:
-            return SeveridadIncidente.BAJA
+            return SeveridadIncidente.MEDIA
 
     def obtener_estadisticas(self) -> Dict[str, Any]:
         """Obtiene estadísticas del pipeline MEJORADAS"""
