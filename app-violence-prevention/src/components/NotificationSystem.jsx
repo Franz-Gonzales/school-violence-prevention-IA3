@@ -83,57 +83,55 @@ const NotificationItem = ({ notification, onClose, onAction }) => {
                             {notification.timestamp.toLocaleTimeString()}
                         </div>
 
-                        {/* Datos específicos para alertas de violencia */}
+                        {/* *** DATOS ESPECÍFICOS PARA ALERTAS DE VIOLENCIA CON VERIFICACIÓN MÚLTIPLE *** */}
                         {notification.type === 'violence' && notification.data && (
                             <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <span className="font-medium">Probabilidad:</span>
                                     <span className="ml-1 font-bold text-red-600">
-                                        {(notification.data.probability * 100).toFixed(1)}%
+                                        {(() => {
+                                            // *** VERIFICAR MÚLTIPLES CAMPOS DE PROBABILIDAD ***
+                                            let prob = 0;
+                                            if (notification.data.probabilidad !== undefined && notification.data.probabilidad !== null) {
+                                                prob = notification.data.probabilidad;
+                                            } else if (notification.data.probability !== undefined && notification.data.probability !== null) {
+                                                prob = notification.data.probability;
+                                            } else if (notification.data.probabilidad_violencia !== undefined && notification.data.probabilidad_violencia !== null) {
+                                                prob = notification.data.probabilidad_violencia;
+                                            }
+
+                                            // Debug en consola
+                                            console.log('🔍 Renderizando probabilidad:', {
+                                                data: notification.data,
+                                                probabilidad_final: prob,
+                                                porcentaje: (prob * 100).toFixed(1)
+                                            });
+
+                                            return `${(prob * 100).toFixed(1)}%`;
+                                        })()}
                                     </span>
                                 </div>
                                 <div>
                                     <span className="font-medium">Personas:</span>
                                     <span className="ml-1 font-bold">
-                                        {notification.data.peopleCount}
+                                        {notification.data.personas_detectadas ||
+                                            notification.data.peopleCount ||
+                                            0}
                                     </span>
                                 </div>
-                                {notification.data.location && (
+                                {(notification.data.ubicacion || notification.data.location) && (
                                     <div className="col-span-2">
                                         <span className="font-medium">Ubicación:</span>
-                                        <span className="ml-1">{notification.data.location}</span>
+                                        <span className="ml-1 font-semibold text-red-700">
+                                            {notification.data.ubicacion || notification.data.location}
+                                        </span>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* Acciones para notificaciones importantes */}
-                        {(notification.type === 'violence' || notification.type === 'error') && (
-                            <div className="mt-3 flex space-x-2">
-                                {notification.type === 'violence' && (
-                                    <>
-                                        <button
-                                            onClick={() => onAction('view_evidence', notification)}
-                                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                        >
-                                            Ver Evidencia
-                                        </button>
-                                        <button
-                                            onClick={() => onAction('notify_authorities', notification)}
-                                            className="px-3 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                                        >
-                                            Notificar Autoridades
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => onAction('acknowledge', notification)}
-                                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                                >
-                                    Reconocer
-                                </button>
-                            </div>
-                        )}
+                        {/* *** ELIMINAR BOTONES DE ACCIÓN - Solo mostrar información *** */}
+                        {/* Los botones Ver Evidencia, Notificar Autoridades, etc. han sido eliminados */}
                     </div>
                 </div>
 
@@ -230,7 +228,7 @@ const NotificationSystem = ({
         return positions[position] || positions['top-right'];
     };
 
-    if (visibleNotifications.length === 0) {return null;}
+    if (visibleNotifications.length === 0) { return null; }
 
     return (
         <>
@@ -279,11 +277,19 @@ export const useNotifications = () => {
             message,
             title: options.title,
             details: options.details,
-            data,
+            data, // *** DATOS COMPLETOS INCLUYENDO PROBABILIDAD REAL, PERSONAS Y UBICACIÓN ***
             timestamp: new Date(),
             read: false,
             persistent: options.persistent || false
         };
+
+        console.log("🔔 Agregando notificación con datos:", {
+            type,
+            message,
+            probabilidad: data.probabilidad || data.probability,
+            personas: data.personas_detectadas || data.peopleCount,
+            ubicacion: data.ubicacion || data.location
+        });
 
         setNotifications(prev => [notification, ...prev]);
 
@@ -343,9 +349,9 @@ export const NotificationSummary = ({ notifications, onClick }) => {
         <button
             onClick={onClick}
             className={`relative p-2 rounded-lg transition-colors ${hasViolence ? 'bg-red-100 hover:bg-red-200 text-red-800' :
-                    hasErrors ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800' :
-                        unreadCount > 0 ? 'bg-blue-100 hover:bg-blue-200 text-blue-800' :
-                            'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                hasErrors ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-800' :
+                    unreadCount > 0 ? 'bg-blue-100 hover:bg-blue-200 text-blue-800' :
+                        'bg-gray-100 hover:bg-gray-200 text-gray-600'
                 }`}
         >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -355,8 +361,8 @@ export const NotificationSummary = ({ notifications, onClick }) => {
 
             {unreadCount > 0 && (
                 <span className={`absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs font-bold text-white flex items-center justify-center ${hasViolence ? 'bg-red-600' :
-                        hasErrors ? 'bg-yellow-600' :
-                            'bg-blue-600'
+                    hasErrors ? 'bg-yellow-600' :
+                        'bg-blue-600'
                     }`}>
                     {unreadCount > 9 ? '9+' : unreadCount}
                 </span>

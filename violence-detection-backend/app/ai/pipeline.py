@@ -362,14 +362,10 @@ class PipelineDeteccion:
             self.ubicacion = ubicacion
             self.frames_procesados += 1
             
-            # Timestamp preciso para este frame
             timestamp_actual = datetime.now()
-            
-            # Crear copia del frame original con dimensiones consistentes
             frame_original = frame.copy()
-            altura_original, ancho_original = frame_original.shape[:2]
             
-            # Detección de personas con YOLO (asíncrona)
+            # Detección de personas con YOLO
             detecciones = await asyncio.get_event_loop().run_in_executor(
                 None, 
                 self.detector_personas.detectar, 
@@ -379,7 +375,6 @@ class PipelineDeteccion:
             # Crear frame procesado para display
             frame_procesado = frame_original.copy()
             
-            # Dibujar bounding boxes de forma asíncrona
             if detecciones:
                 frame_procesado = await asyncio.get_event_loop().run_in_executor(
                     None,
@@ -388,15 +383,16 @@ class PipelineDeteccion:
                     detecciones
                 )
 
+            # *** RESULTADO BASE CON ESTRUCTURA CONSISTENTE ***
             resultado = {
                 'frame_procesado': frame_procesado,
                 'personas_detectadas': detecciones,
                 'violencia_detectada': False,
-                'probabilidad_violencia': 0.0,
+                'probabilidad_violencia': 0.0,  # *** INICIALIZAR EXPLÍCITAMENTE ***
+                'probabilidad': 0.0,            # *** CAMPO ALTERNATIVO ***
                 'timestamp': timestamp_actual
             }
 
-            # Variable para información de violencia
             violencia_info = None
             violencia_detectada_ahora = False
 
@@ -407,28 +403,48 @@ class PipelineDeteccion:
                 
                 # Procesar cada N frames
                 if self.frames_procesados % configuracion.TIMESFORMER_CONFIG["num_frames"] == 0:
-                    # Detección de violencia de forma asíncrona
+                    # Detección de violencia
                     deteccion = await asyncio.get_event_loop().run_in_executor(
                         None,
                         self.detector_violencia.detectar
                     )
                     
-                    resultado.update(deteccion)
-                    violencia_detectada_ahora = deteccion['violencia_detectada']
+                    print(f"🔍 DETECCIÓN RAW: {deteccion}")
+                    
+                    # *** ACTUALIZAR RESULTADO CON TODOS LOS CAMPOS ***
+                    if deteccion:
+                        probabilidad_detectada = deteccion.get('probabilidad_violencia', deteccion.get('probabilidad', 0.0))
+                        
+                        resultado.update({
+                            'violencia_detectada': deteccion.get('violencia_detectada', False),
+                            'probabilidad_violencia': float(probabilidad_detectada),  # *** ASEGURAR FLOAT ***
+                            'probabilidad': float(probabilidad_detectada),           # *** CAMPO DUPLICADO ***
+                        })
+                        
+                        print(f"🔍 RESULTADO ACTUALIZADO: probabilidad = {probabilidad_detectada}")
+                    
+                    violencia_detectada_ahora = resultado['violencia_detectada']
 
                     if violencia_detectada_ahora:
                         current_time = timestamp_actual.timestamp()
                         
+                        # *** OBTENER PROBABILIDAD REAL CON VERIFICACIONES ***
+                        probabilidad_real = resultado.get('probabilidad_violencia', resultado.get('probabilidad', 0.0))
+                        
+                        print(f"🚨 PIPELINE - Probabilidad final: {probabilidad_real} ({probabilidad_real*100:.1f}%)")
+                        
                         # Preparar información de violencia para el frame
                         violencia_info = {
                             'detectada': True,
-                            'probabilidad': deteccion.get('probabilidad', 0.0),
+                            'probabilidad': float(probabilidad_real),  # *** ASEGURAR TIPO ***
                             'timestamp': timestamp_actual
                         }
                         
-                        # CONTROL MEJORADO: Solo actuar si es una nueva detección o se reanuda
+                        # CONTROL MEJORADO: Solo actuar si es una nueva detección
                         if not self.violencia_estado_anterior:
-                            print(f"¡ALERTA! Violencia detectada")
+                            print(f"¡ALERTA! Violencia detectada - Probabilidad: {probabilidad_real:.3f} ({probabilidad_real*100:.1f}%)")
+                            print(f"Ubicación: {ubicacion}")
+                            print(f"Personas detectadas: {len(detecciones)}")
                             
                             # Marcar inicio de violencia SOLO LA PRIMERA VEZ
                             if not self.secuencia_violencia_activa:
@@ -443,23 +459,25 @@ class PipelineDeteccion:
                                 # Activar alarma SOLO una vez
                                 asyncio.create_task(self._activar_alarma())
                                 
-                                # *** NUEVO: EMITIR ALERTA DE VOZ INMEDIATAMENTE ***
-                                probabilidad = deteccion.get('probabilidad', 0.0)
+                                # *** EMITIR ALERTA DE VOZ CON DATOS REALES ***
                                 personas_count = len(detecciones) if detecciones else 0
                                 
                                 asyncio.create_task(self._emitir_alerta_voz(
                                     ubicacion=ubicacion,
-                                    probabilidad=probabilidad,
+                                    probabilidad=float(probabilidad_real),  # *** ASEGURAR TIPO ***
                                     personas_detectadas=personas_count
                                 ))
                                 
                                 # Crear incidente SOLO una vez
                                 if current_time - self.ultimo_incidente > self.cooldown_incidente:
-                                    asyncio.create_task(self._crear_incidente(detecciones, deteccion.get('probabilidad', 0.0)))
+                                    asyncio.create_task(self._crear_incidente(
+                                        detecciones, 
+                                        float(probabilidad_real)  # *** ASEGURAR TIPO ***
+                                    ))
                                     self.ultimo_incidente = current_time
                         
-                        # Agregar alerta al frame CON PROBABILIDAD CORRECTA
-                        probabilidad_texto = f"Probabilidad: {deteccion.get('probabilidad', 0.0):.1%}"
+                        # *** AGREGAR ALERTA AL FRAME CON PROBABILIDAD CORRECTA ***
+                        probabilidad_texto = f"Probabilidad: {probabilidad_real:.1%}"
                         frame_procesado = await asyncio.get_event_loop().run_in_executor(
                             None,
                             self.procesador_video.agregar_texto_alerta,
@@ -471,7 +489,7 @@ class PipelineDeteccion:
                         
                         resultado['frame_procesado'] = frame_procesado
                         
-                        # MEJORADO: SIEMPRE agregar frames de violencia al buffer especializado
+                        # AGREGAR frames de violencia al buffer especializado
                         self.violence_buffer.add_violence_frame(
                             frame_original, 
                             timestamp_actual, 
@@ -493,9 +511,7 @@ class PipelineDeteccion:
                             if self.secuencia_violencia_activa and self.tiempo_fin_violencia:
                                 tiempo_transcurrido = (timestamp_actual - self.tiempo_fin_violencia).total_seconds()
                                 
-                                # Esperar un poco más antes de finalizar la secuencia
                                 if tiempo_transcurrido >= (self.duracion_evidencia_post + 2):
-                                    # FINALIZAR SECUENCIA SOLO UNA VEZ
                                     self.violence_buffer.end_violence_sequence(timestamp_actual)
                                     await self._finalizar_grabacion_evidencia()
                                     
@@ -503,7 +519,7 @@ class PipelineDeteccion:
                                     self.secuencia_violencia_activa = False
                                     self.violencia_estado_anterior = False
 
-            # Agregar frame al buffer NORMAL (SIEMPRE)
+            # Agregar frame al buffer NORMAL
             current_time = time.time()
             if current_time - self.last_evidence_feed >= self.frame_feed_interval:
                 self.buffer_evidencia.add_frame(
@@ -513,7 +529,6 @@ class PipelineDeteccion:
                     violencia_info
                 )
                 
-                # EVIDENCIA: Priorizar frames de violencia
                 evidence_recorder.add_frame(
                     frame_original, 
                     detecciones, 
@@ -521,17 +536,24 @@ class PipelineDeteccion:
                 )
                 self.last_evidence_feed = current_time
             
+            # *** VERIFICACIÓN FINAL DEL RESULTADO ***
+            print(f"🔍 RESULTADO FINAL: {resultado.get('probabilidad_violencia', 'NO_FOUND')}")
+            
             return resultado
 
         except Exception as e:
-            print(f"Error en pipeline: {e}")
+            print(f"❌ Error en pipeline: {e}")
+            import traceback
+            print(traceback.format_exc())
             return {
                 'frame_procesado': frame,
                 'personas_detectadas': [],
                 'violencia_detectada': False,
                 'probabilidad_violencia': 0.0,
+                'probabilidad': 0.0,
                 'timestamp': datetime.now()
             }
+
 
     async def _emitir_alerta_voz(self, ubicacion: str, probabilidad: float, personas_detectadas: int):
         """Emite alerta de voz"""
@@ -905,22 +927,30 @@ class PipelineDeteccion:
         except Exception as e:
             print(f"Error activando alarma: {e}")
 
-    # 1. MEJORA EN LA FUNCIÓN _crear_incidente para guardar el ID del incidente
+    # *** CORRECCIÓN EN _crear_incidente PARA USAR DATOS REALES ***
     async def _crear_incidente(self, personas_involucradas: List[Dict[str, Any]], probabilidad: float):
-        """Crea un nuevo incidente en la base de datos - MEJORADO"""
+        """Crea un nuevo incidente en la base de datos - CORREGIDO CON DATOS REALES"""
         try:
+            # *** USAR UBICACIÓN REAL ***
+            ubicacion_real = self.ubicacion or "Ubicación no especificada"
+            
             datos_incidente = {
                 'camara_id': self.camara_id,
                 'tipo_incidente': TipoIncidente.PELEA,
                 'severidad': self._calcular_severidad(probabilidad),
-                'probabilidad_violencia': probabilidad,
+                'probabilidad_violencia': probabilidad,  # *** PROBABILIDAD REAL ***
                 'fecha_hora_inicio': datetime.now(),
-                'ubicacion': self.ubicacion,
-                'numero_personas_involucradas': len(personas_involucradas),
+                'ubicacion': ubicacion_real,  # *** UBICACIÓN REAL ***
+                'numero_personas_involucradas': len(personas_involucradas),  # *** NÚMERO REAL ***
                 'ids_personas_detectadas': [str(p.get('id', '')) for p in personas_involucradas],
                 'estado': EstadoIncidente.NUEVO,
-                'descripcion': f'Violencia detectada con probabilidad {probabilidad*100:.2f}%'
+                'descripcion': f'Violencia detectada con probabilidad {probabilidad*100:.2f}% en {ubicacion_real}'  # *** DESCRIPCIÓN REAL ***
             }
+            
+            print(f"📊 Creando incidente con datos reales:")
+            print(f"   - Probabilidad: {probabilidad*100:.2f}%")
+            print(f"   - Personas: {len(personas_involucradas)}")
+            print(f"   - Ubicación: {ubicacion_real}")
             
             incidente = await self.servicio_incidentes.crear_incidente(datos_incidente)
             
@@ -929,16 +959,17 @@ class PipelineDeteccion:
             print(f"📊 Nuevo incidente registrado ID: {incidente.id}")
             print(f"🔗 ID del incidente guardado para video: {self.incidente_actual_id}")
             
-            # Notificar sobre nuevo incidente
+            # *** NOTIFICAR CON DATOS REALES ***
             from app.api.websocket.notifications_ws import manejador_notificaciones_ws
             await manejador_notificaciones_ws.notificar_incidente(
                 incidente.id,
                 incidente.tipo_incidente,
-                incidente.ubicacion or "Sin ubicación",
+                ubicacion_real,  # *** UBICACIÓN REAL ***
                 incidente.severidad,
                 {
                     "timestamp": incidente.fecha_hora_inicio.isoformat(),
-                    "personas_involucradas": incidente.numero_personas_involucradas
+                    "personas_involucradas": len(personas_involucradas),  # *** NÚMERO REAL ***
+                    "probabilidad": probabilidad  # *** PROBABILIDAD REAL ***
                 }
             )
             
@@ -947,7 +978,6 @@ class PipelineDeteccion:
             evidence_recorder.set_current_incident_id(incidente.id)
             
             print(f"🔗 ID del incidente {incidente.id} enviado al evidence_recorder")
-            
             
             return incidente
             

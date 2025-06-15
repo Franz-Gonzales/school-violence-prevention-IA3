@@ -197,22 +197,51 @@ const CameraDetail = () => {
 
     // Manejo de detección mejorado CORREGIDO
     const handleDetection = useCallback((data) => {
-        console.log('🔍 Datos de detección recibidos:', data);
+        console.log('🔍 Datos de detección recibidos RAW:', data);
+
+        // *** VERIFICAR TODOS LOS CAMPOS POSIBLES DE PROBABILIDAD ***
+        let probabilidadReal = 0;
+
+        // Intentar obtener probabilidad de múltiples campos
+        if (data.probabilidad !== undefined && data.probabilidad !== null) {
+            probabilidadReal = data.probabilidad;
+        } else if (data.probability !== undefined && data.probability !== null) {
+            probabilidadReal = data.probability;
+        } else if (data.probabilidad_violencia !== undefined && data.probabilidad_violencia !== null) {
+            probabilidadReal = data.probabilidad_violencia;
+        }
+
+        // *** VERIFICAR Y EXTRAER OTROS DATOS ***
+        const personasDetectadas = data.personas_detectadas || data.peopleCount || 0;
+        const ubicacionReal = data.ubicacion || data.location || cameraDetail?.ubicacion || 'Ubicación no disponible';
+
+        console.log('📊 Datos procesados para notificación:', {
+            probabilidad_raw: data.probabilidad,
+            probability_raw: data.probability,
+            probabilidad_violencia_raw: data.probabilidad_violencia,
+            probabilidad_final: probabilidadReal,
+            personas: personasDetectadas,
+            ubicacion: ubicacionReal
+        });
 
         setDetectionData(prev => ({
             ...prev,
             lastDetection: new Date(),
-            peopleCount: data.personas_detectadas || 0,
-            confidence: data.probabilidad || 0
+            peopleCount: personasDetectadas,
+            confidence: probabilidadReal
         }));
 
         if (data.violencia_detectada) {
             const alertData = {
-                probability: data.probabilidad || 0, // CORREGIR: Usar probabilidad real
-                peopleCount: data.personas_detectadas || 0,
+                probabilidad: probabilidadReal,           // *** CAMPO PRINCIPAL ***
+                probability: probabilidadReal,            // *** COMPATIBILIDAD ***
+                probabilidad_violencia: probabilidadReal, // *** CAMPO ADICIONAL ***
+                personas_detectadas: personasDetectadas,
+                peopleCount: personasDetectadas,
+                ubicacion: ubicacionReal,
+                location: ubicacionReal,
                 timestamp: new Date(),
-                cameraId: cameraId,
-                location: cameraDetail?.ubicacion
+                cameraId: cameraId
             };
 
             setDetectionData(prev => ({
@@ -220,13 +249,22 @@ const CameraDetail = () => {
                 violenceAlert: alertData
             }));
 
-            // Notificación crítica CON PROBABILIDAD CORRECTA
-            const probabilidadPorcentaje = ((data.probabilidad || 0) * 100).toFixed(1);
+            // *** NOTIFICACIÓN CON DATOS REALES ***
+            const probabilidadPorcentaje = (probabilidadReal * 100).toFixed(1);
+
+            console.log('🚨 Creando notificación con:', {
+                mensaje: `VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
+                alertData: alertData,
+                probabilidad_verificada: probabilidadReal
+            });
+
             addNotification(
                 'violence',
                 `🚨 VIOLENCIA DETECTADA - Probabilidad: ${probabilidadPorcentaje}%`,
-                alertData
+                alertData  // *** PASAR TODOS LOS DATOS REALES ***
             );
+
+            console.log('✅ Notificación creada exitosamente');
 
             // Efecto visual de alerta
             if (videoRef.current) {
@@ -496,12 +534,11 @@ const CameraDetail = () => {
 
                     {/* Información de la cámara MEJORADA */}
                     <div className="absolute top-4 right-4">
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                            systemState.camera === "active" ? "bg-green-500 text-white" :
+                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${systemState.camera === "active" ? "bg-green-500 text-white" :
                             systemState.camera === "inactive" ? "bg-red-500 text-white" :
-                            systemState.camera === "connecting" ? "bg-yellow-500 text-white" :
-                            "bg-gray-500 text-white"
-                        }`}>
+                                systemState.camera === "connecting" ? "bg-yellow-500 text-white" :
+                                    "bg-gray-500 text-white"
+                            }`}>
                             {getStatusText('camera', systemState.camera)}
                         </span>
                     </div>
@@ -524,13 +561,12 @@ const CameraDetail = () => {
                     <div className="flex flex-wrap justify-center gap-4">
                         <button
                             onClick={handleToggleStream}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${
-                                systemState.stream === 'disconnected'
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : systemState.stream === 'connecting'
-                                        ? "bg-yellow-500 cursor-not-allowed"
-                                        : "bg-red-500 hover:bg-red-600"
-                            }`}
+                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${systemState.stream === 'disconnected'
+                                ? "bg-green-500 hover:bg-green-600"
+                                : systemState.stream === 'connecting'
+                                    ? "bg-yellow-500 cursor-not-allowed"
+                                    : "bg-red-500 hover:bg-red-600"
+                                }`}
                             disabled={systemState.stream === 'connecting' || detectionData.isActive}
                         >
                             {systemState.stream === 'connecting' ? "Conectando..." :
@@ -539,13 +575,12 @@ const CameraDetail = () => {
 
                         <button
                             onClick={handleToggleDetection}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${
-                                detectionData.isActive
-                                    ? "bg-red-500 hover:bg-red-600"
-                                    : systemState.detection === 'starting'
-                                        ? "bg-yellow-500 cursor-not-allowed"
-                                        : "bg-blue-500 hover:bg-blue-600"
-                            }`}
+                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${detectionData.isActive
+                                ? "bg-red-500 hover:bg-red-600"
+                                : systemState.detection === 'starting'
+                                    ? "bg-yellow-500 cursor-not-allowed"
+                                    : "bg-blue-500 hover:bg-blue-600"
+                                }`}
                             disabled={systemState.stream === 'disconnected' || systemState.detection.includes('ing')}
                         >
                             {systemState.detection === 'starting' ? "Iniciando..." :
@@ -581,21 +616,19 @@ const CameraDetail = () => {
                             {notifications.map((notification) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-3 rounded-lg border-l-4 ${
-                                        notification.type === 'violence' ? 'bg-red-50 border-red-500' :
+                                    className={`p-3 rounded-lg border-l-4 ${notification.type === 'violence' ? 'bg-red-50 border-red-500' :
                                         notification.type === 'error' ? 'bg-red-50 border-red-400' :
-                                        notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                                        'bg-blue-50 border-blue-400'
-                                    }`}
+                                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                                                'bg-blue-50 border-blue-400'
+                                        }`}
                                 >
                                     <div className="flex justify-between items-start">
                                         <div className="flex-1">
-                                            <p className={`font-medium ${
-                                                notification.type === 'violence' ? 'text-red-800' :
+                                            <p className={`font-medium ${notification.type === 'violence' ? 'text-red-800' :
                                                 notification.type === 'error' ? 'text-red-700' :
-                                                notification.type === 'warning' ? 'text-yellow-700' :
-                                                'text-blue-700'
-                                            }`}>
+                                                    notification.type === 'warning' ? 'text-yellow-700' :
+                                                        'text-blue-700'
+                                                }`}>
                                                 {notification.message}
                                             </p>
                                             <p className="text-sm text-gray-500 mt-1">
@@ -625,36 +658,45 @@ const CameraDetail = () => {
                             <div>
                                 <p className="font-medium">Probabilidad:</p>
                                 <p className="text-2xl font-bold">
-                                    {((detectionData.violenceAlert.probability || 0) * 100).toFixed(1)}%
+                                    {(() => {
+                                        // *** VERIFICAR MÚLTIPLES CAMPOS ***
+                                        let prob = 0;
+                                        const alert = detectionData.violenceAlert;
+
+                                        if (alert.probabilidad !== undefined && alert.probabilidad !== null) {
+                                            prob = alert.probabilidad;
+                                        } else if (alert.probability !== undefined && alert.probability !== null) {
+                                            prob = alert.probability;
+                                        } else if (alert.probabilidad_violencia !== undefined && alert.probabilidad_violencia !== null) {
+                                            prob = alert.probabilidad_violencia;
+                                        }
+
+                                        console.log('🔍 Alerta crítica - probabilidad:', {
+                                            alert_data: alert,
+                                            probabilidad_final: prob
+                                        });
+
+                                        return `${(prob * 100).toFixed(1)}%`;
+                                    })()}
                                 </p>
                             </div>
                             <div>
                                 <p className="font-medium">Personas detectadas:</p>
                                 <p className="text-2xl font-bold">
-                                    {detectionData.violenceAlert.peopleCount || 0}
+                                    {detectionData.violenceAlert.personas_detectadas ||
+                                        detectionData.violenceAlert.peopleCount || 0}
                                 </p>
                             </div>
                             <div>
                                 <p className="font-medium">Ubicación:</p>
-                                <p className="font-bold">{detectionData.violenceAlert.location}</p>
+                                <p className="font-bold">
+                                    {detectionData.violenceAlert.ubicacion ||
+                                        detectionData.violenceAlert.location || 'No disponible'}
+                                </p>
                                 <p className="text-sm text-red-600">
                                     {detectionData.violenceAlert.timestamp.toLocaleString()}
                                 </p>
                             </div>
-                        </div>
-                        <div className="mt-4 flex space-x-4">
-                            <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
-                                Ver Evidencia
-                            </button>
-                            <button className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors">
-                                Notificar Autoridades
-                            </button>
-                            <button
-                                onClick={() => setDetectionData(prev => ({ ...prev, violenceAlert: null }))}
-                                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                            >
-                                Descartar Alerta
-                            </button>
                         </div>
                     </div>
                 )}

@@ -18,6 +18,7 @@ import socket
 from asyncio import Queue
 import time
 import threading
+from datetime import datetime
 
 logger = obtener_logger(__name__)
 
@@ -153,9 +154,29 @@ class VideoTrackProcesado(VideoStreamTrack):
             
             self.frame_count += 1
             last_capture_time = current_time
+    
+    # *** NUEVO MÉTODO PARA OBTENER UBICACIÓN DE LA CÁMARA ***
+    async def _obtener_ubicacion_camara(self, camara_id: int) -> str:
+        """Obtiene la ubicación de la cámara desde la base de datos"""
+        try:
+            from app.core.database import SesionAsincrona
+            from app.models.camera import Camara
+            from sqlalchemy import select
+            
+            async with SesionAsincrona() as session:
+                resultado = await session.execute(
+                    select(Camara.ubicacion).where(Camara.id == camara_id)
+                )
+                ubicacion = resultado.scalar()
+                
+                return ubicacion or f"Cámara {camara_id}"
+                
+        except Exception as e:
+            print(f"Error obteniendo ubicación de cámara {camara_id}: {e}")
+            return f"Cámara {camara_id}"
 
     async def process_frames(self):
-        """Procesa frames con PRIORIDAD para violencia"""
+        """Procesa frames con PRIORIDAD para violencia - CORREGIDO CON DATOS REALES"""
         try:
             print(f"Iniciando procesamiento de frames para cliente {self.cliente_id}")
             last_process_time = time.time()
@@ -177,13 +198,11 @@ class VideoTrackProcesado(VideoStreamTrack):
                     should_process = False
                     
                     if self.violence_mode:
-                        # Durante violencia: procesar MÁS frames
                         should_process = (frame_id % 2 == 0)  # Cada 2 frames
                     else:
-                        # Modo normal: usar configuración estándar
                         should_process = (frame_id % configuracion.PROCESS_EVERY_N_FRAMES == 0)
                     
-                    if should_process and (current_time - last_process_time >= 0.08):  # Máximo 12.5 FPS
+                    if should_process and (current_time - last_process_time >= 0.08):
                         try:
                             # Redimensionar para procesamiento
                             frame_proc = await asyncio.get_event_loop().run_in_executor(
@@ -196,64 +215,116 @@ class VideoTrackProcesado(VideoStreamTrack):
                             
                             print(f"Procesando frame {frame_id} para cliente {self.cliente_id}")
                             
+                            # *** OBTENER UBICACIÓN DE LA CÁMARA ANTES DEL PROCESAMIENTO ***
+                            ubicacion_camara = await self._obtener_ubicacion_camara(self.camara_id)
+                            
                             # Procesar frame
                             resultado = await self.pipeline.procesar_frame(
                                 frame_proc,
                                 camara_id=self.camara_id,
-                                ubicacion="Principal"
+                                ubicacion=ubicacion_camara
                             )
                             
                             if resultado and resultado.get("violencia_detectada"):
-                                print(f"Violencia detectada para cliente {self.cliente_id}")
+                                print(f"✅ Violencia detectada para cliente {self.cliente_id}")
                                 
                                 # ACTIVAR MODO VIOLENCIA
                                 self.violence_mode = True
                                 self.last_violence_detection = current_time
                                 frames_sin_violencia = 0
                                 
-                                # Enviar notificación
-                                probabilidad_real = resultado.get("probabilidad_violencia", 0.0)
+                                # *** VERIFICAR TODOS LOS CAMPOS DE PROBABILIDAD ***
+                                probabilidad_real = (
+                                    resultado.get("probabilidad_violencia") or
+                                    resultado.get("probabilidad") or 
+                                    0.0
+                                )
+                                
+                                personas_detectadas = len(resultado.get("personas_detectadas", []))
+                                
+                                # *** DEBUG: VERIFICAR QUE LA PROBABILIDAD ES CORRECTA ***
+                                print(f"🔍 DEBUG - Resultado completo: {resultado}")
+                                print(f"🚨 DATOS FINALES PARA ENVIAR:")
+                                print(f"   - Probabilidad: {probabilidad_real} ({probabilidad_real*100:.1f}%)")
+                                print(f"   - Personas: {personas_detectadas}")
+                                print(f"   - Ubicación: {ubicacion_camara}")
+                                
+                                # *** ENVIAR NOTIFICACIÓN CON VERIFICACIÓN EXTRA ***
+                                mensaje_notificacion = {
+                                    "tipo": "deteccion_violencia",
+                                    "probabilidad": float(probabilidad_real),  # *** ASEGURAR QUE ES FLOAT ***
+                                    "probability": float(probabilidad_real),   # *** CAMPO ALTERNATIVO ***
+                                    "probabilidad_violencia": float(probabilidad_real),  # *** CAMPO ADICIONAL ***
+                                    "mensaje": f"¡ALERTA! Violencia detectada - {probabilidad_real:.1%}",
+                                    "personas_detectadas": int(personas_detectadas),
+                                    "peopleCount": int(personas_detectadas),  # *** CAMPO ALTERNATIVO ***
+                                    "ubicacion": str(ubicacion_camara),
+                                    "location": str(ubicacion_camara),  # *** CAMPO ALTERNATIVO ***
+                                    "timestamp": datetime.now().isoformat(),
+                                    "camara_id": self.camara_id,
+                                    "violencia_detectada": True
+                                }
+                                
+                                print(f"📤 ENVIANDO MENSAJE: {mensaje_notificacion}")
+                                
                                 await self.manejador_webrtc.enviar_a_cliente(
                                     self.cliente_id,
-                                    {
-                                        "tipo": "deteccion_violencia",
-                                        "probabilidad": probabilidad_real,
-                                        "mensaje": f"¡ALERTA! Violencia detectada - {probabilidad_real:.1%}",
-                                        "personas_detectadas": len(resultado.get("personas_detectadas", []))
-                                    }
+                                    mensaje_notificacion
                                 )
                             else:
                                 # NO hay violencia
                                 frames_sin_violencia += 1
                                 
                                 # DESACTIVAR MODO VIOLENCIA después de tiempo sin detecciones
-                                if self.violence_mode and frames_sin_violencia > 30:  # ~2.5 segundos sin violencia
+                                if self.violence_mode and frames_sin_violencia > 30:
                                     self.violence_mode = False
                                     print(f"🔄 Modo violencia desactivado para cliente {self.cliente_id}")
                             
                             last_process_time = current_time
                             
                         except Exception as e:
-                            print(f"Error procesando frame {frame_id}: {e}")
+                            print(f"❌ Error procesando frame {frame_id}: {e}")
+                            import traceback
+                            print(traceback.format_exc())
                     
                     # Pausa adaptativa
                     if self.violence_mode:
-                        await asyncio.sleep(0.001)  # Menos pausa durante violencia
+                        await asyncio.sleep(0.001)
                     else:
-                        await asyncio.sleep(0.005)  # Pausa normal
+                        await asyncio.sleep(0.005)
                     
                 except asyncio.TimeoutError:
                     continue
                 except Exception as e:
-                    print(f"Error en process_frames: {e}")
+                    print(f"❌ Error en process_frames: {e}")
                     break
                     
         except Exception as e:
-            print(f"Error en process_frames: {e}")
+            print(f"❌ Error en process_frames: {e}")
             import traceback
             print(traceback.format_exc())
         finally:
             print(f"Tarea de procesamiento finalizada para cliente {self.cliente_id}")
+
+    # *** NUEVO MÉTODO PARA OBTENER UBICACIÓN DE LA CÁMARA ***
+    async def _obtener_ubicacion_camara(self, camara_id: int) -> str:
+        """Obtiene la ubicación de la cámara desde la base de datos"""
+        try:
+            from app.core.database import SesionAsincrona
+            from app.models.camera import Camara
+            from sqlalchemy import select
+            
+            async with SesionAsincrona() as session:
+                resultado = await session.execute(
+                    select(Camara.ubicacion).where(Camara.id == camara_id)
+                )
+                ubicacion = resultado.scalar()
+                
+                return ubicacion or f"Cámara {camara_id}"
+                
+        except Exception as e:
+            print(f"Error obteniendo ubicación de cámara {camara_id}: {e}")
+            return f"Cámara {camara_id}"
     
     def start_processing(self):
         """Inicia la tarea de procesamiento en segundo plano"""
