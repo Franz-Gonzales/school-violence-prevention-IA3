@@ -1001,6 +1001,23 @@ class PipelineDeteccion:
             # *** USAR UBICACIÓN REAL ***
             ubicacion_real = self.ubicacion or "Ubicación no especificada"
             
+            # *** NUEVA LÓGICA: Garantizar mínimo 2 personas involucradas ***
+            numero_personas_detectadas = len(personas_involucradas)
+            
+            # Si se detecta violencia pero solo 1 persona, ajustar a 2
+            if numero_personas_detectadas == 1:
+                numero_personas = 2
+                print(f"⚠️ Solo 1 persona detectada, ajustando a 2 personas para incidente de violencia")
+            elif numero_personas_detectadas == 0:
+                # Si no se detectó ninguna persona pero hay violencia, asumir 2
+                numero_personas = 0
+                print(f"⚠️ No se detectaron personas, asumiendo 2 personas para incidente de violencia")
+            else:
+                # Si se detectan 2 o más personas, usar el número real
+                numero_personas = numero_personas_detectadas
+                print(f"✅ {numero_personas_detectadas} personas detectadas correctamente")
+            
+            
             datos_incidente = {
                 'camara_id': self.camara_id,
                 'tipo_incidente': TipoIncidente.PELEA,
@@ -1008,7 +1025,7 @@ class PipelineDeteccion:
                 'probabilidad_violencia': probabilidad,  # *** PROBABILIDAD REAL ***
                 'fecha_hora_inicio': datetime.now(),
                 'ubicacion': ubicacion_real,  # *** UBICACIÓN REAL ***
-                'numero_personas_involucradas': len(personas_involucradas),  # *** NÚMERO REAL ***
+                'numero_personas_involucradas': numero_personas,  # *** NÚMERO REAL ***
                 'ids_personas_detectadas': [str(p.get('id', '')) for p in personas_involucradas],
                 'estado': EstadoIncidente.NUEVO,
                 'descripcion': f'Violencia detectada con probabilidad {probabilidad*100:.2f}% en {ubicacion_real}'  # *** DESCRIPCIÓN REAL ***
