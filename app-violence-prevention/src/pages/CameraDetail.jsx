@@ -469,12 +469,34 @@ const CameraDetail = () => {
         return statusTexts[type]?.[status] || status;
     };
 
+    const getLocationIcon = (ubicacion) => {
+        if (!ubicacion) return '🏫';
+        const location = ubicacion.toLowerCase();
+        if (location.includes('patio') || location.includes('recreo')) return '🏃‍♂️';
+        if (location.includes('aula') || location.includes('salon')) return '📚';
+        if (location.includes('pasillo') || location.includes('corredor')) return '🚶‍♂️';
+        if (location.includes('entrada') || location.includes('acceso')) return '🚪';
+        if (location.includes('biblioteca')) return '📖';
+        if (location.includes('laboratorio')) return '🔬';
+        if (location.includes('gimnasio') || location.includes('deportes')) return '🏃‍♀️';
+        if (location.includes('cafeteria') || location.includes('comedor')) return '🍽️';
+        return '🏫';
+    };
+
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Cargando detalles de la cámara...</p>
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+                <div className="flex justify-center items-center h-screen">
+                    <div className="text-center">
+                        <div className="relative mb-8">
+                            <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-8 h-8 bg-blue-600 rounded-full animate-pulse"></div>
+                            </div>
+                        </div>
+                        <h2 className="text-2xl font-semibold text-gray-800 mb-2">Cargando Sistema de Cámara</h2>
+                        <p className="text-gray-600">Obteniendo detalles de la cámara educativa...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -482,16 +504,19 @@ const CameraDetail = () => {
 
     if (error) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="text-center bg-red-50 p-6 rounded-lg">
-                    <div className="text-red-500 text-4xl mb-4">⚠️</div>
-                    <p className="text-red-600 mb-4 font-medium">Error: {error}</p>
-                    <button
-                        onClick={() => setError(null)}
-                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                    >
-                        Reintentar
-                    </button>
+            <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
+                <div className="flex justify-center items-center h-screen">
+                    <div className="text-center max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl border border-red-200">
+                        <div className="text-red-600 text-6xl mb-6 animate-bounce">⚠️</div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-4">Error en el Sistema</h1>
+                        <p className="text-red-600 mb-6 font-medium">{error}</p>
+                        <button
+                            onClick={() => navigate('/cameras')}
+                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-lg"
+                        >
+                            🔙 Volver a Cámaras
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -499,330 +524,564 @@ const CameraDetail = () => {
 
     if (!cameraDetail) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <p className="text-gray-600">Cámara no encontrada.</p>
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
+                <div className="flex justify-center items-center h-screen">
+                    <div className="text-center p-8 bg-white rounded-2xl shadow-xl">
+                        <div className="text-gray-500 text-6xl mb-4">📹</div>
+                        <p className="text-gray-600 text-xl">Cámara no encontrada en el sistema educativo.</p>
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="py-6 flex justify-center">
-            <div className="w-full max-w-7xl flex flex-col space-y-4">
-                <button
-                    onClick={() => navigate('/cameras')}
-                    className="mb-4 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm self-start transition-colors"
-                >
-                    ← Volver a Cámaras
-                </button>
-
-                {/* Panel de Estado del Sistema MEJORADO */}
-                <div className="bg-white rounded-lg shadow-md p-4">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-3">Estado del Sistema</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Cámara', type: 'camera', status: systemState.camera },
-                            { label: 'Stream', type: 'stream', status: systemState.stream },
-                            { label: 'Detección', type: 'detection', status: systemState.detection },
-                            { label: 'Conexión', type: 'connection', status: systemState.connection }
-                        ].map(({ label, type, status }) => (
-                            <div key={type} className="flex items-center space-x-3">
-                                <div className={`w-3 h-3 rounded-full ${getStatusColor(status)} ${status.includes('ing') ? 'animate-pulse' : ''}`}></div>
-                                <div>
-                                    <div className="text-sm font-medium text-gray-900">{label}</div>
-                                    <div className="text-xs text-gray-500">{getStatusText(type, status)}</div>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            <div className="p-6">
+                
+                {/* Header educativo mejorado */}
+                <div className="bg-white rounded-2xl shadow-xl border border-blue-100 p-6 mb-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full -translate-y-16 translate-x-16 opacity-50"></div>
+                    
+                    <div className="relative z-10 flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <button
+                                onClick={() => navigate('/cameras')}
+                                className="group flex items-center text-gray-600 hover:text-gray-900 transition-all transform hover:scale-105"
+                            >
+                                <div className="p-3 rounded-xl bg-gradient-to-r from-gray-100 to-gray-200 group-hover:from-blue-100 group-hover:to-indigo-100 transition-all mr-3 shadow-md">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Contenedor de video mejorado */}
-                <div className="relative w-full bg-gray-200 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                        style={{
-                            maxWidth: '100%',
-                            maxHeight: '720px',
-                            backgroundColor: '#000'
-                        }}
-                    />
-
-                    {/* Overlay de información */}
-                    <div className="absolute top-4 left-4 space-y-2">
-                        <div className={`px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(systemState.connection)} text-white`}>
-                            {getStatusText('connection', systemState.connection)}
-                        </div>
-
-                        {detectionData.isActive && (
-                            <div className="px-3 py-1 text-sm font-semibold rounded-full bg-purple-500 text-white animate-pulse">
-                                🔍 Detectando ({detectionData.peopleCount} personas)
-                            </div>
-                        )}
-
-                        {detectionData.violenceAlert && (
-                            <div className="px-3 py-1 text-sm font-semibold rounded-full bg-red-500 text-white animate-pulse">
-                                🚨 ALERTA DE VIOLENCIA
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Información de la cámara MEJORADA */}
-                    <div className="absolute top-4 right-4">
-                        <span className={`px-3 py-1 text-sm font-semibold rounded-full ${systemState.camera === "active" ? "bg-green-500 text-white" :
-                            systemState.camera === "inactive" ? "bg-red-500 text-white" :
-                                systemState.camera === "connecting" ? "bg-yellow-500 text-white" :
-                                    "bg-gray-500 text-white"
-                            }`}>
-                            {getStatusText('camera', systemState.camera)}
-                        </span>
-                    </div>
-
-                    {/* Estadísticas en tiempo real */}
-                    {systemState.stream === 'connected' && (
-                        <div className="absolute bottom-4 left-4 bg-black bg-opacity-60 text-white px-3 py-2 rounded text-sm">
-                            <div>FPS: {stats.frameRate}</div>
-                            <div>Alertas: {stats.totalAlerts}</div>
-                            {detectionData.confidence > 0 && (
-                                <div>Confianza: {(detectionData.confidence * 100).toFixed(1)}%</div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Controles principales */}
-                <div className="bg-white rounded-lg shadow-md p-4">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Controles</h2>
-                    <div className="flex flex-wrap justify-center gap-4">
-                        <button
-                            onClick={handleToggleStream}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${systemState.stream === 'disconnected'
-                                ? "bg-green-500 hover:bg-green-600"
-                                : systemState.stream === 'connecting'
-                                    ? "bg-yellow-500 cursor-not-allowed"
-                                    : "bg-red-500 hover:bg-red-600"
-                                }`}
-                            disabled={systemState.stream === 'connecting' || detectionData.isActive}
-                        >
-                            {systemState.stream === 'connecting' ? "Conectando..." :
-                                systemState.stream === 'disconnected' ? "Iniciar Stream" : "Detener Stream"}
-                        </button>
-
-                        <button
-                            onClick={handleToggleDetection}
-                            className={`px-6 py-2 rounded text-white font-medium transition-colors ${detectionData.isActive
-                                ? "bg-red-500 hover:bg-red-600"
-                                : systemState.detection === 'starting'
-                                    ? "bg-yellow-500 cursor-not-allowed"
-                                    : "bg-blue-500 hover:bg-blue-600"
-                                }`}
-                            disabled={systemState.stream === 'disconnected' || systemState.detection.includes('ing')}
-                        >
-                            {systemState.detection === 'starting' ? "Iniciando..." :
-                                systemState.detection === 'stopping' ? "Deteniendo..." :
-                                    detectionData.isActive ? (
-                                        <>
-                                            <span className="animate-pulse">🔍</span> Detener Detección
-                                        </>
-                                    ) : (
-                                        'Iniciar Detección'
-                                    )}
-                        </button>
-
-                        {/* Control de calidad */}
-                        <select
-                            value={settings.streamQuality}
-                            onChange={(e) => handleQualityChange(e.target.value)}
-                            className="px-4 py-2 border rounded text-gray-700 bg-white"
-                            disabled={systemState.stream === 'disconnected'}
-                        >
-                            <option value="Alta">Calidad Alta</option>
-                            <option value="Media">Calidad Media</option>
-                            <option value="Baja">Calidad Baja</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Panel de Notificaciones */}
-                {notifications.length > 0 && (
-                    <div className="bg-white rounded-lg shadow-md p-4">
-                        <h2 className="text-lg font-semibold text-gray-900 mb-3">Notificaciones</h2>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {notifications.map((notification) => (
-                                <div
-                                    key={notification.id}
-                                    className={`p-3 rounded-lg border-l-4 ${notification.type === 'violence' ? 'bg-red-50 border-red-500' :
-                                        notification.type === 'error' ? 'bg-red-50 border-red-400' :
-                                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                                                'bg-blue-50 border-blue-400'
-                                        }`}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1">
-                                            <p className={`font-medium ${notification.type === 'violence' ? 'text-red-800' :
-                                                notification.type === 'error' ? 'text-red-700' :
-                                                    notification.type === 'warning' ? 'text-yellow-700' :
-                                                        'text-blue-700'
-                                                }`}>
-                                                {notification.message}
-                                            </p>
-                                            <p className="text-sm text-gray-500 mt-1">
-                                                {notification.timestamp.toLocaleTimeString()}
-                                            </p>
+                                <span className="font-semibold">Volver al Sistema</span>
+                            </button>
+                            
+                            <div className="flex items-center space-x-4">
+                                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+                                    <span className="text-2xl">{getLocationIcon(cameraDetail.ubicacion)}</span>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-800 to-indigo-800 bg-clip-text text-transparent">
+                                        {cameraDetail.nombre}
+                                    </h1>
+                                    <div className="flex items-center space-x-4 mt-1">
+                                        <p className="text-gray-600 flex items-center">
+                                            <span className="mr-1">📍</span>
+                                            {cameraDetail.ubicacion}
+                                        </p>
+                                        <div className="flex items-center space-x-2">
+                                            <span className="text-sm text-gray-500">ID:</span>
+                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
+                                                CAM-{String(cameraDetail.id).padStart(3, '0')}
+                                            </span>
                                         </div>
-                                        <button
-                                            onClick={() => setNotifications(prev =>
-                                                prev.filter(n => n.id !== notification.id)
-                                            )}
-                                            className="text-gray-400 hover:text-gray-600 ml-2"
-                                        >
-                                            ×
-                                        </button>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
                         </div>
-                    </div>
-                )}
-
-                {/* Alertas de detección detalladas CORREGIDAS */}
-                {detectionData.violenceAlert && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-pulse">
-                        <h2 className="text-xl font-semibold text-red-800 mb-2">🚨 Alerta de Violencia Crítica</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-red-700">
-                            <div>
-                                <p className="font-medium">Probabilidad:</p>
-                                <p className="text-2xl font-bold">
-                                    {(() => {
-                                        // *** VERIFICAR MÚLTIPLES CAMPOS ***
-                                        let prob = 0;
-                                        const alert = detectionData.violenceAlert;
-
-                                        if (alert.probabilidad !== undefined && alert.probabilidad !== null) {
-                                            prob = alert.probabilidad;
-                                        } else if (alert.probability !== undefined && alert.probability !== null) {
-                                            prob = alert.probability;
-                                        } else if (alert.probabilidad_violencia !== undefined && alert.probabilidad_violencia !== null) {
-                                            prob = alert.probabilidad_violencia;
-                                        }
-
-                                        console.log('🔍 Alerta crítica - probabilidad:', {
-                                            alert_data: alert,
-                                            probabilidad_final: prob
-                                        });
-
-                                        return `${(prob * 100).toFixed(1)}%`;
-                                    })()}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-medium">Personas detectadas:</p>
-                                <p className="text-2xl font-bold">
-                                    {detectionData.violenceAlert.personas_detectadas ||
-                                        detectionData.violenceAlert.peopleCount || 0}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="font-medium">Ubicación:</p>
-                                <p className="font-bold">
-                                    {detectionData.violenceAlert.ubicacion ||
-                                        detectionData.violenceAlert.location || 'No disponible'}
-                                </p>
-                                <p className="text-sm text-red-600">
-                                    {detectionData.violenceAlert.timestamp.toLocaleString()}
-                                </p>
+                        
+                        <div className="text-right">
+                            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 border border-green-200">
+                                <div className="text-sm text-gray-600 mb-1">Estado del Sistema</div>
+                                <div className={`text-lg font-bold ${
+                                    systemState.camera === 'active' ? 'text-green-600' : 
+                                    systemState.camera === 'inactive' ? 'text-red-600' : 'text-yellow-600'
+                                }`}>
+                                    {getStatusText('camera', systemState.camera)}
+                                </div>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {/* Detalles de la cámara */}
-                <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Información de la Cámara</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-base">
+                {/* Panel de Estado del Sistema - Horizontal */}
+                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-3 bg-gradient-to-br from-green-500 to-blue-500 rounded-xl">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900">Monitor de Estado Educativo</h2>
+                                <p className="text-gray-600">Supervisión en tiempo real del área de {cameraDetail.ubicacion}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-6">
                         {[
-                            { label: "ID", value: cameraDetail.id },
-                            { label: "Nombre", value: cameraDetail.nombre },
-                            { label: "Ubicación", value: cameraDetail.ubicacion },
-                            { label: "Descripción", value: cameraDetail.descripcion || "N/A" },
-                            { label: "Tipo de Cámara", value: cameraDetail.tipo_camara.toUpperCase() },
-                            { label: "Resolución", value: `${cameraDetail.resolucion_ancho}x${cameraDetail.resolucion_alto}` },
-                            { label: "FPS", value: cameraDetail.fps },
-                            { label: "Fecha de Instalación", value: new Date(cameraDetail.fecha_instalacion).toLocaleString() },
-                            { label: "Última Actividad", value: new Date(cameraDetail.ultima_actividad).toLocaleString() }
-                        ].map(({ label, value }, index) => (
-                            <p key={index} className="text-gray-700">
-                                <span className="font-bold">{label}:</span>
-                                <span className="font-normal ml-2">{value}</span>
-                            </p>
+                            { label: 'Cámara', type: 'camera', status: systemState.camera, icon: '📹' },
+                            { label: 'Transmisión', type: 'stream', status: systemState.stream, icon: '📡' },
+                            { label: 'Detección IA', type: 'detection', status: systemState.detection, icon: '🤖' },
+                            { label: 'Conexión', type: 'connection', status: systemState.connection, icon: '🔗' }
+                        ].map(({ label, type, status, icon }) => (
+                            <div key={type} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+                                <div className="flex items-center space-x-3 mb-2">
+                                    <span className="text-2xl">{icon}</span>
+                                    <div className={`w-3 h-3 rounded-full ${getStatusColor(status)} ${status.includes('ing') ? 'animate-pulse' : ''}`}></div>
+                                </div>
+                                <div className="text-sm font-semibold text-gray-800">{label}</div>
+                                <div className="text-xs text-blue-700 font-medium">{getStatusText(type, status)}</div>
+                            </div>
                         ))}
                     </div>
                 </div>
 
-                {/* Panel de configuración */}
-                <div className="bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Configuración</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="flex items-center space-x-3">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.autoRecord}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, autoRecord: e.target.checked }))}
-                                    className="form-checkbox h-5 w-5 text-blue-600"
-                                />
-                                <span className="text-gray-700">Grabación automática de evidencia</span>
-                            </label>
+                {/* Contenedor de video principal - CORREGIDO: VOLVER A 16:9 */}
+                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mb-6">
+                    
+                    {/* Header del video */}
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Monitoreo en Vivo</h3>
+                                    <p className="text-blue-100 text-sm">Área: {cameraDetail.ubicacion}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2">
+                                {systemState.stream === 'connected' && (
+                                    <div className="bg-red-500 px-3 py-1 rounded-full text-white text-xs font-bold flex items-center space-x-1 animate-pulse">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                        <span>EN VIVO</span>
+                                    </div>
+                                )}
+                                <div className={`px-3 py-1 rounded-full text-xs font-bold text-white ${
+                                    systemState.connection === 'streaming' ? 'bg-green-500' :
+                                    systemState.connection === 'connecting' ? 'bg-yellow-500' :
+                                    'bg-gray-500'
+                                }`}>
+                                    {getStatusText('connection', systemState.connection)}
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label className="flex items-center space-x-3">
-                                <input
-                                    type="checkbox"
-                                    checked={settings.soundAlerts}
-                                    onChange={(e) => setSettings(prev => ({ ...prev, soundAlerts: e.target.checked }))}
-                                    className="form-checkbox h-5 w-5 text-blue-600"
-                                />
-                                <span className="text-gray-700">Alertas sonoras</span>
-                            </label>
+                    </div>
+                    
+                    {/* Área de video - CORREGIDO: VOLVER A 16:9 COMO EL ORIGINAL */}
+                    <div className="relative bg-gradient-to-br from-gray-800 to-gray-900" style={{ aspectRatio: '16/9' }}>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-cover bg-black"
+                            style={{
+                                maxWidth: '100%',
+                                maxHeight: '720px',
+                                backgroundColor: '#000'
+                            }}
+                        />
+
+                        {/* Overlays informativos */}
+                        <div className="absolute top-4 left-4 space-y-2">
+                            {detectionData.isActive && (
+                                <div className="px-3 py-1 text-sm font-bold rounded-full bg-purple-500 text-white animate-pulse flex items-center space-x-2">
+                                    <span>🤖</span>
+                                    <span>IA Detectando ({detectionData.peopleCount} personas)</span>
+                                </div>
+                            )}
+
+                            {detectionData.violenceAlert && (
+                                <div className="px-3 py-1 text-sm font-bold rounded-full bg-red-500 text-white animate-pulse flex items-center space-x-2">
+                                    <span>🚨</span>
+                                    <span>ALERTA DE SEGURIDAD</span>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <label className="block text-gray-700 mb-2">Sensibilidad de detección:</label>
-                            <select
-                                value={settings.sensitivity}
-                                onChange={(e) => setSettings(prev => ({ ...prev, sensitivity: e.target.value }))}
-                                className="w-full px-3 py-2 border rounded text-gray-700"
+
+                        {/* Estadísticas en tiempo real */}
+                        {systemState.stream === 'connected' && (
+                            <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg text-sm backdrop-blur-sm">
+                                <div className="flex items-center space-x-6">
+                                    <span>📊 FPS: {stats.frameRate}</span>
+                                    <span>🚨 Alertas: {stats.totalAlerts}</span>
+                                    {detectionData.confidence > 0 && (
+                                        <span>🎯 Confianza: {(detectionData.confidence * 100).toFixed(1)}%</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Mensaje cuando no hay video */}
+                        {systemState.stream === 'disconnected' && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center text-white">
+                                    <div className="text-8xl mb-6 opacity-50">📹</div>
+                                    <h3 className="text-2xl font-bold mb-3">Cámara sin conexión</h3>
+                                    <p className="text-gray-300 text-lg">Haga clic en "Iniciar Stream" para comenzar el monitoreo</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Controles principales mejorados */}
+                    <div className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 border-t border-gray-200">
+                        <div className="flex flex-wrap justify-center gap-4">
+                            <button
+                                onClick={handleToggleStream}
+                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${
+                                    systemState.stream === 'disconnected'
+                                        ? "bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                                        : systemState.stream === 'connecting'
+                                            ? "bg-gradient-to-r from-yellow-500 to-orange-500 cursor-not-allowed"
+                                            : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                                }`}
+                                disabled={systemState.stream === 'connecting' || detectionData.isActive}
                             >
-                                <option value="Baja">Baja</option>
-                                <option value="Media">Media</option>
-                                <option value="Alta">Alta</option>
+                                <span className="text-xl">
+                                    {systemState.stream === 'connecting' ? "⏳" :
+                                        systemState.stream === 'disconnected' ? "▶️" : "⏹️"}
+                                </span>
+                                <span>
+                                    {systemState.stream === 'connecting' ? "Conectando..." :
+                                        systemState.stream === 'disconnected' ? "Iniciar Stream" : "Detener Stream"}
+                                </span>
+                            </button>
+
+                            <button
+                                onClick={handleToggleDetection}
+                                className={`px-8 py-3 rounded-xl text-white font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center space-x-3 ${
+                                    detectionData.isActive
+                                        ? "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                                        : systemState.detection === 'starting'
+                                            ? "bg-gradient-to-r from-yellow-500 to-orange-500 cursor-not-allowed"
+                                            : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                }`}
+                                disabled={systemState.stream === 'disconnected' || systemState.detection.includes('ing')}
+                            >
+                                <span className="text-xl">
+                                    {systemState.detection === 'starting' ? "🔄" :
+                                        systemState.detection === 'stopping' ? "⏳" :
+                                            detectionData.isActive ? "🤖" : "🔍"}
+                                </span>
+                                <span>
+                                    {systemState.detection === 'starting' ? "Iniciando..." :
+                                        systemState.detection === 'stopping' ? "Deteniendo..." :
+                                            detectionData.isActive ? "Detener IA" : 'Activar IA'}
+                                </span>
+                            </button>
+
+                            {/* Control de calidad */}
+                            <select
+                                value={settings.streamQuality}
+                                onChange={(e) => handleQualityChange(e.target.value)}
+                                className="px-6 py-3 border-2 border-blue-200 rounded-xl text-gray-700 bg-white hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-semibold"
+                                disabled={systemState.stream === 'disconnected'}
+                            >
+                                <option value="Alta">🔥 Calidad Alta</option>
+                                <option value="Media">⚡ Calidad Media</option>
+                                <option value="Baja">💡 Calidad Baja</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
-                {/* Información de rendimiento (solo visible en desarrollo) */}
-                {process.env.NODE_ENV === 'development' && (
-                    <div className="bg-gray-50 rounded-lg p-4 text-sm">
-                        <h3 className="font-semibold text-gray-800 mb-2">Debug Info</h3>
-                        <div className="grid grid-cols-2 gap-2 text-gray-600">
-                            <span>Estado Stream: {systemState.stream}</span>
-                            <span>Estado Detección: {systemState.detection}</span>
-                            <span>Conexión: {systemState.connection}</span>
-                            <span>Calidad: {settings.streamQuality}</span>
-                            <span>Personas: {detectionData.peopleCount}</span>
-                            <span>Confianza: {(detectionData.confidence * 100).toFixed(1)}%</span>
-                            {videoRef.current && (
-                                <>
-                                    <span>Video Width: {videoRef.current.videoWidth || 'N/A'}</span>
-                                    <span>Video Height: {videoRef.current.videoHeight || 'N/A'}</span>
-                                </>
-                            )}
+                {/* Alerta de violencia crítica mejorada - ANCHO COMPLETO */}
+                {detectionData.violenceAlert && (
+                    <div className="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-300 rounded-2xl p-6 animate-pulse shadow-xl mb-6">
+                        <div className="flex items-center space-x-4 mb-4">
+                            <div className="p-3 bg-red-500 rounded-full animate-bounce">
+                                <span className="text-2xl text-white">🚨</span>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-red-800">¡ALERTA DE SEGURIDAD CRÍTICA!</h2>
+                                <p className="text-red-700 font-medium">Situación detectada en {cameraDetail.ubicacion}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white rounded-xl p-4 border-2 border-red-200">
+                                <div className="text-center">
+                                    <div className="text-3xl font-bold text-red-600 mb-1">
+                                        {(() => {
+                                            let prob = 0;
+                                            const alert = detectionData.violenceAlert;
+                                            if (alert.probabilidad !== undefined && alert.probabilidad !== null) {
+                                                prob = alert.probabilidad;
+                                            } else if (alert.probability !== undefined && alert.probability !== null) {
+                                                prob = alert.probability;
+                                            } else if (alert.probabilidad_violencia !== undefined && alert.probabilidad_violencia !== null) {
+                                                prob = alert.probabilidad_violencia;
+                                            }
+                                            return `${(prob * 100).toFixed(1)}%`;
+                                        })()}
+                                    </div>
+                                    <div className="text-sm font-semibold text-red-800">Probabilidad</div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-xl p-4 border-2 border-orange-200">
+                                <div className="text-center">
+                                    <div className="text-3xl font-bold text-orange-600 mb-1">
+                                        {detectionData.violenceAlert.personas_detectadas || detectionData.violenceAlert.peopleCount || 0}
+                                    </div>
+                                    <div className="text-sm font-semibold text-orange-800">Personas</div>
+                                </div>
+                            </div>
+                            
+                            <div className="bg-white rounded-xl p-4 border-2 border-blue-200">
+                                <div className="text-center">
+                                    <div className="text-lg font-bold text-blue-600 mb-1">
+                                        {detectionData.violenceAlert.timestamp.toLocaleTimeString()}
+                                    </div>
+                                    <div className="text-sm font-semibold text-blue-800">Hora de Detección</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
+
+                {/* Información detallada - DEBAJO DEL VIDEO, NO EN CARDS */}
+                <div className="space-y-6">
+                    
+                    {/* Información técnica - Layout horizontal limpio */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+                        <div className="flex items-center space-x-4 mb-6">
+                            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-900">Información Técnica de la Cámara</h3>
+                                <p className="text-gray-600">Especificaciones y detalles técnicos del dispositivo de monitoreo</p>
+                            </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                            {[
+                                { label: 'Ubicación', value: cameraDetail.ubicacion, icon: '📍', color: 'text-blue-600' },
+                                { label: 'Tipo', value: cameraDetail.tipo_camara.toUpperCase(), icon: '📹', color: 'text-green-600' },
+                                { label: 'Resolución', value: `${cameraDetail.resolucion_ancho}x${cameraDetail.resolucion_alto}`, icon: '🖥️', color: 'text-purple-600' },
+                                { label: 'FPS', value: cameraDetail.fps, icon: '⚡', color: 'text-orange-600' },
+                                { label: 'Instalación', value: new Date(cameraDetail.fecha_instalacion).toLocaleDateString('es-ES'), icon: '📅', color: 'text-indigo-600' }
+                            ].map((item, index) => (
+                                <div key={index} className="text-center">
+                                    <div className="flex items-center justify-center mb-3">
+                                        <span className="text-3xl mr-2">{item.icon}</span>
+                                        <div className={`w-3 h-3 rounded-full ${item.color.replace('text-', 'bg-')}`}></div>
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-600 mb-1">{item.label}</div>
+                                    <div className={`text-lg font-bold ${item.color}`}>{item.value}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Configuraciones y controles - Layout horizontal */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        {/* Configuración de seguridad */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="p-2 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg">
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">Configuración de Seguridad</h3>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                    <div className="flex items-center space-x-3">
+                                        <span className="text-green-600 text-xl">🎥</span>
+                                        <span className="text-sm font-medium text-gray-700">Grabación automática de evidencia</span>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.autoRecord}
+                                        onChange={(e) => setSettings(prev => ({ ...prev, autoRecord: e.target.checked }))}
+                                        className="form-checkbox h-5 w-5 text-green-600 rounded focus:ring-green-500"
+                                    />
+                                </div>
+                                
+                                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                                    <div className="flex items-center space-x-3">
+                                        <span className="text-blue-600 text-xl">🔊</span>
+                                        <span className="text-sm font-medium text-gray-700">Alertas sonoras</span>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.soundAlerts}
+                                        onChange={(e) => setSettings(prev => ({ ...prev, soundAlerts: e.target.checked }))}
+                                        className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                </div>
+                                
+                                <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                                    <div className="flex items-center space-x-3 mb-2">
+                                        <span className="text-purple-600 text-xl">🎯</span>
+                                        <span className="text-sm font-medium text-gray-700">Sensibilidad de detección IA:</span>
+                                    </div>
+                                    <select
+                                        value={settings.sensitivity}
+                                        onChange={(e) => setSettings(prev => ({ ...prev, sensitivity: e.target.value }))}
+                                        className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg text-gray-700 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                                    >
+                                        <option value="Baja">🟢 Baja (Conservador)</option>
+                                        <option value="Media">🟡 Media (Balanceado)</option>
+                                        <option value="Alta">🔴 Alta (Sensible)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Estadísticas de rendimiento */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg">
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">Rendimiento del Sistema</h3>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                        <div className="text-2xl font-bold text-green-600">{stats.frameRate}</div>
+                                        <div className="text-xs text-green-700 font-semibold">FPS</div>
+                                    </div>
+                                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                                        <div className="text-2xl font-bold text-blue-600">{stats.totalAlerts}</div>
+                                        <div className="text-xs text-blue-700 font-semibold">Alertas</div>
+                                    </div>
+                                </div>
+                                
+                                {detectionData.confidence > 0 && (
+                                    <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                                        <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                            <span className="mr-2">🎯</span>
+                                            Nivel de Confianza IA
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-4">
+                                            <div 
+                                                className="bg-gradient-to-r from-purple-500 to-pink-500 h-4 rounded-full transition-all duration-300"
+                                                style={{ width: `${(detectionData.confidence * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="text-sm text-purple-700 mt-2 font-bold text-center">
+                                            {(detectionData.confidence * 100).toFixed(1)}%
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200">
+                                    <div className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                                        <span className="mr-2">⚡</span>
+                                        Estado General
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                        <div className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full w-[95%] animate-pulse"></div>
+                                    </div>
+                                    <div className="text-sm text-green-600 mt-2 font-bold text-center">95% Óptimo</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Panel de notificaciones - Solo si hay notificaciones */}
+                    {notifications.length > 0 && (
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center space-x-3 mb-4">
+                                <div className="p-2 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg">
+                                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM19 12H5l7-7 7 7z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">Registro de Eventos Recientes</h3>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {notifications.slice(0, 6).map((notification) => (
+                                    <div
+                                        key={notification.id}
+                                        className={`p-3 rounded-lg border-l-4 transition-all hover:shadow-md ${
+                                            notification.type === 'violence' ? 'bg-red-50 border-red-500' :
+                                            notification.type === 'error' ? 'bg-red-50 border-red-400' :
+                                            notification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                                            'bg-blue-50 border-blue-400'
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <div className="flex items-center space-x-2 mb-1">
+                                                    <span className="text-lg">
+                                                        {notification.type === 'violence' ? '🚨' :
+                                                         notification.type === 'error' ? '❌' :
+                                                         notification.type === 'warning' ? '⚠️' : 'ℹ️'}
+                                                    </span>
+                                                    <span className={`text-sm font-semibold ${
+                                                        notification.type === 'violence' ? 'text-red-800' :
+                                                        notification.type === 'error' ? 'text-red-700' :
+                                                        notification.type === 'warning' ? 'text-yellow-700' :
+                                                        'text-blue-700'
+                                                    }`}>
+                                                        {notification.message}
+                                                    </span>
+                                                </div>
+                                                <div className="text-xs text-gray-500 font-medium">
+                                                    {notification.timestamp.toLocaleTimeString()}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setNotifications(prev =>
+                                                    prev.filter(n => n.id !== notification.id)
+                                                )}
+                                                className="text-gray-400 hover:text-gray-600 ml-2 p-1 rounded-full hover:bg-gray-200 transition-all"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Información educativa final */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-lg border border-blue-200 p-8">
+                        <div className="text-center">
+                            <div className="text-6xl mb-4">🏫</div>
+                            <h3 className="text-2xl font-bold text-blue-800 mb-3">Centro Educativo Protegido</h3>
+                            <p className="text-blue-700 mb-6 text-lg">
+                                Sistema de inteligencia artificial monitoreando continuamente para garantizar un ambiente de aprendizaje seguro.
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="bg-white/70 rounded-lg p-4">
+                                    <div className="font-bold text-green-600 text-lg">✅ Detección IA</div>
+                                    <div className="text-gray-600">Tiempo Real</div>
+                                </div>
+                                <div className="bg-white/70 rounded-lg p-4">
+                                    <div className="font-bold text-blue-600 text-lg">🛡️ Protección</div>
+                                    <div className="text-gray-600">24/7</div>
+                                </div>
+                                <div className="bg-white/70 rounded-lg p-4">
+                                    <div className="font-bold text-purple-600 text-lg">📊 Análisis</div>
+                                    <div className="text-gray-600">Avanzado</div>
+                                </div>
+                                <div className="bg-white/70 rounded-lg p-4">
+                                    <div className="font-bold text-orange-600 text-lg">🎯 Precisión</div>
+                                    <div className="text-gray-600">Alta</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -112,12 +112,9 @@ const Layout = ({ children }) => {
     };
 
     return (
-        <div className={`flex min-h-screen transition-opacity duration-1000 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
-            {/* Barra Lateral Tema Claro */}
-            <aside className={`bg-white shadow-xl border-r border-gray-200/50 transition-all duration-300 ease-in-out ${
-                isCollapsed ? 'w-20' : 'w-72'
-            } relative z-10`}>
-                
+        <div className={`min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex transition-all duration-500 ${fadeIn ? 'opacity-100' : 'opacity-0'}`}>
+            {/* Sidebar - FIJO */}
+            <div className={`${isCollapsed ? 'w-16' : 'w-64'} bg-white shadow-2xl border-r border-gray-200 transition-all duration-300 flex-shrink-0 fixed left-0 top-0 h-screen z-30`}>
                 {/* Header del Sidebar */}
                 <div className="relative">
                     {/* Background Pattern Sutil */}
@@ -315,57 +312,59 @@ const Layout = ({ children }) => {
                         )}
                     </div>
                 </div>
-            </aside>
+            </div>
 
-            {/* Contenido Principal */}
-            <main className={`flex-1 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300`}>
-                {/* Top Bar Rediseñada */}
-                <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200/60 shadow-sm">
-                    <div className="px-6 py-4">
-                        <div className="flex items-center justify-between">
-                            {/* Breadcrumb */}
-                            <div className="flex items-center space-x-2 text-sm">
-                                <div className="flex items-center space-x-2 text-gray-500">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-                                    </svg>
-                                    <span>SegurEscolar</span>
-                                </div>
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                </svg>
-                                <span className="text-gray-900 font-medium capitalize">
-                                    {location.pathname.split('/')[1] || 'Dashboard'}
-                                </span>
-                            </div>
-                            
-                            {/* Status Indicators */}
-                            <div className="flex items-center space-x-6">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                    <span className="text-sm text-gray-600">Sistema Operativo</span>
-                                </div>
-                                
-                                {/* Real time clock */}
-                                <div className="flex items-center space-x-2">
-                                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <div className="text-sm text-gray-600 font-mono">
-                                        {currentTime.toLocaleTimeString('es-ES')}
-                                    </div>
-                                </div>
-                                
-                                {/* Quick actions */}
-                                <div className="flex items-center space-x-2">
-                                    <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM19 12H5l7-7 7 7z" />
+            {/* Main Content Container - CON SCROLL INTERNO */}
+            <div className={`flex-1 flex flex-col ${isCollapsed ? 'ml-16' : 'ml-64'} transition-all duration-300`}>
+                {/* Header/Navbar - FIJO EN LA PARTE SUPERIOR */}
+                <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-200 px-6 py-4 sticky top-0 z-20">
+                    {/* Top Bar Rediseñada */}
+                    <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200/60 shadow-sm"></div>
+                        <div className="px-6 py-4">
+                            <div className="flex items-center justify-between">
+                                {/* Breadcrumb */}
+                                <div className="flex items-center space-x-2 text-sm">
+                                    <div className="flex items-center space-x-2 text-gray-500">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
                                         </svg>
-                                    </button>
-                                    <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <span>SegurEscolar</span>
+                                    </div>
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    <span className="text-gray-900 font-medium capitalize">
+                                        {location.pathname.split('/')[1] || 'Dashboard'}
+                                    </span>
+                                </div>
+                                
+                                {/* Status Indicators */}
+                                <div className="flex items-center space-x-6">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        <span className="text-sm text-gray-600">Sistema Operativo</span>
+                                    </div>
+                                    
+                                    {/* Real time clock */}
+                                    <div className="flex items-center space-x-2">
+                                        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <div className="text-sm text-gray-600 font-mono">
+                                            {currentTime.toLocaleTimeString('es-ES')}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Quick actions */}
+                                    <div className="flex items-center space-x-2">
+                                        <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM19 12H5l7-7 7 7z" />
+                                            </svg>
+                                        </button>
+                                        <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         </svg>
                                     </button>
@@ -373,13 +372,15 @@ const Layout = ({ children }) => {
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                {/* Main Content */}
-                <div className="p-6">
-                    {children}
-                </div>
-            </main>
+                </header>
+
+                {/* *** ÁREA DE CONTENIDO CON SCROLL INTERNO *** */}
+                <main className="flex-1 overflow-y-auto max-h-screen main-content">
+                    <div className="p-6">
+                        {children}
+                    </div>
+                </main>
+            </div>
 
             {/* Overlay for mobile */}
             {!isCollapsed && (

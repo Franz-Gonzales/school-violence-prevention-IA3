@@ -72,3 +72,32 @@ body {
 .main-content {
     @apply flex-1 p-6 bg-gray-50;
 }
+
+/* Scroll personalizado para el contenido principal */
+.main-content {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+.main-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.8);
+}
+
+/* Asegurar que el body no tenga scroll */
+html, body, #root {
+    height: 100%;
+    overflow: hidden;
+}
