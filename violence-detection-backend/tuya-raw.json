@@ -1,15 +1,15 @@
 {
     "result": [
         {
-            "active_time": 1749934610,
+            "active_time": 1750099472,
             "biz_type": 18,
             "category": "sgbj",
-            "create_time": 1749934610,
+            "create_time": 1750099472,
             "icon": "smart/icon/ay1503986080106Gppjy/d92c93b96ba6defc652d6c3a2f7bcbec.png",
-            "id": "ebb89f7fd51c142a7caw3p",
-            "ip": "181.115.171.174",
+            "id": "ebe31ef6632a109369ag2b",
+            "ip": "200.87.155.35",
             "lat": "-19.01",
-            "local_key": "8aVletsYuo=z>KL$",
+            "local_key": "8@#nYf=weM79?3cL",
             "lon": "-65.28",
             "model": "",
             "name": "Audible alarm",
@@ -20,19 +20,19 @@
             "sub": false,
             "time_zone": "-04:00",
             "uid": "az1748030747059AsA4V",
-            "update_time": 1749934612,
+            "update_time": 1750099474,
             "uuid": "c1c73e427952d3ec",
             "mapping": {}
         }
     ],
     "success": true,
-    "t": 1749934772132,
-    "tid": "782f214c496211f0ad5f1a96caf0cb23",
+    "t": 1750099969876,
+    "tid": "19b7996e4ae311f0be34e23b0b987d40",
     "file": {
         "name": "tuya-raw.json",
         "description": "Full raw list of Tuya devices.",
         "account": "senmpkvtvguawcydwrxr",
-        "date": "2025-06-14T16:59:33.224839",
+        "date": "2025-06-16T14:52:51.215149",
         "tinytuya": "1.16.3"
     }
 }

@@ -64,8 +64,8 @@ class Configuracion(BaseSettings):
     DEFAULT_FPS: int = 15
     
     # Umbrales de confianza
-    YOLO_CONF_THRESHOLD: float = 0.65
-    VIOLENCE_THRESHOLD: float = 0.60
+    YOLO_CONF_THRESHOLD: float = 0.60
+    VIOLENCE_THRESHOLD: float = 0.58
     
     # Resolución YOLO optimizada para velocidad
     YOLO_RESOLUTION_WIDTH: int = 416

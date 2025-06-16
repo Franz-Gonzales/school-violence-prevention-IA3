@@ -1,9 +1,9 @@
 {
-    "timestamp": 1749934775.61987,
+    "timestamp": 1750109928.050839,
     "devices": [
         {
-            "id": "ebb89f7fd51c142a7caw3p",
-            "ip": "192.168.1.13",
+            "id": "ebe31ef6632a109369ag2b",
+            "ip": "192.168.217.231",
             "uuid": "c1c73e427952d3ec",
             "active": 2,
             "encrypt": true,
@@ -13,7 +13,7 @@
             "sl": 0,
             "clientLink": 3,
             "name": "Audible alarm",
-            "key": "8aVletsYuo=z>KL$",
+            "key": "8@#nYf=weM79?3cL",
             "mac": "c0:f8:53:3a:7e:24",
             "ability": 0,
             "dev_type": "default",
@@ -23,7 +23,7 @@
                 "dps": {
                     "101": "4",
                     "102": "8",
-                    "103": 5,
+                    "103": 6,
                     "104": false
                 }
             },
