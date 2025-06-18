@@ -211,10 +211,8 @@ const IncidentDetail = () => {
                 if (playerContainerRef.current.requestFullscreen) {
                     await playerContainerRef.current.requestFullscreen();
                 }
-            } else {
-                if (document.exitFullscreen) {
-                    await document.exitFullscreen();
-                }
+            } else if (document.exitFullscreen) {
+                await document.exitFullscreen();
             }
         } catch (error) {
             console.error('Error toggling fullscreen:', error);

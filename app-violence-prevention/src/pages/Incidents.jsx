@@ -135,13 +135,12 @@ const Incidents = () => {
 
     // *** MEJORADA: Función para filtrar incidentes localmente ***
     const filteredIncidents = incidents.filter(incident => {
-        const matchesSearch = incident.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        // Los filtros de severidad, ubicación y fecha se aplican en el backend
+        // Solo aplicamos filtro de búsqueda de texto local
+        return incident.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             incident.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             incident.tipo_incidente?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        // Los filtros de severidad, ubicación y fecha se aplican en el backend
-        // Solo aplicamos filtro de búsqueda de texto local
-        return matchesSearch;
     });
 
     // Detectar cambios en filtros para aplicar búsqueda automática
@@ -470,8 +469,8 @@ const Incidents = () => {
                                         key={index + 1}
                                         onClick={() => setCurrentPage(index + 1)}
                                         className={`px-3 py-1 border rounded-md text-sm ${currentPage === index + 1
-                                                ? 'bg-red-600 text-white border-red-600'
-                                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                            ? 'bg-red-600 text-white border-red-600'
+                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                                             }`}
                                     >
                                         {index + 1}
