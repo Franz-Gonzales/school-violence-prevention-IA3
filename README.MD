@@ -3,12 +3,16 @@
 # 🚨 Software Integral de Detección de Violencia Escolar
 ## Powered by Artificial Intelligence
 
-![Estado del Proyecto](https://img.shields.io/badge/Estado-Activo-brightgreen?style=for-the-badge)
-![Versión](https://img.shields.io/badge/Versión-1.0.0-blue?style=for-the-badge)
+<img src="https://readme-typing-svg.herokuapp.com?font=Orbitron&size=24&duration=3000&pause=1000&color=FF6B35&center=true&vCenter=true&width=800&lines=Sistema+de+Detecci%C3%B3n+de+Violencia+Escolar;Powered+by+Artificial+Intelligence;Computer+Vision+%2B+Deep+Learning;Seguridad+Escolar+del+Futuro" alt="Typing SVG" />
+
+![Estado del Proyecto](https://img.shields.io/badge/Estado-Activo-brightgreen?style=for-the-badge&logo=checkmarx&logoColor=white)
+![Versión](https://img.shields.io/badge/Versión-1.0.0-blue?style=for-the-badge&logo=semver&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776ab?style=for-the-badge&logo=python&logoColor=white)
 ![React](https://img.shields.io/badge/React-18.2+-61dafb?style=for-the-badge&logo=react&logoColor=black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115.12-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![AI](https://img.shields.io/badge/AI-Computer_Vision-ff6b35?style=for-the-badge&logo=tensorflow&logoColor=white)
+
+<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="900">
 
 *Solución innovadora basada en Inteligencia Artificial para la prevención y detección temprana de violencia en instituciones educativas*
 
@@ -17,6 +21,10 @@
 </div>
 
 ## 📋 Información del Proyecto
+
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212284115-f47cd8ff-2ffb-4b04-b5bf-4d1c14c0247f.gif" width="100">
+</div>
 
 <table>
 <tr>
@@ -47,7 +55,69 @@
 
 ---
 
+## 📚 Artículo Científico del Proyecto
+
+<div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257467-871d32b7-e401-42e8-a166-fcfd7baa4c6b.gif" width="100">
+
+### 📄 *Documentación Científica Completa*
+
+</div>
+
+<table align="center">
+<tr>
+<td align="center" colspan="2">
+<h3>🔬 Artículo Científico Oficial</h3>
+<p><strong>"Software Integral de Detección de Violencia Escolar Basado en Inteligencia Artificial"</strong></p>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<a href="https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit?usp=sharing&ouid=104976907384732797413&rtpof=true&sd=true" target="_blank">
+<img src="https://img.shields.io/badge/📖_Leer_Artículo-Google_Docs-4285F4?style=for-the-badge&logo=googledocs&logoColor=white"/>
+</a>
+</td>
+<td align="center" width="50%">
+<img src="https://img.shields.io/badge/📑_Formato-PDF_Disponible-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white"/>
+</td>
+</tr>
+</table>
+
+#### 📊 **Contenido del Artículo Científico**
+
+<details>
+<summary><strong>🔽 Ver índice completo del artículo</strong></summary>
+
+- **📝 Resumen Ejecutivo**: Descripción general del proyecto y objetivos
+- **🎯 Introducción**: Problemática de violencia escolar y justificación tecnológica
+- **📚 Marco Teórico**: Fundamentos de Computer Vision y Deep Learning
+- **🔬 Metodología**: Diseño experimental y arquitectura del sistema
+- **🧠 Modelos de IA**: Análisis detallado de YOLOv11 y TimesFormer
+- **📊 Resultados**: Métricas de rendimiento y evaluación del sistema
+- **🎯 Discusión**: Análisis de resultados y comparación con estado del arte
+- **🔮 Conclusiones**: Hallazgos principales y trabajo futuro
+- **📖 Referencias**: Bibliografía académica completa
+
+</details>
+
+<div align="center">
+
+#### 🏆 **Validación Académica**
+
+[![Revisión](https://img.shields.io/badge/✅_Revisión-Docente_Aprobada-green?style=for-the-badge)](https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit)
+[![Metodología](https://img.shields.io/badge/🔬_Metodología-Científica-blue?style=for-the-badge)](#)
+[![Reproducible](https://img.shields.io/badge/🔄_Reproducible-100%25-orange?style=for-the-badge)](#)
+
+</div>
+
+---
+
 ## 📜 Declaratoria de Autoría
+
+<div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
+</div>
 
 > **IMPORTANTE**: Este proyecto es de autoría exclusiva del desarrollador mencionado anteriormente, creado como trabajo académico para el curso de Inteligencia Artificial. Todo el código fuente, modelos de IA, documentación y recursos han sido desarrollados por el autor, con excepción de las librerías y frameworks de terceros debidamente citados y licenciados.
 
@@ -57,32 +127,47 @@
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257454-16e3712e-945a-4ca2-b238-408ad0bf87e6.gif" width="100">
+
 ### *"Transformando la seguridad escolar con el poder de la Inteligencia Artificial"*
 
 </div>
 
 El **Software Integral de Detección de Violencia Escolar** es una solución completa y avanzada que utiliza técnicas de **Computer Vision** y **Deep Learning** para detectar automáticamente situaciones de violencia en entornos educativos. 
 
-🔹 **Procesamiento en tiempo real** de video desde cámaras de seguridad  
-🔹 **Identificación inteligente** de comportamientos violentos  
-🔹 **Generación automática** de alertas inmediatas  
-🔹 **Intervención rápida** para garantizar la seguridad estudiantil  
+<div align="center">
+
+```
+🎯 OBJETIVOS PRINCIPALES
+┌─────────────────────────────────────────┐
+│ 🔹 Procesamiento en tiempo real         │
+│ 🔹 Identificación inteligente           │
+│ 🔹 Generación automática de alertas     │
+│ 🔹 Intervención rápida y efectiva       │
+└─────────────────────────────────────────┘
+```
+
+</div>
 
 ---
 
 ## 🌟 Características Principales
 
 <div align="center">
+<img src="https://user-images.githubusercontent.com/74038190/212257463-4d082cb4-7483-4eaf-bc25-6dde2628aabd.gif" width="100">
+</div>
+
+<div align="center">
 
 | Característica | Descripción | Estado |
 |:-------------:|:------------|:------:|
-| 🤖 **Detección IA** | Análisis en tiempo real mediante modelos neurales | ✅ |
-| 🚨 **Alertas Automáticas** | Notificaciones visuales, sonoras y de voz | ✅ |
-| 📹 **Grabación Inteligente** | Captura automática de evidencia | ✅ |
-| 📊 **Dashboard Web** | Interfaz moderna para monitoreo | ✅ |
-| 🔄 **Multi-Cámara** | Arquitectura escalable | ✅ |
-| 📈 **Reportes Avanzados** | Estadísticas y análisis detallados | ✅ |
-| 💾 **Base de Datos** | Almacenamiento seguro de incidentes | ✅ |
+| 🤖 **Detección IA** | Análisis en tiempo real mediante modelos neurales | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 🚨 **Alertas Automáticas** | Notificaciones visuales, sonoras y de voz | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 📹 **Grabación Inteligente** | Captura automática de evidencia | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 📊 **Dashboard Web** | Interfaz moderna para monitoreo | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 🔄 **Multi-Cámara** | Arquitectura escalable | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 📈 **Reportes Avanzados** | Estadísticas y análisis detallados | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
+| 💾 **Base de Datos** | Almacenamiento seguro de incidentes | <img src="https://img.shields.io/badge/✅-Implementado-green?style=flat-square"> |
 
 </div>
 
@@ -91,6 +176,12 @@ El **Software Integral de Detección de Violencia Escolar** es una solución com
 ## 🏗️ Arquitectura del Software
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257465-7ce8d493-cac5-494e-982a-5a9deb852c4b.gif" width="100">
+
+### 🗂️ *Organización Modular y Escalable*
+
+</div>
 
 ```mermaid
 graph TB
@@ -136,13 +227,13 @@ graph TB
     Q --> U
 ```
 
-</div>
-
 ---
 
 ## 🤖 Modelos de Inteligencia Artificial
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7c98.gif" width="100">
 
 ### 🧬 *Powered by State-of-the-Art Deep Learning*
 
@@ -150,6 +241,23 @@ graph TB
 
 <details>
 <summary><h3>🎯 1. YOLOv11 - Detector de Personas</h3></summary>
+
+<div align="center">
+
+```
+┌─────────────────────────────────────────┐
+│           🎯 YOLOv11 SPECS             │
+├─────────────────────────────────────────┤
+│ 🏗️ Arquitectura: CNN Optimizada        │
+│ 🎯 Propósito: Detección Personas       │
+│ 🎖️ Precisión: > 95%                   │
+│ ⚡ Velocidad: ~30 FPS (GPU)            │
+│ 🖼️ Resolución: 416x416                │
+│ ⚙️ Umbral: 0.58 confianza             │
+└─────────────────────────────────────────┘
+```
+
+</div>
 
 **📊 Especificaciones Técnicas:**
 - 🏗️ **Arquitectura**: Convolutional Neural Network optimizada
@@ -164,6 +272,23 @@ graph TB
 <details>
 <summary><h3>🧠 2. TimesFormer - Análisis de Violencia</h3></summary>
 
+<div align="center">
+
+```
+┌─────────────────────────────────────────┐
+│         🧠 TIMESFORMER SPECS           │
+├─────────────────────────────────────────┤
+│ 🏗️ Arquitectura: Vision Transformer    │
+│ 🎯 Propósito: Clasificación Video      │
+│ 🎓 Entrenamiento: Transfer Learning    │
+│ 📊 F1-Score: 0.96                     │
+│ 🖼️ Entrada: 8 frames 224x224          │
+│ ⚙️ Umbral: 70% probabilidad           │
+└─────────────────────────────────────────┘
+```
+
+</div>
+
 **📊 Especificaciones Técnicas:**
 - 🏗️ **Arquitectura**: Vision Transformer para análisis espacio-temporal
 - 🎯 **Propósito**: Clasificación de secuencias de video para detectar violencia
@@ -176,6 +301,21 @@ graph TB
 
 <details>
 <summary><h3>👥 3. DeepSort - Sistema de Seguimiento</h3></summary>
+
+<div align="center">
+
+```
+┌─────────────────────────────────────────┐
+│           👥 DEEPSORT SPECS            │
+├─────────────────────────────────────────┤
+│ 🎯 Propósito: Seguimiento Personas     │
+│ ⚙️ Funcionalidad: IDs únicos           │
+│ 🔄 Integración: YOLO + Tracking        │
+│ 📈 Capacidad: 20 personas simultáneas  │
+└─────────────────────────────────────────┘
+```
+
+</div>
 
 **📊 Especificaciones Técnicas:**
 - 🎯 **Propósito**: Seguimiento continuo de personas
@@ -190,6 +330,8 @@ graph TB
 ## 💻 Stack Tecnológico
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257460-738ff738-247f-4445-a718-cdd0ca76e2db.gif" width="100">
 
 ### 🛠️ *Tecnologías de Vanguardia*
 
@@ -247,6 +389,8 @@ OpenCV          # 👁️ Computer vision library
 ## 📂 Estructura del Proyecto
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257475-639f5377-6b57-4f26-9c58-729ac8923f46.gif" width="100">
 
 ### 🗂️ *Organización Modular y Escalable*
 
@@ -323,21 +467,27 @@ OpenCV          # 👁️ Computer vision library
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257481-2563fde6-7b23-4162-8398-fbd149bd0b99.gif" width="100">
+
 ### ⚡ *Configuración Rápida y Sencilla*
 
 </div>
 
 ### 📋 Prerrequisitos del Sistema
 
+<div align="center">
+
 <table>
 <tr>
-<td align="center"><strong>🐍 Python</strong><br/>3.11+</td>
-<td align="center"><strong>🟢 Node.js</strong><br/>18+</td>
-<td align="center"><strong>🐘 PostgreSQL</strong><br/>15+</td>
-<td align="center"><strong>🎬 FFmpeg</strong><br/>Latest</td>
-<td align="center"><strong>🚀 CUDA</strong><br/>12.0+ (Opcional)</td>
+<td align="center"><img src="https://img.shields.io/badge/🐍_Python-3.11+-3776ab?style=for-the-badge&logo=python&logoColor=white"></td>
+<td align="center"><img src="https://img.shields.io/badge/🟢_Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white"></td>
+<td align="center"><img src="https://img.shields.io/badge/🐘_PostgreSQL-15+-336791?style=for-the-badge&logo=postgresql&logoColor=white"></td>
+<td align="center"><img src="https://img.shields.io/badge/🎬_FFmpeg-Latest-007ACC?style=for-the-badge&logo=ffmpeg&logoColor=white"></td>
+<td align="center"><img src="https://img.shields.io/badge/🚀_CUDA-12.0+-76B900?style=for-the-badge&logo=nvidia&logoColor=white"></td>
 </tr>
 </table>
+
+</div>
 
 ---
 
@@ -482,6 +632,8 @@ python -c "import cv2; print([i for i in range(10) if cv2.VideoCapture(i).isOpen
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257479-1f7317e5-11f0-4284-b2da-527ba40fe839.gif" width="100">
+
 ### 🖥️ *Interfaz Intuitiva y Poderosa*
 
 </div>
@@ -492,10 +644,16 @@ python -c "import cv2; print([i for i in range(10) if cv2.VideoCapture(i).isOpen
 
 **🌐 URL**: `http://localhost:3000`
 
-| Campo | Valor |
-|:-----:|:-----:|
-| 📧 **Email** | `admin@ejemplo.com` |
-| 🔑 **Password** | `admin123` |
+<table>
+<tr>
+<td align="center">📧 <strong>Email</strong></td>
+<td align="center"><code>admin@ejemplo.com</code></td>
+</tr>
+<tr>
+<td align="center">🔑 <strong>Password</strong></td>
+<td align="center"><code>admin123</code></td>
+</tr>
+</table>
 
 </div>
 
@@ -533,17 +691,28 @@ python -c "import cv2; print([i for i in range(10) if cv2.VideoCapture(i).isOpen
 
 ### 🚨 **4. Sistema de Detección Automática**
 
-1. **📹 Captura**: Video a 15 FPS desde cámaras
-2. **🔍 Detección**: YOLOv11 identifica personas (>58% confianza)
-3. **🧠 Análisis**: TimesFormer analiza secuencias temporales
-4. **⚡ Decisión**: Si probabilidad >70% → Activar alerta
-5. **🚨 Respuesta**: Acciones automáticas inmediatas
+<div align="center">
+
+```
+🔄 FLUJO DE DETECCIÓN AUTOMÁTICA
+┌─────────────────────────────────────────┐
+│ 1. 📹 Captura: Video a 15 FPS          │
+│ 2. 🔍 Detección: YOLOv11 (>58% conf)   │
+│ 3. 🧠 Análisis: TimesFormer temporal    │
+│ 4. ⚡ Decisión: Si prob >70% → Alerta  │
+│ 5. 🚨 Respuesta: Acciones automáticas   │
+└─────────────────────────────────────────┘
+```
+
+</div>
 
 ---
 
 ## 🧠 Funcionamiento del Motor de IA
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257464-4e7b6c07-39a6-45d6-bcab-0a078d55f89b.gif" width="100">
 
 ### 🔄 *Pipeline de Procesamiento Inteligente*
 
@@ -578,14 +747,50 @@ sequenceDiagram
 
 <div align="center">
 
-| Componente | Parámetro | Valor | Descripción |
-|:----------:|:----------|:-----:|:------------|
-| 🎯 **YOLOv11** | Confianza | `0.58` | Umbral mínimo detección |
-| 🎯 **YOLOv11** | Resolución | `416x416` | Tamaño entrada optimizado |
-| 🧠 **TimesFormer** | Frames | `8` | Secuencia análisis temporal |
-| 🧠 **TimesFormer** | Umbral | `0.70` | Probabilidad activación |
-| 📷 **Cámara** | FPS | `15` | Velocidad captura |
-| 🎬 **Evidencia** | Duración | `10s` | Tiempo grabación |
+<table>
+<tr>
+<th>Componente</th>
+<th>Parámetro</th>
+<th>Valor</th>
+<th>Descripción</th>
+</tr>
+<tr>
+<td>🎯 <strong>YOLOv11</strong></td>
+<td>Confianza</td>
+<td><code>0.58</code></td>
+<td>Umbral mínimo detección</td>
+</tr>
+<tr>
+<td>🎯 <strong>YOLOv11</strong></td>
+<td>Resolución</td>
+<td><code>416x416</code></td>
+<td>Tamaño entrada optimizado</td>
+</tr>
+<tr>
+<td>🧠 <strong>TimesFormer</strong></td>
+<td>Frames</td>
+<td><code>8</code></td>
+<td>Secuencia análisis temporal</td>
+</tr>
+<tr>
+<td>🧠 <strong>TimesFormer</strong></td>
+<td>Umbral</td>
+<td><code>0.70</code></td>
+<td>Probabilidad activación</td>
+</tr>
+<tr>
+<td>📷 <strong>Cámara</strong></td>
+<td>FPS</td>
+<td><code>15</code></td>
+<td>Velocidad captura</td>
+</tr>
+<tr>
+<td>🎬 <strong>Evidencia</strong></td>
+<td>Duración</td>
+<td><code>10s</code></td>
+<td>Tiempo grabación</td>
+</tr>
+</table>
 
 </div>
 
@@ -595,68 +800,110 @@ sequenceDiagram
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257469-fecd9f90-7d88-4183-9aef-c9c878778186.gif" width="100">
+
 ### 🎯 *Resultados del Modelo TimesFormer*
 
 </div>
 
-<table align="center">
+<div align="center">
+
+<table>
 <tr>
-<th>Métrica</th>
+<th rowspan="2">Métrica</th>
+<th colspan="3">Fases de Entrenamiento</th>
+</tr>
+<tr>
 <th>Transfer Learning</th>
 <th>Fine-Tuning</th>
 <th>🏆 Test Final</th>
 </tr>
 <tr>
 <td><strong>Accuracy</strong></td>
-<td>89.45%</td>
-<td>96.13%</td>
-<td><strong>95.80%</strong></td>
+<td><img src="https://progress-bar.dev/89?title=89.45%&width=120&color=orange" alt="89.45%"></td>
+<td><img src="https://progress-bar.dev/96?title=96.13%&width=120&color=blue" alt="96.13%"></td>
+<td><img src="https://progress-bar.dev/96?title=95.80%&width=120&color=green" alt="95.80%"></td>
 </tr>
 <tr>
 <td><strong>Precision</strong></td>
-<td>88.23%</td>
-<td>96.01%</td>
-<td><strong>95.45%</strong></td>
+<td><img src="https://progress-bar.dev/88?title=88.23%&width=120&color=orange" alt="88.23%"></td>
+<td><img src="https://progress-bar.dev/96?title=96.01%&width=120&color=blue" alt="96.01%"></td>
+<td><img src="https://progress-bar.dev/95?title=95.45%&width=120&color=green" alt="95.45%"></td>
 </tr>
 <tr>
 <td><strong>Recall</strong></td>
-<td>90.12%</td>
-<td>96.20%</td>
-<td><strong>95.98%</strong></td>
+<td><img src="https://progress-bar.dev/90?title=90.12%&width=120&color=orange" alt="90.12%"></td>
+<td><img src="https://progress-bar.dev/96?title=96.20%&width=120&color=blue" alt="96.20%"></td>
+<td><img src="https://progress-bar.dev/96?title=95.98%&width=120&color=green" alt="95.98%"></td>
 </tr>
 <tr>
 <td><strong>F1-Score</strong></td>
-<td>89.17%</td>
-<td>96.10%</td>
-<td><strong>95.71%</strong></td>
+<td><img src="https://progress-bar.dev/89?title=89.17%&width=120&color=orange" alt="89.17%"></td>
+<td><img src="https://progress-bar.dev/96?title=96.10%&width=120&color=blue" alt="96.10%"></td>
+<td><img src="https://progress-bar.dev/96?title=95.71%&width=120&color=green" alt="95.71%"></td>
 </tr>
 <tr>
 <td><strong>Specificity</strong></td>
-<td>88.76%</td>
-<td>99.33%</td>
-<td><strong>99.12%</strong></td>
+<td><img src="https://progress-bar.dev/89?title=88.76%&width=120&color=orange" alt="88.76%"></td>
+<td><img src="https://progress-bar.dev/99?title=99.33%&width=120&color=blue" alt="99.33%"></td>
+<td><img src="https://progress-bar.dev/99?title=99.12%&width=120&color=green" alt="99.12%"></td>
 </tr>
 <tr>
 <td><strong>ROC AUC</strong></td>
-<td>94.56%</td>
-<td>98.83%</td>
-<td><strong>98.64%</strong></td>
+<td><img src="https://progress-bar.dev/95?title=94.56%&width=120&color=orange" alt="94.56%"></td>
+<td><img src="https://progress-bar.dev/99?title=98.83%&width=120&color=blue" alt="98.83%"></td>
+<td><img src="https://progress-bar.dev/99?title=98.64%&width=120&color=green" alt="98.64%"></td>
 </tr>
 </table>
+
+</div>
 
 ### ⚡ **Rendimiento del Sistema**
 
 <div align="center">
 
-| Categoría | Especificación | Rendimiento |
-|:---------:|:---------------|:------------|
-| 🖥️ **Hardware Mínimo** | Intel i5, 8GB RAM, SSD 256GB | ✅ Funcional |
-| 🔥 **Hardware Recomendado** | Intel i7, 16GB RAM, SSD 512GB, GTX 1660 | ⚡ Óptimo |
-| 🚀 **Hardware Premium** | Intel i9, 32GB RAM, SSD 1TB, RTX 3070+ | 🔥 Máximo |
-| ⚡ **Latencia** | < 200ms para detección completa | 🎯 Tiempo Real |
-| 📺 **FPS** | 15 FPS estables por cámara | 🎬 Fluido |
-| 🎯 **Precisión** | 96% accuracy en detección | 🏆 Excelente |
-| 📈 **Escalabilidad** | Hasta 8 cámaras simultáneas | 🔄 Escalable |
+<table>
+<tr>
+<th>Categoría</th>
+<th>Especificación</th>
+<th>Rendimiento</th>
+</tr>
+<tr>
+<td>🖥️ <strong>Hardware Mínimo</strong></td>
+<td>Intel i5, 8GB RAM, SSD 256GB</td>
+<td><img src="https://img.shields.io/badge/✅-Funcional-green?style=flat-square"></td>
+</tr>
+<tr>
+<td>🔥 <strong>Hardware Recomendado</strong></td>
+<td>Intel i7, 16GB RAM, SSD 512GB, GTX 1660</td>
+<td><img src="https://img.shields.io/badge/⚡-Óptimo-blue?style=flat-square"></td>
+</tr>
+<tr>
+<td>🚀 <strong>Hardware Premium</strong></td>
+<td>Intel i9, 32GB RAM, SSD 1TB, RTX 3070+</td>
+<td><img src="https://img.shields.io/badge/🔥-Máximo-red?style=flat-square"></td>
+</tr>
+<tr>
+<td>⚡ <strong>Latencia</strong></td>
+<td>< 200ms para detección completa</td>
+<td><img src="https://img.shields.io/badge/🎯-Tiempo_Real-orange?style=flat-square"></td>
+</tr>
+<tr>
+<td>📺 <strong>FPS</strong></td>
+<td>15 FPS estables por cámara</td>
+<td><img src="https://img.shields.io/badge/🎬-Fluido-purple?style=flat-square"></td>
+</tr>
+<tr>
+<td>🎯 <strong>Precisión</strong></td>
+<td>96% accuracy en detección</td>
+<td><img src="https://img.shields.io/badge/🏆-Excelente-gold?style=flat-square"></td>
+</tr>
+<tr>
+<td>📈 <strong>Escalabilidad</strong></td>
+<td>Hasta 8 cámaras simultáneas</td>
+<td><img src="https://img.shields.io/badge/🔄-Escalable-teal?style=flat-square"></td>
+</tr>
+</table>
 
 </div>
 
@@ -786,6 +1033,8 @@ volumes:
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257462-92e6baae-9369-4acc-a2bd-5d57db14abe2.gif" width="100">
+
 ### 🤝 *Contribuye al Futuro de la Seguridad Escolar*
 
 </div>
@@ -831,12 +1080,21 @@ npm run type-check     # 🏷️ Type checking
 
 ### 🔄 **Flujo de Contribución**
 
-1. 🍴 **Fork** del repositorio
-2. 🌿 **Crear rama**: `git checkout -b feature/nueva-funcionalidad`  
-3. 💻 **Desarrollar** funcionalidad con tests
-4. 📝 **Commit**: `git commit -m 'feat: agregar nueva funcionalidad'`
-5. 🚀 **Push**: `git push origin feature/nueva-funcionalidad`
-6. 📋 **Pull Request** con descripción detallada
+<div align="center">
+
+```
+🔄 WORKFLOW DE CONTRIBUCIÓN
+┌─────────────────────────────────────────┐
+│ 1. 🍴 Fork del repositorio              │
+│ 2. 🌿 Crear rama feature/nueva-func     │
+│ 3. 💻 Desarrollar + tests               │
+│ 4. 📝 Commit con mensaje descriptivo    │
+│ 5. 🚀 Push a tu fork                   │
+│ 6. 📋 Pull Request detallado           │
+└─────────────────────────────────────────┘
+```
+
+</div>
 
 ---
 
@@ -844,20 +1102,77 @@ npm run type-check     # 🏷️ Type checking
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257468-1e9a91f1-b626-4baa-b15d-5c385dfa7c98.gif" width="100">
+
 ### 📖 *Recursos de Aprendizaje Avanzado*
 
 </div>
 
 #### **📄 Papers y Referencias Académicas**
-- 📚 [TimesFormer: Is Space-Time Attention All You Need for Video Understanding?](https://arxiv.org/abs/2102.05095)
-- 📚 [YOLOv11: Real-Time Object Detection](https://github.com/ultralytics/ultralytics)
-- 📚 [DeepSORT: Simple Online and Realtime Tracking](https://arxiv.org/abs/1703.07402)
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center">
+<a href="https://arxiv.org/abs/2102.05095" target="_blank">
+<img src="https://img.shields.io/badge/📚_TimesFormer-arXiv_Paper-red?style=for-the-badge&logo=arxiv&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="https://github.com/ultralytics/ultralytics" target="_blank">
+<img src="https://img.shields.io/badge/🎯_YOLOv11-GitHub_Repo-black?style=for-the-badge&logo=github&logoColor=white"/>
+</a>
+</td>
+</tr>
+<tr>
+<td align="center">
+<a href="https://arxiv.org/abs/1703.07402" target="_blank">
+<img src="https://img.shields.io/badge/👥_DeepSORT-arXiv_Paper-red?style=for-the-badge&logo=arxiv&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit" target="_blank">
+<img src="https://img.shields.io/badge/📄_Artículo_Proyecto-Google_Docs-4285F4?style=for-the-badge&logo=googledocs&logoColor=white"/>
+</a>
+</td>
+</tr>
+</table>
+
+</div>
 
 #### **🔗 Documentación Técnica**
-- 🌐 [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- ⚛️ [React Documentation](https://reactjs.org/docs/)
-- 🐘 [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- 🤗 [Transformers Library](https://huggingface.co/docs/transformers/)
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center">
+<a href="https://fastapi.tiangolo.com/" target="_blank">
+<img src="https://img.shields.io/badge/🌐_FastAPI-Docs-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="https://reactjs.org/docs/" target="_blank">
+<img src="https://img.shields.io/badge/⚛️_React-Docs-61dafb?style=for-the-badge&logo=react&logoColor=black"/>
+</a>
+</td>
+</tr>
+<tr>
+<td align="center">
+<a href="https://www.postgresql.org/docs/" target="_blank">
+<img src="https://img.shields.io/badge/🐘_PostgreSQL-Docs-336791?style=for-the-badge&logo=postgresql&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="https://huggingface.co/docs/transformers/" target="_blank">
+<img src="https://img.shields.io/badge/🤗_Transformers-Docs-yellow?style=for-the-badge&logo=huggingface&logoColor=black"/>
+</a>
+</td>
+</tr>
+</table>
+
+</div>
 
 #### **🎓 Conceptos Clave**
 
@@ -892,6 +1207,8 @@ mindmap
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257454-16e3712e-945a-4ca2-b238-408ad0bf87e6.gif" width="100">
+
 ### 🔧 *Guía de Troubleshooting*
 
 </div>
@@ -899,50 +1216,42 @@ mindmap
 <details>
 <summary><h3>❓ Problemas Comunes y Soluciones</h3></summary>
 
-#### **1️⃣ Error: Modelo no encontrado**
-```bash
-# 🔧 Solución
-python scripts/init_models.py
-# O descargar modelos manualmente a models_weights/
-```
+<div align="center">
 
-#### **2️⃣ Error: GPU no disponible**
-```bash
-# 🔍 Verificar CUDA
-nvidia-smi
+<table>
+<tr>
+<th>🐛 Problema</th>
+<th>🔧 Solución</th>
+<th>💡 Comando</th>
+</tr>
+<tr>
+<td><strong>Modelo no encontrado</strong></td>
+<td>Inicializar modelos</td>
+<td><code>python scripts/init_models.py</code></td>
+</tr>
+<tr>
+<td><strong>GPU no disponible</strong></td>
+<td>Verificar CUDA / Usar CPU</td>
+<td><code>nvidia-smi</code> / <code>USE_GPU=False</code></td>
+</tr>
+<tr>
+<td><strong>Cámara no detectada</strong></td>
+<td>Verificar índices disponibles</td>
+<td><code>python -c "import cv2; print([i for i in range(10) if cv2.VideoCapture(i).isOpened()])"</code></td>
+</tr>
+<tr>
+<td><strong>Error base de datos</strong></td>
+<td>Verificar PostgreSQL</td>
+<td><code>python scripts/setup_db.py</code></td>
+</tr>
+<tr>
+<td><strong>Frontend no carga</strong></td>
+<td>Limpiar caché y reinstalar</td>
+<td><code>rm -rf node_modules && npm install</code></td>
+</tr>
+</table>
 
-# ⚙️ Configurar para CPU
-# En .env: USE_GPU=False
-```
-
-#### **3️⃣ Error: Cámara no detectada**
-```bash
-# 🔍 Verificar cámaras disponibles
-python -c "import cv2; print([i for i in range(10) if cv2.VideoCapture(i).isOpened()])"
-
-# ⚙️ Cambiar índice en .env
-# CAMERA_INDEX=1  # Probar diferentes índices
-```
-
-#### **4️⃣ Error: Base de datos**
-```bash
-# 🔍 Verificar PostgreSQL
-sudo systemctl status postgresql  # Linux
-net start postgresql-x64-15       # Windows
-
-# 🔧 Recrear base de datos
-python scripts/setup_db.py
-```
-
-#### **5️⃣ Frontend no carga**
-```bash
-# 🧹 Limpiar caché
-rm -rf node_modules package-lock.json
-npm install
-
-# 🔍 Verificar puertos
-netstat -tulpn | grep :3000
-```
+</div>
 
 </details>
 
@@ -951,6 +1260,8 @@ netstat -tulpn | grep :3000
 ## 🙏 Agradecimientos
 
 <div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
 
 ### 💖 *Reconocimientos Especiales*
 
@@ -962,15 +1273,16 @@ netstat -tulpn | grep :3000
 
 #### 👨‍🏫 **Agradecimientos Académicos**
 - 🏛️ **Universidad**: San Francisco Xavier de Chuquisaca
-- 👨‍🏫 **Docente**: Carlos Walter Pacheco Lora
+- 👨‍🏫 **Docente**: Carlos Walter Pacheco Lora  
 - 📚 **Programa**: Ingeniería en Ciencias de la Computación
+- 📄 **Artículo**: [Documentación Científica Completa](https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit)
 
 </td>
 <td align="center" width="50%">
 
 #### 🛠️ **Tecnologías y Herramientas**
 - 🤗 **Hugging Face**: Por los modelos pre-entrenados
-- 🎯 **Ultralytics**: Por la implementación YOLOv11
+- 🎯 **Ultralytics**: Por la implementación YOLOv11  
 - 🧠 **Facebook Research**: Por TimesFormer original
 - 🚀 **FastAPI Team**: Por el framework excepcional
 - ⚛️ **React Team**: Por la librería UI moderna
@@ -984,6 +1296,8 @@ netstat -tulpn | grep :3000
 #### 📊 **Comunidad Open Source**
 *Gracias a toda la comunidad de desarrolladores que hacen posible la innovación*
 
+<img src="https://contrib.rocks/image?repo=huggingface/transformers" width="400" alt="Contributors"/>
+
 </div>
 
 ---
@@ -992,42 +1306,67 @@ netstat -tulpn | grep :3000
 
 <div align="center">
 
+<img src="https://user-images.githubusercontent.com/74038190/212257467-871d32b7-e401-42e8-a166-fcfd7baa4c6b.gif" width="100">
+
 ### 🤝 *Conecta Conmigo*
 
 </div>
 
+<div align="center">
+
+<table>
+<tr>
+<td align="center">
+<img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&size=20&duration=3000&pause=1000&color=36BCF7&center=true&vCenter=true&width=500&lines=Franz+Reinaldo+Gonzales+Suyo;Full+Stack+AI+Developer;Computer+Vision+Specialist;Machine+Learning+Engineer" alt="Typing SVG"/>
+</td>
+</tr>
+</table>
+
 <table align="center">
 <tr>
 <td align="center">
-<img src="https://img.shields.io/badge/Desarrollador-Franz_Reinaldo_Gonzales_Suyo-blue?style=for-the-badge&logo=github&logoColor=white"/>
-</td>
-</tr>
-<tr>
-<td align="center">
 <a href="mailto:gonzalesfranzreinaldo@gmail.com">
-<img src="https://img.shields.io/badge/Email-gonzalesfranzreinaldo@gmail.com-red?style=for-the-badge&logo=gmail&logoColor=white"/>
+<img src="https://img.shields.io/badge/📧_Email-gonzalesfranzreinaldo@gmail.com-red?style=for-the-badge&logo=gmail&logoColor=white"/>
 </a>
 </td>
 </tr>
 <tr>
 <td align="center">
-<img src="https://img.shields.io/badge/WhatsApp-+591_72863820-green?style=for-the-badge&logo=whatsapp&logoColor=white"/>
+<img src="https://img.shields.io/badge/📱_WhatsApp-+591_72863820-green?style=for-the-badge&logo=whatsapp&logoColor=white"/>
 </td>
 </tr>
 <tr>
 <td align="center">
-<img src="https://img.shields.io/badge/Rol-Full_Stack_AI_Developer-purple?style=for-the-badge&logo=code&logoColor=white"/>
+<img src="https://img.shields.io/badge/🎓_Universidad-USFX_Chuquisaca-blue?style=for-the-badge&logo=google-scholar&logoColor=white"/>
 </td>
 </tr>
 </table>
+
+</div>
 
 ### 🆘 **Canales de Soporte**
 
 <div align="center">
 
-[![Issues](https://img.shields.io/badge/🐛_Issues-GitHub-orange?style=for-the-badge)](https://github.com/Franz-Gonzales/school-violence-prevention-IA3/issues)
-[![Docs](https://img.shields.io/badge/📖_Documentación-Wiki-blue?style=for-the-badge)](https://github.com/Franz-Gonzales/school-violence-prevention-IA3/wiki)
-[![Email](https://img.shields.io/badge/📧_Contacto_Directo-Email-red?style=for-the-badge)](mailto:gonzalesfranzreinaldo@gmail.com)
+<table>
+<tr>
+<td align="center">
+<a href="https://github.com/Franz-Gonzales/school-violence-prevention-IA3/issues">
+<img src="https://img.shields.io/badge/🐛_Issues-GitHub-orange?style=for-the-badge&logo=github&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="https://github.com/Franz-Gonzales/school-violence-prevention-IA3/wiki">
+<img src="https://img.shields.io/badge/📖_Wiki-Documentación-blue?style=for-the-badge&logo=gitbook&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="mailto:gonzalesfranzreinaldo@gmail.com">
+<img src="https://img.shields.io/badge/📧_Contacto_Directo-Email-red?style=for-the-badge&logo=protonmail&logoColor=white"/>
+</a>
+</td>
+</tr>
+</table>
 
 </div>
 
@@ -1037,32 +1376,26 @@ netstat -tulpn | grep :3000
 
 ## 🔗 Recursos del Proyecto
 
-[![Dataset](https://img.shields.io/badge/📊_Dataset-Contactar_Autor-yellow?style=for-the-badge)](mailto:gonzalesfranzreinaldo@gmail.com)
-[![Modelos](https://img.shields.io/badge/🧠_Modelos_IA-Disponibles-green?style=for-the-badge)](mailto:gonzalesfranzreinaldo@gmail.com)
-[![Demo](https://img.shields.io/badge/🎥_Demo_Video-Ver_Aquí-red?style=for-the-badge)](#)
+<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="900">
 
----
-
-### 🏆 *Proyecto Desarrollado con Pasión para la Seguridad Escolar*
-
-**🎓 Universidad San Francisco Xavier de Chuquisaca**  
-**👨‍💻 Desarrollado por Franz Reinaldo Gonzales Suyo**  
-**📅 2025 - Semestre 7**
-
----
-
-![Visitors](https://visitor-badge.laobi.icu/badge?page_id=Franz-Gonzales.school-violence-prevention-IA3)
-![GitHub last commit](https://img.shields.io/github/last-commit/Franz-Gonzales/school-violence-prevention-IA3)
-![GitHub repo size](https://img.shields.io/github/repo-size/Franz-Gonzales/school-violence-prevention-IA3)
-
-</div>
-
----
-
-<div align="center">
-
-*"La tecnología al servicio de la educación segura"* 🎓✨
-
-**⭐ Si este proyecto te resulta útil, ¡no olvides darle una estrella! ⭐**
-
-</div>
+<table>
+<tr>
+<td align="center">
+<a href="https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit">
+<img src="https://img.shields.io/badge/📄_Artículo_Científico-Google_Docs-4285F4?style=for-the-badge&logo=googledocs&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<a href="mailto:gonzalesfranzreinaldo@gmail.com">
+<img src="https://img.shields.io/badge/📊_Dataset-Contactar_Autor-yellow?style=for-the-badge&logo=databricks&logoColor=black"/>
+</a>
+</td>
+</tr>
+<tr>
+<td align="center">
+<a href="mailto:gonzalesfranzreinaldo@gmail.com">
+<img src="https://img.shields.io/badge/🧠_Modelos_IA-Disponibles-green?style=for-the-badge&logo=tensorflow&logoColor=white"/>
+</a>
+</td>
+<td align="center">
+<img
