@@ -2,9 +2,9 @@ import tinytuya
 import time
 
 # Configura las credenciales del dispositivo
-TUYA_DEVICE_ID="ebe31ef6632a109369ag2b"
-TUYA_IP_ADDRESS="192.168.217.231"
-TUYA_LOCAL_KEY="8@#nYf=weM79?3cL"
+TUYA_DEVICE_ID="ebdec829afd5c0e395bmjo"
+TUYA_IP_ADDRESS="192.168.1.16"
+TUYA_LOCAL_KEY="`?6TnKAIXb=4h)4*"
 TUYA_DEVICE_VERSION="3.5"   
 
 # Conectar al dispositivo

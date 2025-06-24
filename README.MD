@@ -119,7 +119,7 @@
 <img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
 </div>
 
-> **IMPORTANTE**: Este proyecto es de autoría exclusiva del desarrollador mencionado anteriormente, creado como trabajo académico para el curso de Inteligencia Artificial. Todo el código fuente, modelos de IA, documentación y recursos han sido desarrollados por el autor, con excepción de las librerías y frameworks de terceros debidamente citados y licenciados.
+> **IMPORTANTE**: Este proyecto es de autoría exclusiva del desarrollador mencionado anteriormente, creado como trabajo académico para el curso de Inteligencia Artificial. Todo el código fuente, modelos de IA, documentación y recursos han sido desarrollidos por el autor, con excepción de las librerías y frameworks de terceros debidamente citados y licenciados.
 
 ---
 
@@ -1398,4 +1398,320 @@ mindmap
 </a>
 </td>
 <td align="center">
-<img
+<img src="https://img.shields.io/badge/📹_Demo-Video_YouTube-red?style=for-the-badge&logo=youtube&logoColor=white"/>
+</a>
+</td>
+</tr>
+</table>
+
+</div>
+
+---
+
+## 🎬 Demostración del Sistema
+
+<div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257454-16e3712e-945a-4ca2-b238-408ad0bf87e6.gif" width="100">
+
+### 🎥 *Muestra de Funcionamiento del Modelo de IA*
+
+</div>
+
+¿Quieres ver el sistema en acción? Aquí tienes una demostración completa del funcionamiento del modelo de detección de violencia escolar utilizando nuestros algoritmos de Computer Vision y Deep Learning.
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" colspan="2">
+<h3>🎯 Video Demostración Oficial</h3>
+<p><strong>Detección de Violencia Escolar en Tiempo Real</strong></p>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<a href="recursos/video/video_prueba_modelo.mp4" target="_blank">
+<img src="https://img.shields.io/badge/🎬_Ver_Demo-Video_Local-red?style=for-the-badge&logo=youtube&logoColor=white"/>
+</a>
+</td>
+<td align="center" width="50%">
+<img src="https://img.shields.io/badge/📊_Calidad-HD_1080p-blue?style=for-the-badge&logo=4k&logoColor=white"/>
+</td>
+</tr>
+</table>
+
+</div>
+
+#### 🎯 **Contenido del Video de Demostración**
+
+<details>
+<summary><strong>🔽 Ver descripción detallada del contenido</strong></summary>
+
+<div align="center">
+
+<table>
+<tr>
+<th>🎬 Escena</th>
+<th>📊 Descripción</th>
+<th>🤖 Tecnología Utilizada</th>
+</tr>
+<tr>
+<td><strong>Detección de Personas</strong></td>
+<td>Identificación automática de individuos en la escena</td>
+<td>YOLOv11 con umbral de confianza 58%</td>
+</tr>
+<tr>
+<td><strong>Seguimiento Temporal</strong></td>
+<td>Tracking continuo de personas identificadas</td>
+<td>DeepSORT para asignación de IDs únicos</td>
+</tr>
+<tr>
+<td><strong>Análisis Comportamental</strong></td>
+<td>Evaluación de secuencias de movimientos</td>
+<td>TimesFormer con análisis de 8 frames</td>
+</tr>
+<tr>
+<td><strong>Clasificación de Violencia</strong></td>
+<td>Determinación de probabilidad de violencia</td>
+<td>Umbral de activación del 70%</td>
+</tr>
+<tr>
+<td><strong>Generación de Alertas</strong></td>
+<td>Activación automática del sistema de alarmas</td>
+<td>Alertas visuales, sonoras y de voz</td>
+</tr>
+<tr>
+<td><strong>Grabación de Evidencia</strong></td>
+<td>Captura automática de video de 10 segundos</td>
+<td>Almacenamiento en Base64 + PostgreSQL</td>
+</tr>
+</table>
+
+</div>
+
+**🎯 Métricas Mostradas en el Video:**
+- ⚡ **Latencia**: < 200ms por frame procesado
+- 🎯 **Precisión**: 95.80% de accuracy en detección
+- 📺 **FPS**: 15 frames por segundo estables
+- 🧠 **Confianza**: Niveles de probabilidad en tiempo real
+- 🔄 **Tracking**: IDs únicos para cada persona detectada
+
+</details>
+
+#### 📁 **Ubicación del Archivo**
+
+El video de demostración se encuentra en la siguiente ruta del proyecto:
+
+```
+📦 school-violence-prevention/
+└── 📁 recursos/
+    └── 📁 video/
+        └── 🎬 video_prueba_modelo.mp4
+```
+
+<div align="center">
+
+**🎥 Para visualizar el video:**
+1. **Navegue** a la carpeta `recursos/video/`
+2. **Abra** el archivo `video_prueba_modelo.mp4`
+3. **Observe** el funcionamiento completo del sistema de IA
+
+</div>
+
+#### 🏆 **Resultados Destacados en la Demo**
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center">
+<img src="https://img.shields.io/badge/🎯_Detección-100%25_Efectiva-green?style=for-the-badge"/>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/⚡_Respuesta-Tiempo_Real-orange?style=for-the-badge"/>
+</td>
+</tr>
+<tr>
+<td align="center">
+<img src="https://img.shields.io/badge/🚨_Alertas-Automáticas-red?style=for-the-badge"/>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/📹_Evidencia-Capturada-blue?style=for-the-badge"/>
+</td>
+</tr>
+</table>
+
+</div>
+
+---
+
+## 📄 Licencia y Términos de Uso
+
+<div align="center">
+
+<img src="https://user-images.githubusercontent.com/74038190/212257472-08e52665-c503-4bd9-aa20-f5a4dae769b5.gif" width="100">
+
+### ⚖️ *Licencia MIT - Uso Libre y Responsable*
+
+</div>
+
+Este proyecto está licenciado bajo la **Licencia MIT**, lo que significa que puedes usar, modificar y distribuir este software libremente, siempre que se mantengan los avisos de copyright correspondientes.
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center" colspan="2">
+<h3>📜 Licencia MIT</h3>
+<p><strong>Copyright © 2025 Gonzales Suyo Franz Reinaldo</strong></p>
+</td>
+</tr>
+<tr>
+<td align="center" width="50%">
+<a href="LICENSE" target="_blank">
+<img src="https://img.shields.io/badge/📖_Ver_Licencia_Completa-MIT_License-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white"/>
+</a>
+</td>
+<td align="center" width="50%">
+<img src="https://img.shields.io/badge/📊_Tipo-Open_Source-blue?style=for-the-badge&logo=github&logoColor=white"/>
+</td>
+</tr>
+</table>
+
+</div>
+
+#### 🔓 **Permisos Otorgados**
+
+<div align="center">
+
+<table>
+<tr>
+<th>✅ Permitido</th>
+<th>📋 Descripción</th>
+</tr>
+<tr>
+<td><strong>🔓 Uso Comercial</strong></td>
+<td>Puedes usar este software para fines comerciales</td>
+</tr>
+<tr>
+<td><strong>🔄 Modificación</strong></td>
+<td>Puedes modificar el código fuente según tus necesidades</td>
+</tr>
+<tr>
+<td><strong>📦 Distribución</strong></td>
+<td>Puedes distribuir copias del software original o modificado</td>
+</tr>
+<tr>
+<td><strong>🔒 Uso Privado</strong></td>
+<td>Puedes usar el software privadamente sin restricciones</td>
+</tr>
+<tr>
+<td><strong>📄 Sublicencia</strong></td>
+<td>Puedes otorgar sublicencias del software</td>
+</tr>
+</table>
+
+</div>
+
+#### ⚠️ **Condiciones y Limitaciones**
+
+<div align="center">
+
+<table>
+<tr>
+<th>📋 Condición</th>
+<th>📝 Requisito</th>
+</tr>
+<tr>
+<td><strong>©️ Incluir Copyright</strong></td>
+<td>Debe incluir el aviso de copyright en todas las copias</td>
+</tr>
+<tr>
+<td><strong>📄 Incluir Licencia</strong></td>
+<td>Debe incluir el texto completo de la licencia MIT</td>
+</tr>
+</table>
+
+<table>
+<tr>
+<th>❌ Limitación</th>
+<th>📝 Descripción</th>
+</tr>
+<tr>
+<td><strong>🚫 Sin Responsabilidad</strong></td>
+<td>El autor no se hace responsable por el uso del software</td>
+</tr>
+<tr>
+<td><strong>🚫 Sin Garantía</strong></td>
+<td>El software se proporciona "tal como está" sin garantías</td>
+</tr>
+</table>
+
+</div>
+
+#### 📜 **Texto Completo de la Licencia**
+
+<details>
+<summary><strong>🔽 Ver licencia MIT completa</strong></summary>
+
+```
+MIT License
+
+Copyright (c) 2025 Gonzales Suyo Franz Reinaldo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+</details>
+
+#### 🤝 **Uso Responsable y Ético**
+
+<div align="center">
+
+> **🛡️ IMPORTANTE**: Este software está diseñado para mejorar la seguridad en instituciones educativas. Se solicita su uso responsable y ético, respetando la privacidad y los derechos de todas las personas involucradas.
+
+</div>
+
+<div align="center">
+
+<table>
+<tr>
+<td align="center">
+<img src="https://img.shields.io/badge/🛡️_Uso_Ético-Recomendado-green?style=for-the-badge"/>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/🔒_Privacidad-Respetada-blue?style=for-the-badge"/>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/⚖️_Legal-Cumplimiento-orange?style=for-the-badge"/>
+</td>
+</tr>
+</table>
+
+</div>
+
+**📋 Recomendaciones de Uso:**
+- 🔒 **Privacidad**: Implementar medidas de protección de datos personales
+- 📄 **Transparencia**: Informar a usuarios sobre el sistema de monitoreo
+- ⚖️ **Legalidad**: Cumplir con las regulaciones locales de videovigilancia
+- 🛡️ **Seguridad**: Usar exclusivamente para fines de seguridad educativa
+- 🤝 **Consentimiento**: Obtener autorización institucional correspondiente
+
+---
