@@ -1,0 +1,25 @@
+{
+    "timestamp": 1748459251.1298103,
+    "devices": [
+        {
+            "id": "eb799c3ee9c924555eareu",
+            "ip": "192.168.84.231",
+            "uuid": "c1c73e427952d3ec",
+            "active": 2,
+            "encrypt": true,
+            "productKey": "rkjxolhpjhuzv978",
+            "token": true,
+            "wf_cfg": true,
+            "sl": 0,
+            "clientLink": 2,
+            "name": "Audible alarm",
+            "key": ":s;oN`Yd45{*BzC6",
+            "mac": "c0:f8:53:3a:7e:24",
+            "ability": 0,
+            "dev_type": "default",
+            "err": "No response",
+            "origin": "broadcast",
+            "ver": "3.5"
+        }
+    ]
+}
