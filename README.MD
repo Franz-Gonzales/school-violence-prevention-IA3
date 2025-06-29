@@ -90,12 +90,12 @@ San Francisco Xavier de Chuquisaca
 </tr>
 <tr>
 <td align="center" width="50%">
-<a href="https://docs.google.com/document/d/1VrMy1Olvup5wGVCbHSph5gHHc17hcQag/edit?usp=sharing&ouid=104976907384732797413&rtpof=true&sd=true" target="_blank">
+<a href="https://docs.google.com/document/d/1dHa71u7zzAdXGwYlHJP4AKgD5eg9ubdf/edit?usp=sharing&ouid=104976907384732797413&rtpof=true&sd=true" target="_blank">
 <img src="https://img.shields.io/badge/📖_Leer_Artículo-Google_Docs-4285F4?style=for-the-badge&logo=googledocs&logoColor=white&labelColor=1a1a2e"/>
 </a>
 </td>
 <td align="center" width="50%">
-<img src="https://img.shields.io/badge/📑_Formato-PDF_Disponible-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white&labelColor=1a1a2e"/>
+<img src="https://drive.google.com/file/d/1GuAe-jOSAqEF5FfI-3Isa_WzgGXJi3zL/view?usp=sharing"/>
 </td>
 </tr>
 </table>
