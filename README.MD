@@ -95,7 +95,9 @@ San Francisco Xavier de Chuquisaca
 </a>
 </td>
 <td align="center" width="50%">
-<img src="https://drive.google.com/file/d/1GuAe-jOSAqEF5FfI-3Isa_WzgGXJi3zL/view?usp=sharing"/>
+<a href="https://drive.google.com/file/d/1GuAe-jOSAqEF5FfI-3Isa_WzgGXJi3zL/view?usp=sharing" target="_blank">
+<img src="https://img.shields.io/badge/📑_Formato-PDF_Disponible-red?style=for-the-badge&logo=adobeacrobatreader&logoColor=white&labelColor=1a1a2e"/>
+</a>
 </td>
 </tr>
 </table>
