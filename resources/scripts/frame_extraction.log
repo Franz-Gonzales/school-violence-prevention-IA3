@@ -1,0 +1,36 @@
+2025-04-27 12:50:23,833 - INFO - Found 283 videos to process
+2025-04-27 12:51:12,283 - INFO - Extraction complete:
+2025-04-27 12:51:12,283 - INFO - - Total videos processed: 283
+2025-04-27 12:51:12,283 - INFO - - Total frames extracted: 1132
+2025-04-27 12:51:12,283 - INFO - - Failed videos: 0
+2025-04-27 12:51:12,283 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
+2025-04-27 13:05:13,365 - INFO - Found 283 videos to process
+2025-04-27 13:05:44,722 - INFO - Extraction complete:
+2025-04-27 13:05:44,723 - INFO - - Total videos processed: 283
+2025-04-27 13:05:44,733 - INFO - - Total frames extracted: 849
+2025-04-27 13:05:44,733 - INFO - - Failed videos: 0
+2025-04-27 13:05:44,733 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
+2025-04-27 13:06:14,297 - INFO - Found 500 videos to process
+2025-04-27 13:06:53,806 - INFO - Extraction complete:
+2025-04-27 13:06:53,806 - INFO - - Total videos processed: 500
+2025-04-27 13:06:53,806 - INFO - - Total frames extracted: 1500
+2025-04-27 13:06:53,806 - INFO - - Failed videos: 0
+2025-04-27 13:06:53,806 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
+2025-04-27 13:07:28,598 - INFO - Found 921 videos to process
+2025-04-27 13:11:46,179 - INFO - Extraction complete:
+2025-04-27 13:11:46,180 - INFO - - Total videos processed: 921
+2025-04-27 13:11:46,180 - INFO - - Total frames extracted: 2763
+2025-04-27 13:11:46,180 - INFO - - Failed videos: 0
+2025-04-27 13:11:46,180 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
+2025-04-27 17:37:14,582 - INFO - Found 1050 videos to process
+2025-04-27 17:43:19,985 - INFO - Extraction complete:
+2025-04-27 17:43:19,985 - INFO - - Total videos processed: 1050
+2025-04-27 17:43:19,986 - INFO - - Total frames extracted: 3150
+2025-04-27 17:43:19,986 - INFO - - Failed videos: 0
+2025-04-27 17:43:19,986 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
+2025-04-27 17:45:49,280 - INFO - Found 1050 videos to process
+2025-04-27 17:54:47,125 - INFO - Extraction complete:
+2025-04-27 17:54:47,125 - INFO - - Total videos processed: 1050
+2025-04-27 17:54:47,125 - INFO - - Total frames extracted: 3150
+2025-04-27 17:54:47,126 - INFO - - Failed videos: 0
+2025-04-27 17:54:47,126 - INFO - - Frames saved to: C:\GONZALES\dataset_violencia\dataset_violence_fisica\frames_yolo
